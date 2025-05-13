@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ACTIONS=(run get-tables verify)
+ACTIONS=(run get-tables compute-set-tables verify)
 MODES=(quick full)
 
 function usage {
@@ -10,6 +10,8 @@ function usage {
 
     [[ -n $1 ]] && exit $1
 }
+
+CMDLINE_ARGS="$*"
 
 cd $(dirname "$0")/data
 
@@ -69,8 +71,9 @@ case $ACTION in
             spec=${SPECS[$idx]}
             suite=${SUITES[$idx]}
 
-            CMD="$ROOT_DIR/build-marabou/xspace" TIMEOUT=$TIMEOUT "$SCRIPTS_DIR/run-xspace-all.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec
-            TIMEOUT=$TIMEOUT "$SCRIPTS_DIR/run-xspace-all.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec consecutive
+            for mode in '' consecutive; do
+                CMD="$ROOT_DIR/build-marabou/xspace" TIMEOUT=$TIMEOUT "$SCRIPTS_DIR/run-xspace-all.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec $mode
+            done
         done
         ;;
 
@@ -82,31 +85,57 @@ case $ACTION in
                 suite=${SUITES[$idx]}
 
                 ofile="$table-$model-$MODE.txt"
+                ofile_report=$(realpath --relative-base="$ROOT_DIR" $ofile)
 
                 case $table in
                     table-1)
-                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec ^itp_a >"$ofile"
+                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec '^itp_a' >"$ofile"
                         ;;
                     table-2)
-                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec itp_a >"$ofile"
+                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec '^[^s].*tp_a' >"$ofile"
                         ;;
                     table-3)
                         [[ $model != heart_attack ]] && continue
 
-                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec +consecutive '^(trial|itp_aweak_)' >"$ofile"
+                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec +consecutive '(abductive|^itp_aweak_bstrong)' >"$ofile"
                         ;;
                     table-5)
-                        [[ $model == mnist ]] && continue
-
-                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec 'itp_(aweak|vars)_' >"$ofile"
+                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec '^[^s].*tp_(aweak_bstrong|vars_)' >"$ofile"
                         ;;
                 esac
 
-                ofile=$(realpath --relative-base="$ROOT_DIR" $ofile)
-                printf "Table stored in file %s\n" "$ofile"
+                printf "Table stored in file %s\n" "$ofile_report"
             done
         done
+        ;;
 
+    compute-set-tables)
+        for table in table-4; do
+            for idx in ${!MODELS[@]}; do
+                model=${MODELS[$idx]}
+                spec=${SPECS[$idx]}
+                suite=${SUITES[$idx]}
+
+                ofile="$table-$model-$MODE.txt"
+                ofile_report=$(realpath --relative-base="$ROOT_DIR" $ofile)
+
+                case $table in
+                    table-4)
+                        [[ $model != heart_attack ]] && continue
+                        ;;
+                esac
+
+                printf "Computing table %s ...\n" "$ofile_report"
+
+                case $table in
+                    table-4)
+                        "$SCRIPTS_DIR/analyze-all.sh" compare-subset "$EXPLANATIONS_DIR/$model/$suite" $spec '^(|ucore(|_min)_)itp_vars_(x[0-9]+_x[0-9]+)' '^slice_\3_\1itp_aweak_bstrong' >"$ofile"
+                        ;;
+                esac
+
+                printf "Table stored in file %s\n" "$ofile_report"
+            done
+        done
         ;;
 
     verify)
@@ -122,4 +151,4 @@ case $ACTION in
         ;;
 esac
 
-printf "\Success.\n"
+printf "\nArtifact script '%s' completed successfully.\n" "$0 $CMDLINE_ARGS"
