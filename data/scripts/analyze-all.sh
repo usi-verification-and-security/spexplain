@@ -157,6 +157,20 @@ function set_phi_filename {
     done
 }
 
+function maybe_replace_subexp {
+    local -n dst_filter=$1
+    local src_filter="$2"
+    local src_str="$3"
+
+    for i in {1..9}; do
+        [[ $dst_filter =~ \\$i ]] || continue
+        local match=$(sed -rn "s/$src_filter/\\$i/p" <<<"$src_str")
+        dst_filter="${dst_filter//\\$i/$match}"
+    done
+
+    return 0
+}
+
 MODEL="$(basename $(realpath "$PHI_DIR"))/$(basename "$EXPLANATIONS_DIR")"
 
 SCRIPT_NAME=$(basename -s .sh "$0")
@@ -261,6 +275,9 @@ for do_reverse in ${do_reverse_args[@]}; do
 
         case $ACTION in
         compare-subset)
+            filter2="$FILTER2"
+            maybe_replace_subexp filter2 "$FILTER" $experiment
+
             ARGS=(${lEXPERIMENT_NAMES[@]:$(($exp_idx+1))})
             [[ -n $FILTER ]] && {
                 aux=(${lEXPERIMENT_NAMES[@]::$exp_idx})
@@ -297,7 +314,7 @@ for do_reverse in ${do_reverse_args[@]}; do
 
             case $ACTION in
             compare-subset)
-                [[ -n $FILTER2 && ! $experiment2 =~ $FILTER2 ]] && {
+                [[ -n $filter2 && ! $experiment2 =~ $filter2 ]] && {
                     get_cache_line cache_line $experiment $experiment2 1 && printf "%s\n" "$cache_line" >>"$FILTERED_OUTPUT_CACHE_FILE"
                     continue
                 }
