@@ -7,7 +7,9 @@ STATS_SCRIPT="$SCRIPTS_DIR/stats.awk"
 source "$SCRIPTS_DIR/lib/experiments"
 
 function usage {
-    printf "USAGE: %s <explanations_dir> <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>]\n" "$0"
+    printf "USAGE: %s <explanations_dir> <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>] [<OPTIONS>]\n" "$0"
+    printf "OPTIONS:\n"
+    printf "\t--average <regex>\t\tAverage columns for rows mathing the regex (can be repeated)\n"
 
     [[ -n $1 ]] && exit $1
 }
@@ -35,6 +37,37 @@ maybe_read_max_samples "$1" && shift
     FILTER="$1"
     shift
 }
+
+AVERAGE_FILTERS=()
+
+declare -A {SUM_STR,COUNT}_perc_features
+declare -A {SUM_STR,COUNT}_perc_fixed_features
+declare -A {SUM_STR,COUNT}_perc_dimension
+declare -A {SUM_STR,COUNT}_nterms
+declare -A {SUM_STR,COUNT}_nchecks
+declare -A {SUM_STR,COUNT}_avg_time_s
+
+FORMAT_perc_features='%.1f%%'
+FORMAT_perc_fixed_features='%.1f%%'
+FORMAT_perc_dimension='%.1f%%'
+FORMAT_nterms='%.1f'
+FORMAT_nchecks='%.1f'
+FORMAT_avg_time_s='%.2f'
+
+while [[ -n $1 ]]; do
+    opt="$1"
+    shift
+    case "$opt" in
+        --average)
+            [[ -z $1 ]] && {
+                printf "Option '%s': expected regex argument.\n" "$opt" >&2
+                usage 2 >&2
+            }
+            AVERAGE_FILTERS+=("$1")
+            shift
+            ;;
+    esac
+done
 
 if [[ -z $INCLUDE_CONSECUTIVE ]]; then
     declare -n lEXPERIMENT_NAMES=EXPERIMENT_NAMES
@@ -85,7 +118,7 @@ function print_header {
         printf 'Number of features: %d\n' $n_features
         printf '\n'
 
-        printf "%${EXPERIMENT_MAX_WIDTH}s" experiment
+        printf "%${EXPERIMENT_MAX_WIDTH}s" experiments
         printf " | %s" "$FEATURES_CAPTION"
         printf " | %s" "$FIXED_CAPTION"
         printf " | %s" "$DIMENSION_CAPTION"
@@ -124,7 +157,65 @@ function cleanup {
     exit $1
 }
 
+function store_var_into_str_array {
+    local var_id=$1
+
+    local -n lvar=$var_id
+
+    local -n lformat=FORMAT_${var_id}
+    local -n lstr_array=${var_id}_str_array
+
+    local str
+    if [[ $lvar == X ]]; then
+        str="$lvar"
+    else
+        str=$(printf "${lformat}" "$lvar")
+    fi
+
+    lstr_array+=("$str")
+}
+
+function postprocess_str_var {
+    local str_var_id=$1
+    local experiment="$2"
+
+    local -n lstr=$str_var_id
+    [[ $lstr =~ ^@ ]] || return 0
+    case $lstr in
+        @SKIP)
+            return 1
+            ;;
+        @AVG)
+            local var_id=${str_var_id%_str}
+            local -n lsum_str_array=SUM_STR_${var_id}
+            local -n lcnt_array=COUNT_${var_id}
+
+            local filter="$experiment"
+            local sum_str=${lsum_str_array["$filter"]}
+            local cnt=${lcnt_array["$filter"]}
+
+            local -n lformat=FORMAT_${var_id}
+            if [[ $sum_str =~ X ]]; then
+                lstr=X
+            else
+                local avg=$(bc -l <<<"(${sum_str}0)/$cnt")
+                lstr=$(printf "${lformat}" $avg)
+            fi
+
+            return 0
+            ;;
+    esac
+}
+
 for do_reverse in ${do_reverse_args[@]}; do
+    experiment_array=()
+    perc_features_str_array=()
+    perc_fixed_features_str_array=()
+    perc_dimension_str_array=()
+    nterms_str_array=()
+    nchecks_str_array=()
+    avg_time_s_str_array=()
+
     for experiment in ${lEXPERIMENT_NAMES[@]}; do
         experiment_stem=$experiment
         [[ -n $FILTER && ! $experiment =~ $FILTER ]] && continue
@@ -157,7 +248,14 @@ for do_reverse in ${do_reverse_args[@]}; do
         print_header $do_reverse $size $features
 
         time_str=$(sed -n 's/^user[^0-9]*\([0-9].*\)$/\1/p' <"$time_file")
-        if [[ -n $time_str ]]; then
+        if [[ -z $time_str ]]; then
+            perc_features=X
+            perc_fixed_features=X
+            perc_dimension=X
+            nterms=X
+            nchecks=X
+            avg_time_s=X
+        else
             [[ -s $ERR_FILE ]] && {
                 cat $ERR_FILE >&2
                 cleanup 3
@@ -186,21 +284,71 @@ for do_reverse in ${do_reverse_args[@]}; do
             time_s=${time_s%s}
             total_time_s=$(bc -l <<<"${time_min}*60 + ${time_s}")
             avg_time_s=$(bc -l <<<"${total_time_s}/${size}")
-
-            perc_features_str=$(printf "%.1f%%" $perc_features)
-            perc_fixed_features_str=$(printf "%.1f%%" $perc_fixed_features)
-            perc_dimension_str=$(printf "%.1f%%" $perc_dimension)
-            nterms_str=$(printf "%.1f" $nterms)
-            nchecks_str=$(printf "%.1f" $nchecks)
-            avg_time_s_str=$(printf "%.2f" $avg_time_s)
-        else
-            perc_features_str=X
-            perc_fixed_features_str=X
-            perc_dimension_str=X
-            nterms_str=X
-            nchecks_str=X
-            avg_time_s_str=X
         fi
+
+        for avg_filter in "${AVERAGE_FILTERS[@]}"; do
+            [[ $experiment =~ $avg_filter ]] || continue
+
+            SUM_STR_perc_features["$avg_filter"]+="$perc_features+"
+            SUM_STR_perc_fixed_features["$avg_filter"]+="$perc_fixed_features+"
+            SUM_STR_perc_dimension["$avg_filter"]+="$perc_dimension+"
+            SUM_STR_nterms["$avg_filter"]+="$nterms+"
+            SUM_STR_nchecks["$avg_filter"]+="$nchecks+"
+            SUM_STR_avg_time_s["$avg_filter"]+="$avg_time_s+"
+            (( COUNT_perc_features["$avg_filter"] ++ ))
+            (( COUNT_perc_fixed_features["$avg_filter"] ++ ))
+            (( COUNT_perc_dimension["$avg_filter"] ++ ))
+            (( COUNT_nterms["$avg_filter"] ++ ))
+            (( COUNT_nchecks["$avg_filter"] ++ ))
+            (( COUNT_avg_time_s["$avg_filter"] ++ ))
+
+            if (( ${COUNT_perc_features["$avg_filter"]} == 1 )); then
+                perc_features_str_array+=(@AVG)
+                perc_fixed_features_str_array+=(@AVG)
+                perc_dimension_str_array+=(@AVG)
+                nterms_str_array+=(@AVG)
+                nchecks_str_array+=(@AVG)
+                avg_time_s_str_array+=(@AVG)
+            else
+                perc_features_str_array+=(@SKIP)
+                perc_fixed_features_str_array+=(@SKIP)
+                perc_dimension_str_array+=(@SKIP)
+                nterms_str_array+=(@SKIP)
+                nchecks_str_array+=(@SKIP)
+                avg_time_s_str_array+=(@SKIP)
+            fi
+
+            experiment_array+=("$avg_filter")
+
+            continue 2
+        done
+
+        experiment_array+=($experiment)
+
+        store_var_into_str_array perc_features
+        store_var_into_str_array perc_fixed_features
+        store_var_into_str_array perc_dimension
+        store_var_into_str_array nterms
+        store_var_into_str_array nchecks
+        store_var_into_str_array avg_time_s
+    done
+
+    for idx in ${!experiment_array[@]}; do
+        experiment=${experiment_array[$idx]}
+
+        perc_features_str="${perc_features_str_array[$idx]}"
+        perc_fixed_features_str="${perc_fixed_features_str_array[$idx]}"
+        perc_dimension_str="${perc_dimension_str_array[$idx]}"
+        nterms_str="${nterms_str_array[$idx]}"
+        nchecks_str="${nchecks_str_array[$idx]}"
+        avg_time_s_str="${avg_time_s_str_array[$idx]}"
+
+        postprocess_str_var perc_features_str $experiment || continue
+        postprocess_str_var perc_fixed_features_str $experiment || continue
+        postprocess_str_var perc_dimension_str $experiment || continue
+        postprocess_str_var nterms_str $experiment || continue
+        postprocess_str_var nchecks_str $experiment || continue
+        postprocess_str_var avg_time_s_str $experiment || continue
 
         printf "%${EXPERIMENT_MAX_WIDTH}s" $experiment
         printf " | %${FEATURES_MAX_WIDTH}s" $perc_features_str
