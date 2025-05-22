@@ -89,18 +89,27 @@ case $ACTION in
 
                 case $table in
                     table-1)
-                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec '^itp_a' >"$ofile"
+                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec '^itp_a' \
+                            --exclude-column '%features' --exclude-column '%fixed' --exclude-column '#checks' \
+                            >"$ofile"
                         ;;
                     table-2)
-                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec '^[^s].*tp_a' >"$ofile"
+                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec '^[^s].*tp_a' \
+                            --exclude-column '%features' --exclude-column '%fixed' --exclude-column '%dimension' --exclude-column '#checks' \
+                            >"$ofile"
                         ;;
                     table-3)
                         [[ $model != heart_attack ]] && continue
 
-                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec +consecutive '(abductive|^itp_aweak_bstrong)' >"$ofile"
+                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec +consecutive '(abductive|^itp_aweak_bstrong)' \
+                            --exclude-column '%features' --exclude-column '%fixed' \
+                            >"$ofile"
                         ;;
                     table-5)
-                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec '(slice_|itp_vars_)' --average '^itp_vars' --average '^ucore_itp_vars' --average 'ucore_min_itp_vars' --average 'slice_.*[0-9]_itp_aweak_bstrong' --average 'slice_.*_ucore_itp_aweak_bstrong' --average 'slice_.*_ucore_min_itp_aweak_bstrong' >"$ofile"
+                        "$SCRIPTS_DIR/collect_stats.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec '(slice_|itp_vars_)' \
+                            --exclude-column '%features' --exclude-column '%fixed' --exclude-column '%dimension' --exclude-column '#checks' \
+                            --average '^itp_vars' --average '^ucore_itp_vars' --average 'ucore_min_itp_vars' --average 'slice_.*[0-9]_itp_aweak_bstrong' --average 'slice_.*_ucore_itp_aweak_bstrong' --average 'slice_.*_ucore_min_itp_aweak_bstrong' \
+                            >"$ofile"
                         ;;
                 esac
 

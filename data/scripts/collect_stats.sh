@@ -9,6 +9,7 @@ source "$SCRIPTS_DIR/lib/experiments"
 function usage {
     printf "USAGE: %s <explanations_dir> <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>] [<OPTIONS>]\n" "$0"
     printf "OPTIONS:\n"
+    printf "\t--exclude-column <name>\t\tExclude given column\n"
     printf "\t--average <regex>\t\tAverage columns for rows mathing the regex (can be repeated)\n"
 
     [[ -n $1 ]] && exit $1
@@ -54,10 +55,21 @@ FORMAT_nterms='%.1f'
 FORMAT_nchecks='%.1f'
 FORMAT_avg_time_s='%.2f'
 
+declare -A EXCLUDE_COLUMNS
+
 while [[ -n $1 ]]; do
     opt="$1"
     shift
     case "$opt" in
+        --exclude-column)
+            [[ -z $1 ]] && {
+                printf "Option '%s': expected column name.\n" "$opt" >&2
+                usage 2 >&2
+            }
+            EXCLUDE_COLUMNS["$1"]=1
+            shift
+            ;;
+
         --average)
             [[ -z $1 ]] && {
                 printf "Option '%s': expected regex argument.\n" "$opt" >&2
@@ -119,11 +131,11 @@ function print_header {
         printf '\n'
 
         printf "%${EXPERIMENT_MAX_WIDTH}s" experiments
-        printf " | %s" "$FEATURES_CAPTION"
-        printf " | %s" "$FIXED_CAPTION"
-        printf " | %s" "$DIMENSION_CAPTION"
-        printf " | %s" "$TERMS_CAPTION"
-        printf " | %s" "$CHECKS_CAPTION"
+        [[ -z ${EXCLUDE_COLUMNS[$FEATURES_CAPTION]} ]] && printf " | %s" "$FEATURES_CAPTION"
+        [[ -z ${EXCLUDE_COLUMNS[$FIXED_CAPTION]} ]] && printf " | %s" "$FIXED_CAPTION"
+        [[ -z ${EXCLUDE_COLUMNS[$DIMENSION_CAPTION]} ]] && printf " | %s" "$DIMENSION_CAPTION"
+        [[ -z ${EXCLUDE_COLUMNS[$TERMS_CAPTION]} ]] && printf " | %s" "$TERMS_CAPTION"
+        [[ -z ${EXCLUDE_COLUMNS[$CHECKS_CAPTION]} ]] && printf " | %s" "$CHECKS_CAPTION"
         printf " | time [s]\n"
 
         PRINTED_HEADER=1
@@ -351,11 +363,11 @@ for do_reverse in ${do_reverse_args[@]}; do
         postprocess_str_var avg_time_s_str $experiment || continue
 
         printf "%${EXPERIMENT_MAX_WIDTH}s" $experiment
-        printf " | %${FEATURES_MAX_WIDTH}s" $perc_features_str
-        printf " | %${FIXED_MAX_WIDTH}s" $perc_fixed_features_str
-        printf " | %${DIMENSION_MAX_WIDTH}s" $perc_dimension_str
-        printf " | %${TERMS_MAX_WIDTH}s" $nterms_str
-        printf " | %${CHECKS_MAX_WIDTH}s" $nchecks_str
+        [[ -z ${EXCLUDE_COLUMNS[$FEATURES_CAPTION]} ]] && printf " | %${FEATURES_MAX_WIDTH}s" $perc_features_str
+        [[ -z ${EXCLUDE_COLUMNS[$FIXED_CAPTION]} ]] && printf " | %${FIXED_MAX_WIDTH}s" $perc_fixed_features_str
+        [[ -z ${EXCLUDE_COLUMNS[$DIMENSION_CAPTION]} ]] && printf " | %${DIMENSION_MAX_WIDTH}s" $perc_dimension_str
+        [[ -z ${EXCLUDE_COLUMNS[$TERMS_CAPTION]} ]] && printf " | %${TERMS_MAX_WIDTH}s" $nterms_str
+        [[ -z ${EXCLUDE_COLUMNS[$CHECKS_CAPTION]} ]] && printf " | %${CHECKS_MAX_WIDTH}s" $nchecks_str
         printf " | %s" $avg_time_s_str
         printf "\n"
     done
