@@ -32,9 +32,10 @@ RUN useradd -m -g users -s /bin/bash $USER
 USER $USER
 WORKDIR $HOME
 
+ENV TAG=cav25-updated
 RUN \
     git config --global advice.detachedHead false && \
-    git clone --recurse-submodules https://github.com/usi-verification-and-security/$PROJECT.git --branch $USER --depth 1
+    git clone --recurse-submodules https://github.com/usi-verification-and-security/$PROJECT.git --branch $TAG --depth 1
 WORKDIR $PROJECT
 RUN \
     export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
