@@ -86,6 +86,7 @@ private:
     std::unique_ptr<MainSolver> solver;
     std::unique_ptr<SMTConfig> config;
     std::vector<PTRef> inputVars;
+    std::vector<std::vector<PTRef>> neuronVars;
     std::vector<PTRef> outputVars;
     std::vector<std::size_t> layerSizes;
 
@@ -197,6 +198,12 @@ Verifier::Answer toAnswer(sstat res) {
 }
 
 void OpenSMTVerifier::OpenSMTImpl::loadModel(nn::NNet const & network) {
+    // Store information about layer sizes
+    layerSizes.clear();
+    for (LayerIndex layer = 0u; layer < network.getNumLayers(); layer++) {
+        layerSizes.push_back(network.getLayerSize(layer));
+    }
+
     // create input variables
     for (NodeIndex i = 0u; i < network.getLayerSize(0); ++i) {
         auto name = "x" + std::to_string(i + 1);
@@ -204,11 +211,25 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(nn::NNet const & network) {
         inputVars.push_back(var);
     }
 
+    // Collect hard bounds on inputs
+    std::vector<PTRef> bounds;
+    for (NodeIndex i = 0; i < network.getLayerSize(0); ++i) {
+        float lb = network.getInputLowerBound(i);
+        float ub = network.getInputUpperBound(i);
+        bounds.push_back(logic->mkGeq(inputVars[i], logic->mkRealConst(floatToRational(lb))));
+        bounds.push_back(logic->mkLeq(inputVars[i], logic->mkRealConst(floatToRational(ub))));
+    }
+    solver->addAssertion(logic->mkAnd(bounds));
+
     // Create representation for each neuron in hidden layers, from input to output layers
     std::vector<PTRef> previousLayerRefs = inputVars;
     for (LayerIndex layer = 1u; layer < network.getNumLayers() - 1; layer++) {
-        std::vector<PTRef> currentLayerRefs;
+        neuronVars.emplace_back();
         for (NodeIndex node = 0u; node < network.getLayerSize(layer); ++node) {
+            auto name = "l" + std::to_string(layer) + "_n" + std::to_string(node + 1);
+            PTRef var = logic->mkRealVar(name.c_str());
+            neuronVars.back().push_back(var);
+
             std::vector<PTRef> addends;
             float bias = network.getBias(layer, node);
             auto const & weights = network.getWeights(layer, node);
@@ -222,10 +243,15 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(nn::NNet const & network) {
                 addends.push_back(addend);
             }
             PTRef input = logic->mkPlus(addends);
-            PTRef relu = logic->mkIte(logic->mkGeq(input, logic->getTerm_RealZero()), input, logic->getTerm_RealZero());
-            currentLayerRefs.push_back(relu);
+            //- PTRef relu = logic->mkIte(logic->mkGeq(input, logic->getTerm_RealZero()), input, logic->getTerm_RealZero());
+
+            //- solver->addAssertion(logic->mkEq(var, relu));
+            //- solver->addAssertion(logic->mkIte(logic->mkGeq(input, logic->getTerm_RealZero()), logic->mkEq(var, input), logic->mkEq(var, logic->getTerm_RealZero())));
+            PTRef cond = logic->mkGeq(input, logic->getTerm_RealZero());
+            solver->addAssertion(logic->mkImpl(cond, logic->mkEq(var, input)));
+            solver->addAssertion(logic->mkImpl(logic->mkNot(cond), logic->mkEq(var, logic->getTerm_RealZero())));
         }
-        previousLayerRefs = std::move(currentLayerRefs);
+        previousLayerRefs = neuronVars.back();
     }
 
     // Create representation of the outputs (without RELU!)
@@ -234,6 +260,10 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(nn::NNet const & network) {
     auto lastLayerSize = network.getLayerSize(lastLayerIndex);
     outputVars.clear();
     for (NodeIndex node = 0u; node < lastLayerSize; ++node) {
+        auto name = "o" + std::to_string(node + 1);
+        PTRef var = logic->mkRealVar(name.c_str());
+        outputVars.push_back(var);
+
         std::vector<PTRef> addends;
         float bias = network.getBias(lastLayerIndex, node);
         auto const & weights = network.getWeights(lastLayerIndex, node);
@@ -246,24 +276,9 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(nn::NNet const & network) {
             PTRef addend = logic->mkTimes(weightTerm, previousLayerRefs[j]);
             addends.push_back(addend);
         }
-        outputVars.push_back(logic->mkPlus(addends));
-    }
 
-    // Store information about layer sizes
-    layerSizes.clear();
-    for (LayerIndex layer = 0u; layer < network.getNumLayers(); layer++) {
-        layerSizes.push_back(network.getLayerSize(layer));
+        solver->addAssertion(logic->mkEq(var, logic->mkPlus(addends)));
     }
-
-    // Collect hard bounds on inputs
-    std::vector<PTRef> bounds;
-    for (NodeIndex i = 0; i < network.getLayerSize(0); ++i) {
-        float lb = network.getInputLowerBound(i);
-        float ub = network.getInputUpperBound(i);
-        bounds.push_back(logic->mkGeq(inputVars[i], logic->mkRealConst(floatToRational(lb))));
-        bounds.push_back(logic->mkLeq(inputVars[i], logic->mkRealConst(floatToRational(ub))));
-    }
-    solver->addAssertion(logic->mkAnd(bounds));
 }
 
 PTRef OpenSMTVerifier::OpenSMTImpl::makeUpperBound(LayerIndex layer, NodeIndex node, FastRational value) {
@@ -403,6 +418,7 @@ void OpenSMTVerifier::OpenSMTImpl::reset() {
     logic = std::make_unique<ArithLogic>(opensmt::Logic_t::QF_LRA);
     solver = std::make_unique<MainSolver>(*logic, *config, "verifier");
     inputVars.clear();
+    neuronVars.clear();
     outputVars.clear();
 
     // resetSample() is called by Verifier
