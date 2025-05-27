@@ -16,7 +16,7 @@ SET(OPENSMT_HOME CACHE STRING "OpenSMT installation directory")
     FetchContent_Declare(
         OpenSMT
         GIT_REPOSITORY https://github.com/usi-verification-and-security/opensmt.git
-        GIT_TAG v2.9.0
+        GIT_TAG spexplain
         GIT_SHALLOW true
         GIT_PROGRESS true
     )
