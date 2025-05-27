@@ -29,6 +29,7 @@ public:
     };
 
     class Strategy;
+    class NopStrategy;
     class AbductiveStrategy;
     class TrialAndErrorStrategy;
     class UnsatCoreStrategy;

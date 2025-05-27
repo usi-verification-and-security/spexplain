@@ -3,6 +3,7 @@
 
 #include "Strategy.h"
 
+#include "NopStrategy.h"
 #include "AbductiveStrategy.h"
 #include "TrialAndErrorStrategy.h"
 #include "UnsatCoreStrategy.h"

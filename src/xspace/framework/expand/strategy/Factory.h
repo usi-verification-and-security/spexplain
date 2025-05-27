@@ -39,7 +39,8 @@ private:
     template<typename T>
     void checkAdditionalParametersTp(std::string const &, auto const & params) const;
 
-    std::unique_ptr<Strategy> parseAbductive(std::string const &, auto & params);
+    template<typename StrategyT>
+    std::unique_ptr<Strategy> parseDefault(std::string const &, auto & params);
     std::unique_ptr<Strategy> parseTrial(std::string const &, auto & params);
     std::unique_ptr<Strategy> parseUnsatCore(std::string const &, auto & params);
     std::unique_ptr<Strategy> parseInterpolation(std::string const &, auto & params);

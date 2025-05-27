@@ -53,6 +53,7 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     os << "Each spec: '<name>[ <param>[, <param>]...]'\n";
     os << "Strategies and parameters:\n";
     //+ template by the strategy and move the params to the classes as well
+    printUsageStrategyRow(os, Framework::Expand::NopStrategy::name());
     printUsageStrategyRow(os, Framework::Expand::AbductiveStrategy::name());
     printUsageStrategyRow(os, Framework::Expand::TrialAndErrorStrategy::name(), {"n <int>"});
     printUsageStrategyRow(os, UnsatCoreStrategy::name(), {"sample", "interval", "min"});

@@ -29,7 +29,8 @@ std::unique_ptr<Framework::Expand::Strategy> Framework::Expand::Strategy::Factor
 
     auto const nameLower = toLower(name);
 
-    if (nameLower == AbductiveStrategy::name()) { return parseAbductive(str, params); }
+    if (nameLower == NopStrategy::name()) { return parseDefault<NopStrategy>(str, params); }
+    if (nameLower == AbductiveStrategy::name()) { return parseDefault<AbductiveStrategy>(str, params); }
     if (nameLower == TrialAndErrorStrategy::name()) { return parseTrial(str, params); }
     if (nameLower == expand::opensmt::UnsatCoreStrategy::name()) { return parseUnsatCore(str, params); }
     if (nameLower == expand::opensmt::InterpolationStrategy::name()) { return parseInterpolation(str, params); }
@@ -89,9 +90,10 @@ std::vector<VarIdx> Framework::Expand::Strategy::Factory::parseVarIndices(std::i
     return varIndices;
 }
 
-std::unique_ptr<Framework::Expand::Strategy>
-Framework::Expand::Strategy::Factory::parseAbductive(std::string const & str, auto & params) {
-    return parseReturnTp<AbductiveStrategy>(str, params);
+template<typename StrategyT>
+std::unique_ptr<Framework::Expand::Strategy> Framework::Expand::Strategy::Factory::parseDefault(std::string const & str,
+                                                                                                auto & params) {
+    return parseReturnTp<StrategyT>(str, params);
 }
 
 std::unique_ptr<Framework::Expand::Strategy> Framework::Expand::Strategy::Factory::parseTrial(std::string const & str,
@@ -236,8 +238,8 @@ Framework::Expand::Strategy::Factory::parseInterpolation(std::string const & str
     return parseReturnTp<InterpolationStrategy>(str, params, conf);
 }
 
-std::unique_ptr<Framework::Expand::Strategy>
-Framework::Expand::Strategy::Factory::parseSlice(std::string const & str, auto & params) {
+std::unique_ptr<Framework::Expand::Strategy> Framework::Expand::Strategy::Factory::parseSlice(std::string const & str,
+                                                                                              auto & params) {
     SliceStrategy::Config conf;
 
     std::string const paramStr = std::move(params.front());
