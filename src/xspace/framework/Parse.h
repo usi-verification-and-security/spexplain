@@ -3,17 +3,17 @@
 
 #include "Framework.h"
 
-namespace xspace {
-class Dataset;
+#include <xspace/network/Network.h>
 
+namespace xspace {
 class Framework::Parse {
 public:
     Parse(Framework &);
 
-    Explanations parseIntervalExplanations(std::string_view fileName, Dataset const &) const;
+    Explanations parseIntervalExplanations(std::string_view fileName, Network::Dataset const &) const;
 
 protected:
-    Explanations parseIntervalExplanationsSmtLib2(std::istream &, Dataset const &) const;
+    Explanations parseIntervalExplanationsSmtLib2(std::istream &, Network::Dataset const &) const;
     std::unique_ptr<Explanation> parseIntervalExplanationSmtLib2(std::istream &) const;
 
     Framework & framework;

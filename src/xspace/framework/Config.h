@@ -4,7 +4,7 @@
 #include "Framework.h"
 #include "explanation/IntervalExplanation.h"
 
-#include <xspace/nn/Dataset.h>
+#include <xspace/network/Dataset.h>
 
 #include <optional>
 
@@ -39,7 +39,7 @@ public:
 
     void filterCorrectSamples() { optFilterCorrectSamples = true; }
     void filterIncorrectSamples() { optFilterCorrectSamples = false; }
-    void filterSamplesOfExpectedClass(Dataset::Classification c) { optFilterSamplesOfExpectedClass = c; }
+    void filterSamplesOfExpectedClass(Network::Classification::Label l) { optFilterSamplesOfExpectedClass = l; }
 
     Verbosity getVerbosity() const { return verbosity; }
     bool isVerbose() const { return getVerbosity() > 0; }
@@ -69,7 +69,7 @@ public:
         return optFilterCorrectSamples.has_value() and not *optFilterCorrectSamples;
     }
     bool filteringSamplesOfExpectedClass() const { return optFilterSamplesOfExpectedClass.has_value(); }
-    Dataset::Classification const & getSamplesExpectedClassFilter() const {
+    Network::Classification::Label const & getSamplesExpectedClassFilter() const {
         assert(filteringSamplesOfExpectedClass());
         return *optFilterSamplesOfExpectedClass;
     }
@@ -86,7 +86,7 @@ protected:
     std::size_t maxSamples{};
 
     std::optional<bool> optFilterCorrectSamples{};
-    std::optional<Dataset::Classification> optFilterSamplesOfExpectedClass{};
+    std::optional<Network::Classification::Label> optFilterSamplesOfExpectedClass{};
 };
 } // namespace xspace
 

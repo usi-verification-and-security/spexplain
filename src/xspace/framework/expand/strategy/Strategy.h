@@ -23,7 +23,7 @@ public:
 
     virtual bool requiresSMTSolver() const { return false; }
 
-    virtual void execute(Explanations &, Dataset const &, ExplanationIdx);
+    virtual void execute(Explanations &, Network::Dataset const &, ExplanationIdx);
 
 protected:
     struct AssertExplanationConf {
@@ -36,9 +36,9 @@ protected:
 
     virtual bool storeNamedTerms() const { return false; }
 
-    virtual void executeInit(Explanations &, Dataset const &, ExplanationIdx);
-    virtual void executeBody(Explanations &, Dataset const &, ExplanationIdx) = 0;
-    virtual void executeFinish(Explanations &, Dataset const &, ExplanationIdx);
+    virtual void executeInit(Explanations &, Network::Dataset const &, ExplanationIdx);
+    virtual void executeBody(Explanations &, Network::Dataset const &, ExplanationIdx) = 0;
+    virtual void executeFinish(Explanations &, Network::Dataset const &, ExplanationIdx);
 
     void initVarOrdering();
 

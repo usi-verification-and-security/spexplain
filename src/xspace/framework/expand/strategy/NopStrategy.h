@@ -11,7 +11,7 @@ public:
     static char const * name() { return "nop"; }
 
 protected:
-    void executeBody(Explanations &, Dataset const &, ExplanationIdx) {}
+    void executeBody(Explanations &, Network::Dataset const &, ExplanationIdx) {}
 };
 } // namespace xspace
 

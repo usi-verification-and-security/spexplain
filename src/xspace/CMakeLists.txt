@@ -5,6 +5,8 @@ PRIVATE
     common/Bound.cpp
     common/Interval.cpp
     common/Print.cpp
+    network/Network.cpp
+    network/Dataset.cpp
     framework/Framework.cpp
     framework/Parse.cpp
     framework/Preprocess.cpp
@@ -26,7 +28,6 @@ PRIVATE
     framework/explanation/PartialExplanation.cpp
     framework/explanation/VarBound.cpp
     framework/explanation/opensmt/FormulaExplanation.cpp
-    nn/Dataset.cpp
 PUBLIC
 )
 
@@ -55,7 +56,6 @@ endif()
 
 add_executable(XSpace-bin
     bin/main.cpp
-    ${SOURCE_DIR}/nn/NNet.cpp
     ${SOURCE_DIR}/verifiers/opensmt/OpenSMTVerifier.cpp
 )
 

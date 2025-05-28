@@ -3,27 +3,19 @@
 
 #include "Framework.h"
 
-#include <xspace/nn/Dataset.h>
+#include <xspace/network/Network.h>
 
 namespace xspace {
 class Framework::Preprocess {
 public:
     Preprocess(Framework &);
 
-    void operator()(Dataset &) const;
+    void operator()(Network::Dataset &) const;
 
-    Explanations makeExplanationsFromSamples(Dataset const &) const;
-    std::unique_ptr<Explanation> makeExplanationFromSample(Dataset::Sample const &) const;
-
-    static bool isBinaryClassification(Dataset::Output::Values const &);
-
-    static Dataset::Classification::Label computeClassificationLabel(Dataset::Output::Values const &);
-    static Dataset::Classification::Label computeBinaryClassificationLabel(Dataset::Output::Values const &);
-    static Dataset::Classification::Label computeNonBinaryClassificationLabel(Dataset::Output::Values const &);
+    Explanations makeExplanationsFromSamples(Network::Dataset const &) const;
+    std::unique_ptr<Explanation> makeExplanationFromSample(Network::Sample const &) const;
 
 protected:
-    Dataset::Output computeOutput(Dataset::Sample const &) const;
-
     Framework & framework;
 };
 } // namespace xspace

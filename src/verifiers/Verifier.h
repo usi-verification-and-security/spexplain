@@ -1,11 +1,12 @@
 #ifndef XAI_SMT_VERIFIER_H
 #define XAI_SMT_VERIFIER_H
 
-#include <nn/NNet.h>
+#include <xspace/network/Network.h>
 
 #include <string>
 #include <vector>
 
+//++ move into xspace namespace
 namespace xai::verifiers {
 
 using NodeIndex = std::size_t;
@@ -22,7 +23,7 @@ public:
     Verifier(Verifier &&) = default;
     Verifier & operator=(Verifier &&) = default;
 
-    virtual void loadModel(nn::NNet const &) = 0;
+    virtual void loadModel(xspace::Network const &) = 0;
 
     virtual void addUpperBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) = 0;
     virtual void addLowerBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) = 0;

@@ -20,7 +20,7 @@ FastRational floatToRational(float value);
 
 class OpenSMTVerifier::OpenSMTImpl {
 public:
-    void loadModel(nn::NNet const & network);
+    void loadModel(xspace::Network const &);
 
     PTRef makeUpperBound(LayerIndex layer, NodeIndex node, float value) {
         return makeUpperBound(layer, node, floatToRational(value));
@@ -99,7 +99,7 @@ OpenSMTVerifier::OpenSMTVerifier() : pimpl{std::make_unique<OpenSMTImpl>()} {}
 
 OpenSMTVerifier::~OpenSMTVerifier() {}
 
-void OpenSMTVerifier::loadModel(nn::NNet const & network) {
+void OpenSMTVerifier::loadModel(xspace::Network const & network) {
     pimpl->loadModel(network);
 }
 
@@ -196,7 +196,7 @@ Verifier::Answer toAnswer(sstat res) {
 }
 }
 
-void OpenSMTVerifier::OpenSMTImpl::loadModel(nn::NNet const & network) {
+void OpenSMTVerifier::OpenSMTImpl::loadModel(xspace::Network const & network) {
     // create input variables
     for (NodeIndex i = 0u; i < network.getLayerSize(0); ++i) {
         auto name = "x" + std::to_string(i + 1);

@@ -14,7 +14,7 @@ using VarIndex = std::size_t;
 
 class QueryIncrementalWrapper {
 public:
-    static std::unique_ptr<QueryIncrementalWrapper> fromNNet(nn::NNet const & net);
+    static std::unique_ptr<QueryIncrementalWrapper> fromNNet(xspace::Network const &);
 
     std::unique_ptr<InputQuery> buildQuery() const;
 
@@ -64,7 +64,7 @@ class MarabouVerifier::MarabouImpl {
 public:
     MarabouImpl();
 
-    void loadModel(nn::NNet const & network);
+    void loadModel(xspace::Network const &);
 
     void addUpperBound(LayerIndex layer, NodeIndex var, float value);
     void addLowerBound(LayerIndex layer, NodeIndex var, float value);
@@ -86,7 +86,7 @@ MarabouVerifier::MarabouVerifier() : pimpl{std::make_unique<MarabouImpl>()} {}
 
 MarabouVerifier::~MarabouVerifier() {}
 
-void MarabouVerifier::loadModel(nn::NNet const & network) {
+void MarabouVerifier::loadModel(xspace::Network const & network) {
     pimpl->loadModel(network);
 }
 
@@ -201,7 +201,7 @@ void QueryIncrementalWrapper::setHardInputUpperBound(VarIndex var, float val) {
     hardInputUpperBounds[var] = val;
 }
 
-std::unique_ptr<QueryIncrementalWrapper> QueryIncrementalWrapper::fromNNet(nn::NNet const & network) {
+std::unique_ptr<QueryIncrementalWrapper> QueryIncrementalWrapper::fromNNet(xspace::Network const & network) {
     auto queryWrapper = std::make_unique<QueryIncrementalWrapper>();
     assert(network.getNumLayers() >= 2);
     auto & layerSizes = queryWrapper->layerSizes;
@@ -333,7 +333,7 @@ MarabouVerifier::MarabouImpl::MarabouImpl() {
     Options::get()->setInt(Options::IntOptions::VERBOSITY, 0);
 }
 
-void MarabouVerifier::MarabouImpl::loadModel(const nn::NNet & network) {
+void MarabouVerifier::MarabouImpl::loadModel(const xspace::Network & network) {
     queryWrapper = QueryIncrementalWrapper::fromNNet(network);
 }
 

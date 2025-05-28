@@ -4,7 +4,7 @@
 #include "../Framework.h"
 
 #include <xspace/common/Var.h>
-#include <xspace/nn/Dataset.h>
+#include <xspace/network/Dataset.h>
 
 #include <memory>
 #include <vector>
@@ -16,7 +16,7 @@ class Verifier;
 namespace xspace {
 class Explanation;
 
-static_assert(std::is_same_v<ExplanationIdx, Dataset::Sample::Idx>);
+static_assert(std::is_same_v<ExplanationIdx, Network::Sample::Idx>);
 
 //! rename to `Explain`?
 class Framework::Expand {
@@ -52,7 +52,7 @@ public:
         return *verifierPtr;
     }
 
-    void operator()(Explanations &, Dataset const &);
+    void operator()(Explanations &, Network::Dataset const &);
 
 protected:
     void addStrategy(std::unique_ptr<Strategy>);
@@ -60,18 +60,18 @@ protected:
     std::unique_ptr<xai::verifiers::Verifier> makeVerifier(std::string_view name) const;
     void setVerifier(std::unique_ptr<xai::verifiers::Verifier>);
 
-    Dataset::SampleIndices makeSampleIndices(Dataset const &) const;
+    Network::Dataset::SampleIndices makeSampleIndices(Network::Dataset const &) const;
 
     void initVerifier();
 
     void assertModel();
     void resetModel();
 
-    void assertClassification(Dataset::Output const &);
+    void assertClassification(Network::Classification const &);
     void resetClassification();
 
-    void printStatsHead(Dataset const &) const;
-    void printStats(Explanation const &, Dataset const &, ExplanationIdx) const;
+    void printStatsHead(Network::Dataset const &) const;
+    void printStats(Explanation const &, Network::Dataset const &, ExplanationIdx) const;
 
     Framework & framework;
 
@@ -82,7 +82,7 @@ protected:
     bool requiresSMTSolver{false};
 
 private:
-    Dataset::SampleIndices getSampleIndices(Dataset const &) const;
+    Network::Dataset::SampleIndices getSampleIndices(Network::Dataset const &) const;
 };
 } // namespace xspace
 

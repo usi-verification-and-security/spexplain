@@ -18,7 +18,7 @@ public:
     static char const * name() { return "trial"; }
 
 protected:
-    void executeBody(Explanations &, Dataset const &, ExplanationIdx) override;
+    void executeBody(Explanations &, Network::Dataset const &, ExplanationIdx) override;
 
     Config config{};
 };

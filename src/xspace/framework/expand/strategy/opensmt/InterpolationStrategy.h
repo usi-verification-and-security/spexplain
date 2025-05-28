@@ -26,8 +26,8 @@ public:
     static char const * name() { return "itp"; }
 
 protected:
-    void executeInit(Explanations &, Dataset const &, ExplanationIdx) override;
-    void executeBody(Explanations &, Dataset const &, ExplanationIdx) override;
+    void executeInit(Explanations &, Network::Dataset const &, ExplanationIdx) override;
+    void executeBody(Explanations &, Network::Dataset const &, ExplanationIdx) override;
 
     Config config{};
 };

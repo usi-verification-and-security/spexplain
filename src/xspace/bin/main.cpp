@@ -2,7 +2,8 @@
 #include <xspace/framework/Framework.h>
 #include <xspace/framework/expand/strategy/Strategies.h>
 #include <xspace/framework/explanation/Explanation.h>
-#include <xspace/nn/Dataset.h>
+#include <xspace/network/Dataset.h>
+#include <xspace/network/Network.h>
 
 #include <iomanip>
 #include <iostream>
@@ -107,7 +108,7 @@ int main(int argc, char * argv[]) try {
 
     int i = 0;
     std::string_view const nnModelFn = argv[++i];
-    auto networkPtr = xai::nn::NNet::fromFile(nnModelFn);
+    auto networkPtr = xspace::Network::fromNNetFile(nnModelFn);
     assert(networkPtr);
 
     std::string_view const datasetFn = argv[++i];
@@ -178,9 +179,9 @@ int main(int argc, char * argv[]) try {
 
                         if (optargStr.starts_with("class")) {
                             optargStr.remove_prefix(5);
-                            xspace::Dataset::Classification c;
-                            c.label = std::stoi(std::string{optargStr});
-                            config.filterSamplesOfExpectedClass(std::move(c));
+                            xspace::Network::Classification::Label l;
+                            l = std::stoi(std::string{optargStr});
+                            config.filterSamplesOfExpectedClass(l);
                             break;
                         }
 
@@ -225,7 +226,7 @@ int main(int argc, char * argv[]) try {
         }
     }
 
-    auto dataset = xspace::Dataset{datasetFn};
+    auto dataset = xspace::Network::Dataset{datasetFn};
     std::size_t const size = dataset.size();
 
     std::istringstream strategiesSpecIss{std::string{strategiesSpec}};

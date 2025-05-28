@@ -79,7 +79,7 @@ void Framework::Expand::setVerifier(std::unique_ptr<xai::verifiers::Verifier> vf
     verifierPtr = std::move(vf);
 }
 
-Dataset::SampleIndices Framework::Expand::makeSampleIndices(Dataset const & data) const {
+Network::Dataset::SampleIndices Framework::Expand::makeSampleIndices(Network::Dataset const & data) const {
     auto indices = getSampleIndices(data);
     assert(indices.size() <= data.size());
 
@@ -96,7 +96,7 @@ Dataset::SampleIndices Framework::Expand::makeSampleIndices(Dataset const & data
     return indices;
 }
 
-Dataset::SampleIndices Framework::Expand::getSampleIndices(Dataset const & data) const {
+Network::Dataset::SampleIndices Framework::Expand::getSampleIndices(Network::Dataset const & data) const {
     auto const & config = framework.getConfig();
 
     if (not config.filteringSamplesOfExpectedClass()) {
@@ -105,13 +105,13 @@ Dataset::SampleIndices Framework::Expand::getSampleIndices(Dataset const & data)
         return data.getSampleIndices();
     }
 
-    auto const & label = config.getSamplesExpectedClassFilter().label;
+    auto const & label = config.getSamplesExpectedClassFilter();
     if (config.filteringCorrectSamples()) { return data.getCorrectSampleIndicesOfExpectedClass(label); }
     if (config.filteringIncorrectSamples()) { return data.getIncorrectSampleIndicesOfExpectedClass(label); }
     return data.getSampleIndicesOfExpectedClass(label);
 }
 
-void Framework::Expand::operator()(Explanations & explanations, Dataset const & data) {
+void Framework::Expand::operator()(Explanations & explanations, Network::Dataset const & data) {
     assert(not strategies.empty());
 
     assert(explanations.size() <= data.size());
@@ -135,13 +135,14 @@ void Framework::Expand::operator()(Explanations & explanations, Dataset const & 
     // Such incrementality does not seem to be beneficial
     // assertModel();
 
-    Dataset::SampleIndices const indices = makeSampleIndices(data);
+    Network::Dataset::SampleIndices const indices = makeSampleIndices(data);
     for (auto idx : indices) {
         // Seems quite more efficient than if outside the loop, at least with 'abductive'
         assertModel();
 
         auto const & output = data.getComputedOutput(idx);
-        assertClassification(output);
+        auto const & cls = output.classification;
+        assertClassification(cls);
 
         for (auto & strategy : strategies) {
             strategy->execute(explanations, data, idx);
@@ -167,40 +168,34 @@ void Framework::Expand::initVerifier() {
 }
 
 void Framework::Expand::assertModel() {
-    auto & nn = framework.getNetwork();
-    verifierPtr->loadModel(nn);
+    auto & network = framework.getNetwork();
+    verifierPtr->loadModel(network);
 }
 
 void Framework::Expand::resetModel() {
     verifierPtr->reset();
 }
 
-void Framework::Expand::assertClassification(Dataset::Output const & output) {
+void Framework::Expand::assertClassification(Network::Classification const & cls) {
     verifierPtr->push();
 
     auto & network = framework.getNetwork();
     auto const outputLayerIndex = network.getNumLayers() - 1;
 
-    auto const label = output.classificationLabel;
-    auto const & outputValues = output.values;
+    auto const & label = cls.label;
 
-    if (not Preprocess::isBinaryClassification(outputValues)) {
-        assert(outputValues.size() == network.getLayerSize(outputLayerIndex));
+    if (not network.isBinaryClassifier()) {
         verifierPtr->addClassificationConstraint(label, 0);
         return;
     }
 
     // With single output value, the flip in classification means flipping the value across 0
     constexpr Float threshold = 0.015625f;
-    [[maybe_unused]] Float const val = outputValues.front();
-    assert(Preprocess::computeBinaryClassificationLabel(outputValues) == label);
     assert(label == 0 || label == 1);
     if (label == 1) {
-        assert(val >= 0);
         // <= -threshold
         verifierPtr->addUpperBound(outputLayerIndex, 0, -threshold);
     } else {
-        assert(val < 0);
         // >= threshold
         verifierPtr->addLowerBound(outputLayerIndex, 0, threshold);
     }
@@ -211,7 +206,7 @@ void Framework::Expand::resetClassification() {
     verifierPtr->resetSample();
 }
 
-void Framework::Expand::printStatsHead(Dataset const & data) const {
+void Framework::Expand::printStatsHead(Network::Dataset const & data) const {
     auto & print = framework.getPrint();
     assert(not print.ignoringStats());
     auto & cstats = print.stats();
@@ -228,7 +223,8 @@ void Framework::Expand::printStatsHead(Dataset const & data) const {
     cstats << std::string(60, '-') << '\n';
 }
 
-void Framework::Expand::printStats(Explanation const & explanation, Dataset const & data, ExplanationIdx idx) const {
+void Framework::Expand::printStats(Explanation const & explanation, Network::Dataset const & data,
+                                   ExplanationIdx idx) const {
     auto & print = framework.getPrint();
     assert(not print.ignoringStats());
     auto & cstats = print.stats();
@@ -241,7 +237,7 @@ void Framework::Expand::printStats(Explanation const & explanation, Dataset cons
     std::size_t const dataSize = data.size();
     auto const & sample = data.getSample(idx);
     auto const & expClass = data.getExpectedClassification(idx).label;
-    auto const & compClass = data.getComputedOutput(idx).classificationLabel;
+    auto const & compClass = data.getComputedOutput(idx).classification.label;
 
     std::size_t const fixedCount = explanation.getFixedCount();
     assert(fixedCount <= expVarSize);

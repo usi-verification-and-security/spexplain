@@ -8,7 +8,7 @@
 #include <cassert>
 
 namespace xspace {
-void Framework::Expand::AbductiveStrategy::executeBody(Explanations & explanations, Dataset const &,
+void Framework::Expand::AbductiveStrategy::executeBody(Explanations & explanations, Network::Dataset const &,
                                                        ExplanationIdx idx) {
     auto & explanation = getExplanation(explanations, idx);
     assert(dynamic_cast<IntervalExplanation *>(&explanation));

@@ -5,7 +5,7 @@
 
 #include <xspace/common/Macro.h>
 #include <xspace/common/String.h>
-#include <xspace/nn/Dataset.h>
+#include <xspace/network/Dataset.h>
 
 #include <cassert>
 #include <cctype>
@@ -18,7 +18,7 @@ Framework::Parse::Parse(Framework & fw) : framework{fw} {
     assert(not framework.varNames.empty());
 }
 
-Explanations Framework::Parse::parseIntervalExplanations(std::string_view fileName, Dataset const & data) const {
+Explanations Framework::Parse::parseIntervalExplanations(std::string_view fileName, Network::Dataset const & data) const {
     std::ifstream ifs{std::string{fileName}};
     if (not ifs.good()) { throw std::ifstream::failure{"Could not open explanations file "s + std::string{fileName}}; }
 
@@ -26,7 +26,7 @@ Explanations Framework::Parse::parseIntervalExplanations(std::string_view fileNa
     return parseIntervalExplanationsSmtLib2(ifs, data);
 }
 
-Explanations Framework::Parse::parseIntervalExplanationsSmtLib2(std::istream & is, Dataset const & data) const {
+Explanations Framework::Parse::parseIntervalExplanationsSmtLib2(std::istream & is, Network::Dataset const & data) const {
     std::size_t const maxSize = data.size();
     Explanations explanations;
     explanations.reserve(maxSize);

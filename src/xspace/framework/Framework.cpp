@@ -22,18 +22,18 @@ Framework::Framework(Config const & config) : configPtr{MAKE_UNIQUE(config)} {
     printPtr = std::make_unique<Print>(*this);
 }
 
-Framework::Framework(Config const & config, std::unique_ptr<xai::nn::NNet> network) : Framework(config) {
-    setNetwork(std::move(network));
+Framework::Framework(Config const & config, std::unique_ptr<Network> networkPtr_) : Framework(config) {
+    setNetwork(std::move(networkPtr_));
 }
 
-Framework::Framework(Config const & config, std::unique_ptr<xai::nn::NNet> network, std::istream & expandStrategiesSpec)
-    : Framework(config, std::move(network)) {
+Framework::Framework(Config const & config, std::unique_ptr<Network> networkPtr_, std::istream & expandStrategiesSpec)
+    : Framework(config, std::move(networkPtr_)) {
     setExpand(expandStrategiesSpec);
 }
 
-Framework::Framework(Config const & config, std::unique_ptr<xai::nn::NNet> network, std::string_view verifierName,
+Framework::Framework(Config const & config, std::unique_ptr<Network> networkPtr_, std::string_view verifierName,
                      std::istream & expandStrategiesSpec)
-    : Framework(config, std::move(network)) {
+    : Framework(config, std::move(networkPtr_)) {
     setExpand(verifierName, expandStrategiesSpec);
 }
 
@@ -43,9 +43,9 @@ void Framework::setConfig(Config const & config) {
     configPtr = MAKE_UNIQUE(config);
 }
 
-void Framework::setNetwork(std::unique_ptr<xai::nn::NNet> nn) {
-    assert(nn);
-    networkPtr = std::move(nn);
+void Framework::setNetwork(std::unique_ptr<Network> networkPtr_) {
+    assert(networkPtr_);
+    networkPtr = std::move(networkPtr_);
 
     auto & network = *networkPtr;
     std::size_t const size = network.getInputSize();
@@ -69,7 +69,7 @@ void Framework::setExpand(std::string_view verifierName, std::istream & strategi
     expandPtr->setVerifier(verifierName);
 }
 
-Explanations Framework::explain(Dataset & data) {
+Explanations Framework::explain(Network::Dataset & data) {
     auto & preprocess = getPreprocess();
 
     preprocess(data);
@@ -80,7 +80,7 @@ Explanations Framework::explain(Dataset & data) {
     return explanations;
 }
 
-Explanations Framework::expand(std::string_view fileName, Dataset & data) {
+Explanations Framework::expand(std::string_view fileName, Network::Dataset & data) {
     auto & preprocess = getPreprocess();
     Parse parse{*this};
 
@@ -93,7 +93,7 @@ Explanations Framework::expand(std::string_view fileName, Dataset & data) {
     return explanations;
 }
 
-void Framework::expand(Explanations & explanations, Dataset const & data) {
+void Framework::expand(Explanations & explanations, Network::Dataset const & data) {
     (*expandPtr)(explanations, data);
 }
 } // namespace xspace

@@ -3,8 +3,7 @@
 
 #include <xspace/common/Interval.h>
 #include <xspace/common/Var.h>
-
-#include <nn/NNet.h>
+#include <xspace/network/Network.h>
 
 #include <cassert>
 #include <iosfwd>
@@ -13,7 +12,6 @@
 #include <vector>
 
 namespace xspace {
-class Dataset;
 class Explanation;
 
 using Explanations = std::vector<std::unique_ptr<Explanation>>;
@@ -36,9 +34,9 @@ public:
     // Not inline because of fwd-decl. types
     Framework();
     Framework(Config const &);
-    Framework(Config const &, std::unique_ptr<xai::nn::NNet>);
-    Framework(Config const &, std::unique_ptr<xai::nn::NNet>, std::istream & expandStrategiesSpec);
-    Framework(Config const &, std::unique_ptr<xai::nn::NNet>, std::string_view verifierName,
+    Framework(Config const &, std::unique_ptr<Network>);
+    Framework(Config const &, std::unique_ptr<Network>, std::istream & expandStrategiesSpec);
+    Framework(Config const &, std::unique_ptr<Network>, std::string_view verifierName,
               std::istream & expandStrategiesSpec);
     ~Framework();
 
@@ -49,9 +47,9 @@ public:
         return *configPtr;
     }
 
-    void setNetwork(std::unique_ptr<xai::nn::NNet>);
+    void setNetwork(std::unique_ptr<Network>);
 
-    xai::nn::NNet const & getNetwork() const {
+    Network const & getNetwork() const {
         assert(networkPtr);
         return *networkPtr;
     }
@@ -64,13 +62,13 @@ public:
 
     Interval const & getDomainInterval(VarIdx idx) const { return domainIntervals[idx]; }
 
-    Explanations explain(Dataset &);
+    Explanations explain(Network::Dataset &);
 
     // Allows further expansion of explanations in a file
-    Explanations expand(std::string_view fileName, Dataset &);
+    Explanations expand(std::string_view fileName, Network::Dataset &);
 
     // Allows further expansion of already existing explanations
-    void expand(Explanations &, Dataset const &);
+    void expand(Explanations &, Network::Dataset const &);
 
 protected:
     friend class PartialExplanation;
@@ -101,7 +99,7 @@ protected:
 
     std::unique_ptr<Config> configPtr;
 
-    std::unique_ptr<xai::nn::NNet> networkPtr{};
+    std::unique_ptr<Network> networkPtr{};
     VarNames varNames{};
     std::vector<Interval> domainIntervals{};
 

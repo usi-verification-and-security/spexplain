@@ -6,7 +6,7 @@
 #include <cassert>
 
 namespace xspace {
-void Framework::Expand::SliceStrategy::executeBody(Explanations & explanations, Dataset const & data,
+void Framework::Expand::SliceStrategy::executeBody(Explanations & explanations, Network::Dataset const & data,
                                                    ExplanationIdx idx) {
     auto & fw = expand.getFramework();
     auto & preprocess = fw.getPreprocess();

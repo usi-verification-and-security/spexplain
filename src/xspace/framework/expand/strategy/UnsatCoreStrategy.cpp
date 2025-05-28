@@ -23,7 +23,7 @@ xai::verifiers::UnsatCoreVerifier & Framework::Expand::UnsatCoreStrategy::getVer
     return const_cast<xai::verifiers::UnsatCoreVerifier &>(std::as_const(*this).getVerifier());
 }
 
-void Framework::Expand::UnsatCoreStrategy::executeBody(Explanations & explanations, Dataset const &,
+void Framework::Expand::UnsatCoreStrategy::executeBody(Explanations & explanations, Network::Dataset const &,
                                                        ExplanationIdx idx) {
     assert(storeNamedTerms());
 

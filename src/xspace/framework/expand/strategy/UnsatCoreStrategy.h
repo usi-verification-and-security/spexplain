@@ -33,7 +33,7 @@ protected:
 
     bool storeNamedTerms() const override { return true; }
 
-    void executeBody(Explanations &, Dataset const &, ExplanationIdx) override;
+    void executeBody(Explanations &, Network::Dataset const &, ExplanationIdx) override;
     virtual void executeBody(ConjunctExplanation &);
     virtual void executeBody(IntervalExplanation &);
 

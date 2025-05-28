@@ -14,7 +14,7 @@
 #endif
 
 namespace xspace {
-Dataset::Dataset(std::string_view fileName) {
+Network::Dataset::Dataset(std::string_view fileName) {
     std::ifstream file{std::string{fileName}};
     if (not file.good()) { throw std::ifstream::failure{"Could not open dataset file "s + std::string{fileName}}; }
 
@@ -58,17 +58,17 @@ Dataset::Dataset(std::string_view fileName) {
     assert(classificationSize() == sampleIndicesOfClasses.size());
 }
 
-std::size_t Dataset::classificationSize() const {
+std::size_t Network::Dataset::classificationSize() const {
     return sampleIndicesOfClasses.size();
 }
 
-Dataset::SampleIndices Dataset::getSampleIndices() const {
+Network::Dataset::SampleIndices Network::Dataset::getSampleIndices() const {
     SampleIndices indices(size());
     std::iota(indices.begin(), indices.end(), 0);
     return indices;
 }
 
-auto & Dataset::getSampleIndicesOfClassTp(auto & vec, Classification::Label label) {
+auto & Network::Dataset::getSampleIndicesOfClassTp(auto & vec, Classification::Label label) {
     if constexpr (not std::is_const_v<std::remove_reference_t<decltype(vec)>>) {
         std::size_t const requiredSize = label + 1;
         if (vec.size() < requiredSize) { vec.resize(requiredSize); }
@@ -77,25 +77,26 @@ auto & Dataset::getSampleIndicesOfClassTp(auto & vec, Classification::Label labe
     return vec[label];
 }
 
-Dataset::SampleIndices const & Dataset::getSampleIndicesOfClass(Classification::Label label) const {
+Network::Dataset::SampleIndices const & Network::Dataset::getSampleIndicesOfClass(Classification::Label label) const {
     return getSampleIndicesOfClassTp(sampleIndicesOfClasses, label);
 }
 
-Dataset::SampleIndices & Dataset::getSampleIndicesOfClass(Classification::Label label) {
+Network::Dataset::SampleIndices & Network::Dataset::getSampleIndicesOfClass(Classification::Label label) {
     return getSampleIndicesOfClassTp(sampleIndicesOfClasses, label);
 }
 
-Dataset::SampleIndices const & Dataset::getSampleIndicesOfExpectedClass(Classification::Label label) const {
+Network::Dataset::SampleIndices const &
+Network::Dataset::getSampleIndicesOfExpectedClass(Classification::Label label) const {
     return getSampleIndicesOfClass(label);
 }
 
-void Dataset::setComputedOutputs(Outputs outs) {
+void Network::Dataset::setComputedOutputs(Outputs outs) {
     assert(outs.size() == size());
     computedOutputs = std::move(outs);
 
 #ifndef NDEBUG
     for (auto & output : computedOutputs) {
-        assert(classificationLabels.contains(output.classificationLabel));
+        assert(classificationLabels.contains(output.classification.label));
         assert(not output.values.empty());
         if (output.values.size() == 1) {
             assert(classificationSize() == 2);
@@ -108,14 +109,14 @@ void Dataset::setComputedOutputs(Outputs outs) {
     setCorrectAndIncorrectSamples();
 }
 
-bool Dataset::isCorrect(Sample::Idx idx) {
+bool Network::Dataset::isCorrect(Sample::Idx idx) {
     auto const expectedLabel = getExpectedClassification(idx).label;
-    auto const computedLabel = getComputedOutput(idx).classificationLabel;
+    auto const computedLabel = getComputedOutput(idx).classification.label;
 
     return expectedLabel == computedLabel;
 }
 
-void Dataset::setCorrectAndIncorrectSamples() {
+void Network::Dataset::setCorrectAndIncorrectSamples() {
     std::size_t const classificationSize_ = classificationSize();
     for (std::size_t label = 0; label < classificationSize_; ++label) {
         getCorrectSampleIndicesOfClass(label);
@@ -141,43 +142,39 @@ void Dataset::setCorrectAndIncorrectSamples() {
     assert(classificationSize_ == incorrectSampleIndicesOfClasses.size());
 }
 
-Dataset::SampleIndices const & Dataset::getCorrectSampleIndices() const {
+Network::Dataset::SampleIndices const & Network::Dataset::getCorrectSampleIndices() const {
     return correctSampleIndices;
 }
 
-Dataset::SampleIndices const & Dataset::getIncorrectSampleIndices() const {
+Network::Dataset::SampleIndices const & Network::Dataset::getIncorrectSampleIndices() const {
     return incorrectSampleIndices;
 }
 
-Dataset::SampleIndices const & Dataset::getCorrectSampleIndicesOfClass(Classification::Label label) const {
+Network::Dataset::SampleIndices const &
+Network::Dataset::getCorrectSampleIndicesOfClass(Classification::Label label) const {
     return getSampleIndicesOfClassTp(correctSampleIndicesOfClasses, label);
 }
 
-Dataset::SampleIndices const & Dataset::getIncorrectSampleIndicesOfClass(Classification::Label label) const {
+Network::Dataset::SampleIndices const &
+Network::Dataset::getIncorrectSampleIndicesOfClass(Classification::Label label) const {
     return getSampleIndicesOfClassTp(incorrectSampleIndicesOfClasses, label);
 }
 
-Dataset::SampleIndices & Dataset::getCorrectSampleIndicesOfClass(Classification::Label label) {
+Network::Dataset::SampleIndices & Network::Dataset::getCorrectSampleIndicesOfClass(Classification::Label label) {
     return getSampleIndicesOfClassTp(correctSampleIndicesOfClasses, label);
 }
 
-Dataset::SampleIndices & Dataset::getIncorrectSampleIndicesOfClass(Classification::Label label) {
+Network::Dataset::SampleIndices & Network::Dataset::getIncorrectSampleIndicesOfClass(Classification::Label label) {
     return getSampleIndicesOfClassTp(incorrectSampleIndicesOfClasses, label);
 }
 
-Dataset::SampleIndices const & Dataset::getCorrectSampleIndicesOfExpectedClass(Classification::Label label) const {
+Network::Dataset::SampleIndices const &
+Network::Dataset::getCorrectSampleIndicesOfExpectedClass(Classification::Label label) const {
     return getCorrectSampleIndicesOfClass(label);
 }
 
-Dataset::SampleIndices const & Dataset::getIncorrectSampleIndicesOfExpectedClass(Classification::Label label) const {
+Network::Dataset::SampleIndices const &
+Network::Dataset::getIncorrectSampleIndicesOfExpectedClass(Classification::Label label) const {
     return getIncorrectSampleIndicesOfClass(label);
-}
-
-void Dataset::Sample::print(std::ostream & os) const {
-    assert(not empty());
-    os << front();
-    for (Float val : *this | std::views::drop(1)) {
-        os << ',' << val;
-    }
 }
 } // namespace xspace

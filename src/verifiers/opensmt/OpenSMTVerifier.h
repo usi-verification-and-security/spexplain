@@ -20,7 +20,7 @@ public:
     OpenSMTVerifier(OpenSMTVerifier &&) = default;
     OpenSMTVerifier & operator=(OpenSMTVerifier &&) = default;
 
-    void loadModel(nn::NNet const & network) override;
+    void loadModel(xspace::Network const &) override;
 
     void addUpperBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) override;
     void addLowerBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) override;
