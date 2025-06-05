@@ -48,7 +48,11 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     std::string const cmd = argv[0];
 
     os << "USAGE: " << cmd;
-    os << " <nn_model_fn> <dataset_fn> <exp_strategies_spec> [<options>]\n";
+    os << " [<action>] <args> [<options>]\n";
+
+    os << "ACTIONS: [explain]\n";
+    os << "ARGS:\n";
+    os << "\t explain:\t <nn_model_fn> <dataset_fn> <exp_strategies_spec>\n";
 
     os << "STRATEGIES SPEC: '<spec1>[; <spec2>]...'\n";
     os << "Each spec: '<name>[ <param>[, <param>]...]'\n";
@@ -81,44 +85,16 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     printUsageOptRow(os, 'S', "", "Shuffle samples");
 
     os << "\nEXAMPLES:\n";
-    os << cmd << " data/models/toy.nnet data/datasets/toy.csv abductive\n";
+    os << cmd << " explain data/models/toy.nnet data/datasets/toy.csv abductive\n";
     os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'ucore interval, min' -rvs\n";
     os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'itp aweaker, bstrong; ucore'\n";
     os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'trial n 2' -n1\n";
 
     os.flush();
 }
-} // namespace
 
-int main(int argc, char * argv[]) try {
-    constexpr int minArgs = 3;
-
-    int const nArgs = argc - 1;
-    assert(nArgs >= 0);
-    if (nArgs == 0) {
-        printUsage(argv);
-        return 0;
-    }
-
-    if (nArgs < minArgs) {
-        std::cerr << "Expected at least " << minArgs << " arguments, got: " << nArgs << '\n';
-        printUsage(argv, std::cerr);
-        return 1;
-    }
-
-    int i = 0;
-    std::string_view const nnModelFn = argv[++i];
-    auto networkPtr = xspace::Network::fromNNetFile(nnModelFn);
-    assert(networkPtr);
-
-    std::string_view const datasetFn = argv[++i];
-
-    std::string_view const strategiesSpec = argv[++i];
-
-    std::string verifierName;
-    std::string explanationsFn;
-
-    xspace::Framework::Config config;
+std::optional<int> getOpts(int argc, char * argv[], xspace::Framework::Config & config, std::string & verifierName,
+                           std::string & explanationsFn) {
 
     int selectedLongOpt = 0;
     // constexpr int versionLongOpt = 1;
@@ -226,6 +202,25 @@ int main(int argc, char * argv[]) try {
         }
     }
 
+    return std::nullopt;
+}
+
+int mainExplain(int argc, char * argv[], int i) {
+    std::string_view const nnModelFn = argv[++i];
+    auto networkPtr = xspace::Network::fromNNetFile(nnModelFn);
+    assert(networkPtr);
+
+    std::string_view const datasetFn = argv[++i];
+
+    std::string_view const strategiesSpec = argv[++i];
+
+    std::string verifierName;
+    std::string explanationsFn;
+
+    xspace::Framework::Config config;
+
+    if (auto optRet = getOpts(argc, argv, config, verifierName, explanationsFn)) { return *optRet; }
+
     auto dataset = xspace::Network::Dataset{datasetFn};
     std::size_t const size = dataset.size();
 
@@ -237,6 +232,35 @@ int main(int argc, char * argv[]) try {
     assert(explanations.size() == size);
 
     return 0;
+}
+} // namespace
+
+int main(int argc, char * argv[]) try {
+    constexpr int minArgs = 3;
+
+    int const nArgs = argc - 1;
+    assert(nArgs >= 0);
+    if (nArgs == 0) {
+        printUsage(argv);
+        return 0;
+    }
+
+    if (nArgs < minArgs) {
+        std::cerr << "Expected at least " << minArgs << " arguments, got: " << nArgs << '\n';
+        printUsage(argv, std::cerr);
+        return 1;
+    }
+
+    int i = 0;
+
+    std::string_view const maybeAction = argv[++i];
+
+    if (maybeAction == "explain") { return mainExplain(argc, argv, i); }
+
+    // Assume the default action
+    --i;
+    return mainExplain(argc, argv, i);
+
 } catch (std::system_error const & e) {
     std::cerr << "Terminated with a system error:\n" << e.what() << '\n' << std::endl;
     printUsage(argv, std::cerr);
