@@ -118,6 +118,10 @@ Verifier::Answer MarabouVerifier::checkImpl() {
     return pimpl->check();
 }
 
+void MarabouVerifier::printSmtLib2Query(std::ostream &) const {
+    throw std::logic_error("Unimplemented!");
+}
+
 /*
  * Actual implementation
  */

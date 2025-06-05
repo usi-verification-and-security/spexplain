@@ -61,6 +61,8 @@ public:
     }
     virtual void reset() { resetSample(); }
 
+    virtual void printSmtLib2Query(std::ostream &) const = 0;
+
 protected:
     virtual void initImpl() {}
 

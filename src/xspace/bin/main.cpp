@@ -50,9 +50,10 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     os << "USAGE: " << cmd;
     os << " [<action>] <args> [<options>]\n";
 
-    os << "ACTIONS: [explain]\n";
+    os << "ACTIONS: [explain] dump-psi\n";
     os << "ARGS:\n";
     os << "\t explain:\t <nn_model_fn> <dataset_fn> <exp_strategies_spec>\n";
+    os << "\t dump-psi:\t <nn_model_fn>\n";
 
     os << "STRATEGIES SPEC: '<spec1>[; <spec2>]...'\n";
     os << "Each spec: '<name>[ <param>[, <param>]...]'\n";
@@ -89,6 +90,7 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'ucore interval, min' -rvs\n";
     os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'itp aweaker, bstrong; ucore'\n";
     os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'trial n 2' -n1\n";
+    os << cmd << " dump-psi data/models/toy.nnet\n";
 
     os.flush();
 }
@@ -233,10 +235,32 @@ int mainExplain(int argc, char * argv[], int i) {
 
     return 0;
 }
+
+int mainDumpPsi(int argc, char * argv[], int i) {
+    std::string_view const nnModelFn = argv[++i];
+    auto networkPtr = xspace::Network::fromNNetFile(nnModelFn);
+    assert(networkPtr);
+
+    std::string verifierName;
+    //+ does not make sense here
+    std::string explanationsFn;
+
+    xspace::Framework::Config config;
+
+    if (auto optRet = getOpts(argc, argv, config, verifierName, explanationsFn)) { return *optRet; }
+
+    //++ should not be necessary
+    std::istringstream strategiesSpecIss{xspace::Framework::Expand::NopStrategy::name()};
+    xspace::Framework framework{config, std::move(networkPtr), verifierName, strategiesSpecIss};
+
+    framework.dumpClassificationsAsSmtLib2Queries();
+
+    return 0;
+}
 } // namespace
 
 int main(int argc, char * argv[]) try {
-    constexpr int minArgs = 3;
+    constexpr int minArgs = 2;
 
     int const nArgs = argc - 1;
     assert(nArgs >= 0);
@@ -256,6 +280,7 @@ int main(int argc, char * argv[]) try {
     std::string_view const maybeAction = argv[++i];
 
     if (maybeAction == "explain") { return mainExplain(argc, argv, i); }
+    if (maybeAction == "dump-psi") { return mainDumpPsi(argc, argv, i); }
 
     // Assume the default action
     --i;

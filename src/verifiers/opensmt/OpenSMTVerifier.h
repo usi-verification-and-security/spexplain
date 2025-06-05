@@ -41,6 +41,8 @@ public:
     opensmt::MainSolver const & getSolver() const;
     opensmt::MainSolver & getSolver();
 
+    void printSmtLib2Query(std::ostream &) const override;
+
 protected:
     void initImpl() override;
 

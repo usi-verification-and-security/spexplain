@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <fstream>
 #include <iomanip>
 #include <random>
 #include <stdexcept>
@@ -109,6 +110,43 @@ Network::Dataset::SampleIndices Framework::Expand::getSampleIndices(Network::Dat
     if (config.filteringCorrectSamples()) { return data.getCorrectSampleIndicesOfExpectedClass(label); }
     if (config.filteringIncorrectSamples()) { return data.getIncorrectSampleIndicesOfExpectedClass(label); }
     return data.getSampleIndicesOfExpectedClass(label);
+}
+
+void Framework::Expand::dumpClassificationsAsSmtLib2Queries() {
+    auto & print = framework.getPrint();
+    auto & cinfo = print.info();
+
+    auto & network = framework.getNetwork();
+    std::size_t nOutputs = network.getOutputSize();
+    if (network.isBinaryClassifier()) {
+        ++nOutputs;
+        assert(nOutputs == 2);
+    }
+
+    for (Network::Classification::Label l = 0; l < nOutputs; ++l) {
+        Network::Classification cls{.label = l};
+
+        std::string fname = "psi_c" + std::to_string(l) + ".smt2";
+        std::ofstream ofs{fname};
+
+        printClassificationAsSmtLib2Query(ofs, cls);
+
+        cinfo << "Dumped classification " << l << " SMT query to: " << fname << '\n';
+    }
+}
+
+void Framework::Expand::printClassificationAsSmtLib2Query(std::ostream & os, Network::Classification const & cls) {
+    auto & verifier = getVerifier();
+
+    auto & label = cls.label;
+
+    initVerifier();
+
+    os << "(set-info :source \"class " << label << "\")\n";
+    assertModel();
+    assertClassification(cls);
+
+    verifier.printSmtLib2Query(os);
 }
 
 void Framework::Expand::operator()(Explanations & explanations, Network::Dataset const & data) {

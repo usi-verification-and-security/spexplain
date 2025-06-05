@@ -69,6 +69,11 @@ void Framework::setExpand(std::string_view verifierName, std::istream & strategi
     expandPtr->setVerifier(verifierName);
 }
 
+void Framework::dumpClassificationsAsSmtLib2Queries() {
+    //++ move outside of Expand -> probably also move the verifier right into the fw
+    expandPtr->dumpClassificationsAsSmtLib2Queries();
+}
+
 Explanations Framework::explain(Network::Dataset & data) {
     auto & preprocess = getPreprocess();
 

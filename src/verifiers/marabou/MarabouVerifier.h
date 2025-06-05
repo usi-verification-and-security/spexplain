@@ -26,6 +26,8 @@ public:
 
     void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs) override;
 
+    void printSmtLib2Query(std::ostream &) const override;
+
 protected:
     void pushImpl() override;
     void popImpl() override;

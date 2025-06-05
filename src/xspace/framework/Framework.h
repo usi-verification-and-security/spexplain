@@ -62,6 +62,8 @@ public:
 
     Interval const & getDomainInterval(VarIdx idx) const { return domainIntervals[idx]; }
 
+    void dumpClassificationsAsSmtLib2Queries();
+
     Explanations explain(Network::Dataset &);
 
     // Allows further expansion of explanations in a file

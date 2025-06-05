@@ -5,7 +5,8 @@
 #include <iostream>
 
 namespace xspace {
-Framework::Print::Print(Framework const & fw) : framework{fw}, explanationsOsPtr{&std::cout} {
+//+ move explanations into different output, probably a file
+Framework::Print::Print(Framework const & fw) : framework{fw}, infoOsPtr{&std::cout}, explanationsOsPtr{&std::cout} {
     auto const & conf = framework.getConfig();
     bool const verbose = conf.isVerbose();
 

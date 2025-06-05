@@ -67,6 +67,8 @@ public:
     opensmt::MainSolver const & getSolver() const { return *solver; }
     opensmt::MainSolver & getSolver() { return *solver; }
 
+    void printSmtLib2Query(std::ostream &) const;
+
 private:
     static std::string makeTermName(LayerIndex layer, NodeIndex node, std::string prefix = "") {
         assert(layer == 0);
@@ -169,6 +171,11 @@ opensmt::MainSolver const & OpenSMTVerifier::getSolver() const {
 opensmt::MainSolver & OpenSMTVerifier::getSolver() {
     return pimpl->getSolver();
 }
+
+void OpenSMTVerifier::printSmtLib2Query(std::ostream & os) const {
+    return pimpl->printSmtLib2Query(os);
+}
+
 /*
  * Actual implementation
  */
@@ -484,6 +491,20 @@ UnsatCore OpenSMTVerifier::OpenSMTImpl::getUnsatCore() const {
     std::ranges::sort(intervals);
 
     return unsatCoreRes;
+}
+
+void OpenSMTVerifier::OpenSMTImpl::printSmtLib2Query(std::ostream & os) const {
+    auto & solver = getSolver();
+    auto & logic = solver.getLogic();
+    logic.dumpHeaderToFile(os);
+
+    for (PTRef phi : solver.getCurrentAssertionsView()) {
+        // necessary for removing auxiliary ITE terms but yields redundant constraints
+        // phi = logic.removeAuxVars(phi);
+        os << "(assert " << logic.printTerm(phi) << " )\n";
+    }
+
+    logic.dumpChecksatToFile(os);
 }
 
 } // namespace xai::verifiers
