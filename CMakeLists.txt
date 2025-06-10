@@ -45,7 +45,7 @@ if (ENABLE_MARABOU)
             # GIT_REPOSITORY https://github.com/NeuralNetworkVerification/Marabou.git
             # GIT_TAG 215828c64e624be7917e69e4e873c746d8df25a2
             GIT_REPOSITORY https://github.com/Tomaqa/Marabou.git
-            GIT_TAG xspace
+            GIT_TAG spexplain
             GIT_SHALLOW true
             GIT_PROGRESS true
         )

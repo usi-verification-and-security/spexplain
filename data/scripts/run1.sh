@@ -2,7 +2,7 @@
 
 DIRNAME=$(dirname "$0")
 
-source "$DIRNAME/lib/run-xspace"
+source "$DIRNAME/lib/run"
 
 function usage {
     printf "USAGE: %s <output_dir> <exp_strategies_spec> <name> [reverse] [<max_samples>] <args>...\n" "$0"
@@ -70,4 +70,4 @@ done
     ARGS+=(-E "$src_phi_file")
 }
 
-exec timeout $TIMEOUT bash -c "{ time ${CMD} \"$MODEL\" \"$DATASET\" \"$STRATEGIES\" ${OPTIONS[@]} "'"$@"'" >\"$phi_file\" 2>\"$stats_file\" ; } 2>\"$time_file\"" xspace "${ARGS[@]}" "$@"
+exec timeout $TIMEOUT bash -c "{ time ${CMD} \"$MODEL\" \"$DATASET\" \"$STRATEGIES\" ${OPTIONS[@]} "'"$@"'" >\"$phi_file\" 2>\"$stats_file\" ; } 2>\"$time_file\"" spexplain "${ARGS[@]}" "$@"

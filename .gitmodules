@@ -1,3 +1,3 @@
 [submodule "data/explanations"]
 	path = data/explanations
-	url = https://gitlab.com/usi-verification-and-security/xspace/explanations.git
+	url = https://gitlab.com/usi-verification-and-security/spexplain/explanations.git

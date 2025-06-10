@@ -2,7 +2,7 @@
 
 export DIRNAME=$(dirname "$0")
 
-source "$DIRNAME/lib/run-xspace"
+source "$DIRNAME/lib/run"
 
 function usage {
     local experiments_spec_ary=($(ls "$EXPERIMENTS_SPEC_DIR"))
@@ -86,7 +86,7 @@ printf "\n"
 (( $DRY_RUN )) && printf "DRY RUN - only printing what would be run\n\n"
 
 function run1 {
-    source "$DIRNAME/lib/run-xspace"
+    source "$DIRNAME/lib/run"
     read_experiments_spec "$EXPERIMENTS_SPEC"
 
     local exp_idx=$1
@@ -123,7 +123,7 @@ function run1 {
     }
 
     for rev in "${reverse_args[@]}"; do
-        SRC_EXPERIMENT=$src_experiment "$DIRNAME/run-xspace.sh" "$OUTPUT_DIR" "$experiment_strategies" $experiment $rev $MAX_SAMPLES &
+        SRC_EXPERIMENT=$src_experiment "$DIRNAME/run1.sh" "$OUTPUT_DIR" "$experiment_strategies" $experiment $rev $MAX_SAMPLES &
     done
 
     wait -n
@@ -138,7 +138,7 @@ function run1 {
         ;;
     *)
         printf "%s failed!\nUsed command: %s\n" $experiment \
-            "SRC_EXPERIMENT=$src_experiment \"$DIRNAME/run-xspace.sh\" \"$OUTPUT_DIR\" \"$experiment_strategies\" $experiment $rev $MAX_SAMPLES &" >&2
+            "SRC_EXPERIMENT=$src_experiment \"$DIRNAME/run1.sh\" \"$OUTPUT_DIR\" \"$experiment_strategies\" $experiment $rev $MAX_SAMPLES &" >&2
         return 1
         ;;
     esac
