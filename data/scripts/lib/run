@@ -42,7 +42,7 @@ function read_output_dir {
 }
 
 function set_cmd {
-    [[ -z $CMD ]] && CMD="$DIRNAME/../../build/xspace"
+    [[ -z $CMD ]] && CMD="$DIRNAME/../../build/spexplain"
     export CMD
 }
 

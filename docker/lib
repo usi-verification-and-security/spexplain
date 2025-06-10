@@ -19,7 +19,7 @@ shift
 DIRBASE=$(basename "$DIR")
 DIRBASE=${DIRBASE%% *}
 
-REPO=xspace
+REPO=spexplain
 TAG=latest
 
 [[ -n $1 ]] && {
