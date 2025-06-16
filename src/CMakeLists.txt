@@ -1,1 +1,1 @@
-add_subdirectory(xspace)
+add_subdirectory(spexplain)
