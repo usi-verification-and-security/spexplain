@@ -23,6 +23,8 @@ public:
     Verifier(Verifier &&) = default;
     Verifier & operator=(Verifier &&) = default;
 
+    virtual void setEncodingNeuronVariables(bool) = 0;
+
     virtual void loadModel(spexplain::Network const &) = 0;
 
     virtual void addUpperBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) = 0;

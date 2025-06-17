@@ -16,6 +16,8 @@ public:
     MarabouVerifier(MarabouVerifier &&) = default;
     MarabouVerifier & operator=(MarabouVerifier &&) = default;
 
+    void setEncodingNeuronVariables(bool) override;
+
     void loadModel(spexplain::Network const &) override;
 
     void addUpperBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) override;

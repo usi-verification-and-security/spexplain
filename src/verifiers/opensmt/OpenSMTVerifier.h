@@ -20,6 +20,8 @@ public:
     OpenSMTVerifier(OpenSMTVerifier &&) = default;
     OpenSMTVerifier & operator=(OpenSMTVerifier &&) = default;
 
+    void setEncodingNeuronVariables(bool) override;
+
     void loadModel(spexplain::Network const &) override;
 
     void addUpperBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) override;

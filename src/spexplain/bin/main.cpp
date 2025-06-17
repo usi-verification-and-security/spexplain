@@ -102,6 +102,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     // constexpr int versionLongOpt = 1;
     constexpr int formatLongOpt = 2;
     constexpr int filterLongOpt = 3;
+    constexpr int encodeNeuronVariablesLongOpt = 4;
 
     //+ not documented
     struct ::option longOptions[] = {{"help", no_argument, nullptr, 'h'},
@@ -114,6 +115,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                                      {"shuffle-samples", no_argument, nullptr, 'S'},
                                      {"max-samples", required_argument, nullptr, 'n'},
                                      {"filter-samples", required_argument, &selectedLongOpt, filterLongOpt},
+                                     {"encode-neuron-vars", optional_argument, &selectedLongOpt, encodeNeuronVariablesLongOpt},
                                      {0, 0, 0, 0}};
 
     while (true) {
@@ -123,7 +125,8 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
 
         switch (c) {
             case 0: {
-                std::string_view optargStr{optarg};
+                std::string_view optargStr;
+                if (optarg) { optargStr = optarg; }
                 switch (selectedLongOpt) {
                     case formatLongOpt:
                         if (optargStr == "smtlib2") {
@@ -135,7 +138,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                             config.printingIntervalExplanationsInBoundFormat();
                         }
                         break;
-                    case filterLongOpt:
+                    case filterLongOpt: {
                         std::optional<bool> optCorrectnessFilter{};
                         if (optargStr.starts_with("in")) {
                             optargStr.remove_prefix(2);
@@ -164,6 +167,16 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                         }
 
                         assert(false);
+                        break;
+                    }
+                    case encodeNeuronVariablesLongOpt:
+                        if (optarg) {
+                            bool val = std::stoi(std::string{optargStr});
+                            config.setEncodingNeuronVariables(val);
+                        } else {
+                            config.encodeNeuronVariables();
+                        }
+                        break;
                 }
                 break;
             }

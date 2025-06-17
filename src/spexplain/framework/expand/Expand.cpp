@@ -201,8 +201,11 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
 }
 
 void Framework::Expand::initVerifier() {
+    auto const & config = framework.getConfig();
+
     assert(verifierPtr);
     verifierPtr->init();
+    verifierPtr->setEncodingNeuronVariables(config.encodingNeuronVariables());
 }
 
 void Framework::Expand::assertModel() {

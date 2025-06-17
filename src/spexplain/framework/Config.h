@@ -41,6 +41,9 @@ public:
     void filterIncorrectSamples() { optFilterCorrectSamples = false; }
     void filterSamplesOfExpectedClass(Network::Classification::Label l) { optFilterSamplesOfExpectedClass = l; }
 
+    void setEncodingNeuronVariables(bool val) { _encodingNeuronVariables = val; }
+    void encodeNeuronVariables() { setEncodingNeuronVariables(true); }
+
     Verbosity getVerbosity() const { return verbosity; }
     bool isVerbose() const { return getVerbosity() > 0; }
 
@@ -74,6 +77,8 @@ public:
         return *optFilterSamplesOfExpectedClass;
     }
 
+    bool encodingNeuronVariables() const { return _encodingNeuronVariables; }
+
 protected:
     Verbosity verbosity{};
 
@@ -87,6 +92,8 @@ protected:
 
     std::optional<bool> optFilterCorrectSamples{};
     std::optional<Network::Classification::Label> optFilterSamplesOfExpectedClass{};
+
+    bool _encodingNeuronVariables{};
 };
 } // namespace spexplain
 
