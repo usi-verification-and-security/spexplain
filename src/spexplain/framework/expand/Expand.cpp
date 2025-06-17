@@ -19,10 +19,15 @@
 #include <algorithm>
 #include <cassert>
 #include <fstream>
+#include <chrono>
+#include <future>
 #include <iomanip>
 #include <random>
 #include <stdexcept>
 #include <string>
+#include <thread>
+
+using namespace std::chrono_literals;
 
 namespace spexplain {
 Framework::Expand::Expand(Framework & fw) : framework{fw} {}
@@ -165,6 +170,7 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
     bool const printingStats = not print.ignoringStats();
     bool const printingExplanations = not print.ignoringExplanations();
     auto & cexp = print.explanations();
+    auto & cstats = print.stats();
 
     if (printingStats) { printStatsHead(data); }
 
@@ -174,7 +180,9 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
     // assertModel();
 
     Network::Dataset::SampleIndices const indices = makeSampleIndices(data);
-    for (auto idx : indices) {
+    auto f = [&](Network::Sample::Idx idx) {
+        auto const start = std::chrono::steady_clock::now();
+
         // Seems quite more efficient than if outside the loop, at least with 'abductive'
         assertModel();
 
@@ -197,6 +205,24 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
         resetClassification();
 
         resetModel();
+
+        auto const finish = std::chrono::steady_clock::now();
+        std::chrono::duration<double> const duration = finish - start;
+        cstats << "duration: " << duration << std::endl;
+    };
+    auto const timeout = 3s;
+    for (auto idx : indices) {
+        std::packaged_task task(f);
+        auto future = task.get_future();
+        std::jthread thr(std::move(task), idx);
+        if (future.wait_for(timeout) != std::future_status::timeout) {
+            thr.join();
+            future.get();
+            continue;
+        }
+
+        //- thr.detach();
+        cstats << "duration: X" << std::endl;
     }
 }
 
