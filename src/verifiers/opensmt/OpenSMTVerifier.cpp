@@ -103,6 +103,7 @@ private:
     std::unique_ptr<MainSolver> solver;
     std::unique_ptr<SMTConfig> config;
     std::vector<PTRef> inputVars;
+    std::vector<std::vector<PTRef>> neuronVars;
     std::vector<PTRef> outputVars;
     std::vector<std::size_t> layerSizes;
 
@@ -280,12 +281,29 @@ std::size_t OpenSMTVerifier::OpenSMTImpl::termSizeOf(PTRef const & term) const {
 }
 
 void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network) {
+    // Store information about layer sizes
+    layerSizes.clear();
+    for (LayerIndex layer = 0u; layer < network.getNumLayers(); layer++) {
+        layerSizes.push_back(network.getLayerSize(layer));
+    }
+
     // create input variables
     for (NodeIndex i = 0u; i < network.getLayerSize(0); ++i) {
         auto name = inputVarName(i);
         PTRef var = logic->mkRealVar(name.c_str());
         inputVars.push_back(var);
     }
+
+    // Collect hard bounds on inputs
+    std::vector<PTRef> bounds;
+    assert(network.getLayerSize(0) == inputVars.size());
+    for (NodeIndex i = 0; i < inputVars.size(); ++i) {
+        Float lb = network.getInputLowerBound(i);
+        Float ub = network.getInputUpperBound(i);
+        bounds.push_back(logic->mkGeq(inputVars[i], logic->mkRealConst(floatToRational(lb))));
+        bounds.push_back(logic->mkLeq(inputVars[i], logic->mkRealConst(floatToRational(ub))));
+    }
+    addTerm(logic->mkAnd(bounds));
 
     // Create representation for each neuron in hidden layers, from input to output layers
     std::vector<PTRef> previousLayerRefs = inputVars;
@@ -305,9 +323,18 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
                 addends.push_back(addend);
             }
             PTRef input = logic->mkPlus(addends);
-            PTRef relu = logic->mkIte(logic->mkGeq(input, logic->getTerm_RealZero()), input, logic->getTerm_RealZero());
-            currentLayerRefs.push_back(relu);
+
+            PTRef cond = logic->mkGeq(input, logic->getTerm_RealZero());
+
+            auto name = "l" + std::to_string(layer) + "_n" + std::to_string(node + 1);
+            PTRef var = logic->mkRealVar(name.c_str());
+            currentLayerRefs.push_back(var);
+
+            addTerm(logic->mkImpl(cond, logic->mkEq(var, input)));
+            addTerm(logic->mkImpl(logic->mkNot(cond), logic->mkEq(var, logic->getTerm_RealZero())));
         }
+
+        neuronVars.push_back(currentLayerRefs);
         previousLayerRefs = std::move(currentLayerRefs);
     }
 
@@ -329,25 +356,15 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
             PTRef addend = logic->mkTimes(weightTerm, previousLayerRefs[j]);
             addends.push_back(addend);
         }
-        outputVars.push_back(logic->mkPlus(addends));
-    }
 
-    // Store information about layer sizes
-    layerSizes.clear();
-    for (LayerIndex layer = 0u; layer < network.getNumLayers(); layer++) {
-        layerSizes.push_back(network.getLayerSize(layer));
-    }
+        PTRef input = logic->mkPlus(addends);
 
-    // Collect hard bounds on inputs
-    std::vector<PTRef> bounds;
-    assert(network.getLayerSize(0) == inputVars.size());
-    for (NodeIndex i = 0; i < inputVars.size(); ++i) {
-        Float lb = network.getInputLowerBound(i);
-        Float ub = network.getInputUpperBound(i);
-        bounds.push_back(logic->mkGeq(inputVars[i], logic->mkRealConst(floatToRational(lb))));
-        bounds.push_back(logic->mkLeq(inputVars[i], logic->mkRealConst(floatToRational(ub))));
+        auto name = "o" + std::to_string(node + 1);
+        PTRef var = logic->mkRealVar(name.c_str());
+        outputVars.push_back(var);
+
+        addTerm(logic->mkEq(var, input));
     }
-    addTerm(logic->mkAnd(bounds));
 }
 
 void OpenSMTVerifier::OpenSMTImpl::setUnsatCoreFilter(std::vector<NodeIndex> const & filter) {
@@ -532,6 +549,7 @@ void OpenSMTVerifier::OpenSMTImpl::reset() {
     logic = std::make_unique<ArithLogic>(opensmt::Logic_t::QF_LRA);
     solver = std::make_unique<MainSolver>(*logic, *config, "verifier");
     inputVars.clear();
+    neuronVars.clear();
     outputVars.clear();
 
     // resetSample() is called by Verifier

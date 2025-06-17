@@ -160,7 +160,8 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
 
         switch (c) {
             case 0: {
-                std::string_view optargStr{optarg};
+                std::string_view optargStr;
+                if (optarg) { optargStr = optarg; }
                 switch (selectedLongOpt) {
                     case outputTimesLongOpt:
                         config.setTimesFileName(optarg);
@@ -175,7 +176,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                             config.printIntervalExplanationsInBoundFormat();
                         }
                         break;
-                    case filterLongOpt:
+                    case filterLongOpt: {
                         std::optional<bool> optCorrectnessFilter{};
                         if (optargStr.starts_with("in")) {
                             optargStr.remove_prefix(2);
@@ -204,6 +205,8 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                         }
 
                         assert(false);
+                        break;
+                    }
                 }
                 break;
             }
