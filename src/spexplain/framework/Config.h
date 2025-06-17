@@ -53,6 +53,9 @@ public:
     void filterIncorrectSamples() { optFilterCorrectSamples = false; }
     void filterSamplesOfExpectedClass(Network::Classification::Label l) { optFilterSamplesOfExpectedClass = l; }
 
+    void setEncodingNeuronVariables(bool val) { _encodingNeuronVariables = val; }
+    void encodeNeuronVariables() { setEncodingNeuronVariables(true); }
+
     [[nodiscard]]
     std::string_view getVerifierName() const { return verifierName; }
     [[nodiscard]]
@@ -123,6 +126,9 @@ public:
         return *optFilterSamplesOfExpectedClass;
     }
 
+    [[nodiscard]]
+    bool encodingNeuronVariables() const { return _encodingNeuronVariables; }
+
 protected:
     std::string_view verifierName{};
 
@@ -142,6 +148,8 @@ protected:
 
     std::optional<bool> optFilterCorrectSamples{};
     std::optional<Network::Classification::Label> optFilterSamplesOfExpectedClass{};
+
+    bool _encodingNeuronVariables{};
 };
 } // namespace spexplain
 

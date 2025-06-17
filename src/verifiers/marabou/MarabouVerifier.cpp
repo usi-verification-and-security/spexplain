@@ -64,6 +64,8 @@ class MarabouVerifier::MarabouImpl {
 public:
     MarabouImpl();
 
+    void setEncodingNeuronVariables(bool) {}
+
     void loadModel(spexplain::Network const &);
 
     void addUpperBound(LayerIndex layer, NodeIndex var, float value);
@@ -85,6 +87,10 @@ private:
 MarabouVerifier::MarabouVerifier() : pimpl{std::make_unique<MarabouImpl>()} {}
 
 MarabouVerifier::~MarabouVerifier() {}
+
+void MarabouVerifier::setEncodingNeuronVariables(bool val) {
+    pimpl->setEncodingNeuronVariables(val);
+}
 
 void MarabouVerifier::loadModel(spexplain::Network const & network) {
     pimpl->loadModel(network);
