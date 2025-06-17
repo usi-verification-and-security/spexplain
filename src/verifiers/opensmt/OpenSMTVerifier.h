@@ -25,6 +25,8 @@ public:
 
     std::size_t termSizeOf(::opensmt::PTRef const &) const;
 
+    void setEncodingNeuronVariables(bool) override;
+
     void loadModel(spexplain::Network const &) override;
 
     void setUnsatCoreFilter(std::vector<NodeIndex> const &) override;

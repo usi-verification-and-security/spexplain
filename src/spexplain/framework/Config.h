@@ -58,6 +58,9 @@ public:
         timeLimitPerExplanation = std::chrono::milliseconds{limit_ms};
     }
 
+    void setEncodingNeuronVariables(bool val) { _encodingNeuronVariables = val; }
+    void encodeNeuronVariables() { setEncodingNeuronVariables(true); }
+
     [[nodiscard]]
     std::string_view getVerifierName() const { return verifierName; }
     [[nodiscard]]
@@ -144,6 +147,9 @@ public:
     [[nodiscard]]
     bool timeLimitPerExplanationIsSet() const { return getTimeLimitPerExplanation().count() > 0; }
 
+    [[nodiscard]]
+    bool encodingNeuronVariables() const { return _encodingNeuronVariables; }
+
 protected:
     std::string_view verifierName{};
 
@@ -165,6 +171,8 @@ protected:
     std::optional<Network::Classification::Label> optFilterSamplesOfExpectedClass{};
 
     std::chrono::milliseconds timeLimitPerExplanation{};
+
+    bool _encodingNeuronVariables{};
 };
 } // namespace spexplain
 
