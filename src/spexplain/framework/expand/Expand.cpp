@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <fstream>
 #include <iomanip>
 #include <random>
@@ -170,19 +171,27 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
     bool const printingInfo = not print.ignoringInfo();
     bool const printingExplanations = not print.ignoringExplanations();
     bool const printingStats = not print.ignoringStats();
+    bool const printingTimes = not print.ignoringTimes();
     auto & cinfo = print.info();
     auto & cexp = print.explanations();
     auto & cstats = print.stats();
+    auto & ctimes = print.times();
     assert(printingExplanations);
 
     if (printingInfo) {
         cinfo << "Writing explanations to: " << config.getExplanationsFileName() << "\n";
         if (printingStats) { cinfo << "Writing statistics to: " << config.getStatsFileName() << "\n"; }
+        if (printingTimes) { cinfo << "Writing runtimes per explanation to: " << config.getTimesFileName() << "\n"; }
         cinfo << '\n';
         printHead(cinfo, data);
     }
 
     if (printingStats) { printHead(cstats, data); }
+
+    auto const startTimeF = [printingTimes]() -> std::chrono::time_point<std::chrono::steady_clock> {
+        if (not printingTimes) { return {}; }
+        return std::chrono::steady_clock::now();
+    };
 
     initVerifier();
 
@@ -191,6 +200,9 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
 
     Network::Dataset::SampleIndices const indices = makeSampleIndices(data);
     for (auto idx : indices) {
+        [[maybe_unused]]
+        auto const start = startTimeF();
+
         if (printingInfo) {
             printProgress(cinfo, data, idx);
             cinfo << " ..." << std::endl;
@@ -218,6 +230,12 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
         resetClassification();
 
         resetModel();
+
+        if (not printingTimes) { continue; }
+
+        auto const finish = std::chrono::steady_clock::now();
+        std::chrono::duration<double> const duration = finish - start;
+        ctimes << std::setprecision(3) << duration.count() << std::endl;
     }
 
     cinfo << "\nDone." << std::endl;

@@ -24,6 +24,7 @@ public:
 
     void setExplanationsFileName(std::string_view fileName) { explanationsFileName = fileName; }
     void setStatsFileName(std::string_view fileName) { statsFileName = fileName; }
+    void setTimesFileName(std::string_view fileName) { timesFileName = fileName; }
 
     void setVerbosity(Verbosity verb) { verbosity = verb; }
     void beVerbose() { setVerbosity(1); }
@@ -62,6 +63,8 @@ public:
     bool explanationsFileNameIsSet() const { return not explanationsFileName.empty(); }
     std::string_view getStatsFileName() const { return statsFileName; }
     bool statsFileNameIsSet() const { return not getStatsFileName().empty(); }
+    std::string_view getTimesFileName() const { return timesFileName; }
+    bool timesFileNameIsSet() const { return not getTimesFileName().empty(); }
 
     Verbosity getVerbosity() const { return verbosity; }
     bool isVerbose() const { return getVerbosity() > 0; }
@@ -102,6 +105,7 @@ protected:
 
     std::string_view explanationsFileName{};
     std::string_view statsFileName{};
+    std::string_view timesFileName{};
 
     Verbosity verbosity{};
 

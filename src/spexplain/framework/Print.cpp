@@ -18,6 +18,10 @@ Framework::Print::Print(Framework const & fw) : framework{fw} {
         assert(not conf.getStatsFileName().empty());
         setStatsFileName(conf.getStatsFileName());
     }
+    if (ignoringTimes() and conf.timesFileNameIsSet()) {
+        assert(not conf.getTimesFileName().empty());
+        setTimesFileName(conf.getTimesFileName());
+    }
 }
 
 void Framework::Print::setExplanationsFileName(std::string_view fileName) {
@@ -38,5 +42,15 @@ void Framework::Print::setStatsFileName(std::string_view fileName) {
 void Framework::Print::setStatsFile(std::string_view fileName) {
     statsFileOs = std::ofstream{std::string{fileName}};
     statsOsPtr = &statsFileOs;
+}
+
+void Framework::Print::setTimesFileName(std::string_view fileName) {
+    timesFileName = fileName;
+    setTimesFile(fileName);
+}
+
+void Framework::Print::setTimesFile(std::string_view fileName) {
+    timesFileOs = std::ofstream{std::string{fileName}};
+    timesOsPtr = &timesFileOs;
 }
 } // namespace spexplain

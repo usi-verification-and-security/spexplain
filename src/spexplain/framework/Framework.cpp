@@ -72,6 +72,11 @@ void Framework::setStatsFileName(std::string_view fileName) {
     printPtr->setStatsFileName(fileName);
 }
 
+void Framework::setTimesFileName(std::string_view fileName) {
+    assert(printPtr);
+    printPtr->setTimesFileName(fileName);
+}
+
 void Framework::dumpClassificationsAsSmtLib2Queries() {
     //++ move outside of Expand -> probably also move the verifier right into the fw
     expandPtr->dumpClassificationsAsSmtLib2Queries();

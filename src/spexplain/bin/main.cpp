@@ -108,6 +108,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     // constexpr int versionLongOpt = 1;
     constexpr int formatLongOpt = 2;
     constexpr int filterLongOpt = 3;
+    constexpr int outputTimesLongOpt = 4;
 
     //+ not documented
     struct ::option longOptions[] = {{"help", no_argument, nullptr, 'h'},
@@ -115,6 +116,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                                      {"input-explanations", required_argument, nullptr, 'E'},
                                      {"output-explanations", required_argument, nullptr, 'e'},
                                      {"output-stats", required_argument, nullptr, 's'},
+                                     {"output-times", required_argument, &selectedLongOpt, outputTimesLongOpt},
                                      {"verbose", no_argument, nullptr, 'v'},
                                      {"quiet", no_argument, nullptr, 'q'},
                                      // {"version", no_argument, &selectedLongOpt, versionLongOpt},
@@ -136,6 +138,9 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
             case 0: {
                 std::string_view optargStr{optarg};
                 switch (selectedLongOpt) {
+                    case outputTimesLongOpt:
+                        config.setTimesFileName(optarg);
+                        break;
                     case formatLongOpt:
                         if (optargStr == "smtlib2") {
                             config.printIntervalExplanationsInSmtLib2Format();

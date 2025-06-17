@@ -60,6 +60,7 @@ public:
     // Sufficient to set in Config
     void setExplanationsFileName(std::string_view fileName);
     void setStatsFileName(std::string_view fileName);
+    void setTimesFileName(std::string_view fileName);
 
     std::size_t varSize() const { return varNames.size(); }
     VarName const & getVarName(VarIdx idx) const { return varNames[idx]; }
