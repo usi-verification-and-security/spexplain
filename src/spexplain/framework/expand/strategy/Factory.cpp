@@ -246,6 +246,14 @@ std::unique_ptr<Framework::Expand::Strategy> Framework::Expand::Strategy::Factor
     std::istringstream iss{paramStr};
     params.pop();
 
+    if (iss.peek() == 'v') {
+        std::string param;
+        iss >> param;
+        assert(iss);
+        auto const paramLower = toLower(param);
+        if (paramLower != "vars") { throwInvalidParameterTp<SliceStrategy>(paramStr); }
+    }
+
     conf.varIndices = parseVarIndices(iss);
 
     return parseReturnTp<SliceStrategy>(str, params, conf);

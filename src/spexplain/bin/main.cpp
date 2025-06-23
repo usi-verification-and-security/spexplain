@@ -66,7 +66,7 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     printUsageStrategyRow(os, InterpolationStrategy::name(),
                           {"weak", "strong", "weaker", "stronger", "bweak", "bstrong", "aweak", "astrong", "aweaker",
                            "astronger", "afactor <factor>", "vars x<i>..."});
-    printUsageStrategyRow(os, Framework::Expand::SliceStrategy::name(), {"x<i>..."});
+    printUsageStrategyRow(os, Framework::Expand::SliceStrategy::name(), {"[vars] x<i>..."});
 
     os << "VERIFIERS: opensmt";
 #ifdef MARABOU
