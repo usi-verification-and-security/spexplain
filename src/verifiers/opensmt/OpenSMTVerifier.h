@@ -8,7 +8,7 @@
 namespace opensmt {
 class PTRef;
 class MainSolver;
-}
+} // namespace opensmt
 
 namespace xai::verifiers {
 
@@ -26,6 +26,8 @@ public:
     std::size_t termSizeOf(::opensmt::PTRef const &) const;
 
     void loadModel(spexplain::Network const &) override;
+
+    void setUnsatCoreFilter(std::vector<NodeIndex> const &) override;
 
     void addTerm(::opensmt::PTRef const &);
     void addExplanationTerm(::opensmt::PTRef const &, std::string termNamePrefix = "");
@@ -67,4 +69,4 @@ private:
 
 } // namespace xai::verifiers
 
-#endif //XAI_SMT_OPENSMTVERIFIER_H
+#endif // XAI_SMT_OPENSMTVERIFIER_H

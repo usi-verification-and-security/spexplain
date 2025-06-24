@@ -26,6 +26,8 @@ public:
 
     void loadModel(spexplain::Network const &);
 
+    void setUnsatCoreFilter(std::vector<NodeIndex> const &);
+
     void addTerm(PTRef const &);
     void addExplanationTerm(PTRef const &, std::string termNamePrefix = "");
 
@@ -102,8 +104,11 @@ private:
     std::vector<PTRef> outputVars;
     std::vector<std::size_t> layerSizes;
 
+    std::vector<NodeIndex> unsatCoreNodeFilter;
+
     std::vector<PTRef> explanationTerms;
-    std::unordered_map<PTRef, std::size_t, PTRefHash> explanationTermsToIndex;
+    std::unordered_map<PTRef, std::size_t, PTRefHash> unsatCoreNonFilteredTermsToIndex;
+    std::unordered_map<PTRef, std::size_t, PTRefHash> unsatCoreFilteredTermsToIndex;
 
     std::unordered_map<PTRef, NodeIndex, PTRefHash> inputVarLowerBoundToIndex;
     std::unordered_map<PTRef, NodeIndex, PTRefHash> inputVarUpperBoundToIndex;
@@ -125,6 +130,10 @@ std::size_t OpenSMTVerifier::termSizeOf(PTRef const & term) const {
 
 void OpenSMTVerifier::loadModel(spexplain::Network const & network) {
     pimpl->loadModel(network);
+}
+
+void OpenSMTVerifier::setUnsatCoreFilter(std::vector<NodeIndex> const & filter) {
+    pimpl->setUnsatCoreFilter(filter);
 }
 
 void OpenSMTVerifier::addTerm(PTRef const & term) {
@@ -335,6 +344,10 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
     addTerm(logic->mkAnd(bounds));
 }
 
+void OpenSMTVerifier::OpenSMTImpl::setUnsatCoreFilter(std::vector<NodeIndex> const & filter) {
+    unsatCoreNodeFilter = filter;
+}
+
 void OpenSMTVerifier::OpenSMTImpl::addTerm(PTRef const & term) {
     solver->addAssertion(term);
 }
@@ -343,7 +356,14 @@ void OpenSMTVerifier::OpenSMTImpl::addExplanationTerm(PTRef const & term, std::s
     addTerm(term);
     std::size_t const termIdx = explanationTerms.size();
     explanationTerms.push_back(term);
-    explanationTermsToIndex[term] = termIdx;
+
+    if (not unsatCoreNodeFilter.empty()) {
+        if (std::ranges::none_of(unsatCoreNodeFilter, [this, &term](NodeIndex node) { return contains(term, node); })) {
+            unsatCoreFilteredTermsToIndex[term] = termIdx;
+            return;
+        }
+    }
+    unsatCoreNonFilteredTermsToIndex[term] = termIdx;
 
     [[maybe_unused]] bool const success = solver->tryAddTermNameFor(term, makeExplanationTermName(std::move(termNamePrefix)));
     assert(success);
@@ -485,7 +505,8 @@ void OpenSMTVerifier::OpenSMTImpl::init() {
 
 void OpenSMTVerifier::OpenSMTImpl::resetSampleQuery() {
     explanationTerms.clear();
-    explanationTermsToIndex.clear();
+    unsatCoreNonFilteredTermsToIndex.clear();
+    unsatCoreFilteredTermsToIndex.clear();
 
     inputVarLowerBoundToIndex.clear();
     inputVarUpperBoundToIndex.clear();
@@ -510,7 +531,7 @@ UnsatCore OpenSMTVerifier::OpenSMTImpl::getUnsatCore() const {
     auto const unsatCore = solver->getUnsatCore();
     auto const & unsatCoreTerms = unsatCore->getTerms();
 
-    assert(unsatCoreTerms.size() > 0);
+    assert(unsatCoreTerms.size() > 0 or not unsatCoreNodeFilter.empty());
 
     std::size_t const termsSize = explanationTerms.size();
     assert(termsSize >= unsatCoreTerms.size());
@@ -550,9 +571,14 @@ UnsatCore OpenSMTVerifier::OpenSMTImpl::getUnsatCore() const {
         // formulas not related to particular variables must be handled via (in|ex)cluded indices
     };
 
+    assert(not unsatCoreNodeFilter.empty() or unsatCoreFilteredTermsToIndex.empty());
+    for (auto & [term, termIdx] : unsatCoreFilteredTermsToIndex) {
+        includeTerm(term, termIdx);
+    }
+
     for (PTRef term : unsatCoreTerms) {
-        assert(explanationTermsToIndex.contains(term));
-        std::size_t const termIdx = explanationTermsToIndex.at(term);
+        assert(unsatCoreNonFilteredTermsToIndex.contains(term));
+        std::size_t const termIdx = unsatCoreNonFilteredTermsToIndex.at(term);
         includeTerm(term, termIdx);
     }
 

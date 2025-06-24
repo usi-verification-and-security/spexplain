@@ -15,6 +15,7 @@ class Framework::Expand::UnsatCoreStrategy : virtual public Strategy {
 public:
     struct Config {
         bool splitIntervals = false;
+        std::vector<VarIdx> varIndicesFilter{};
     };
 
     using Strategy::Strategy;
@@ -33,6 +34,7 @@ protected:
 
     bool storeNamedTerms() const override { return true; }
 
+    void executeInit(Explanations &, Network::Dataset const &, ExplanationIdx) override;
     void executeBody(Explanations &, Network::Dataset const &, ExplanationIdx) override;
     virtual void executeBody(ConjunctExplanation &);
     virtual void executeBody(IntervalExplanation &);

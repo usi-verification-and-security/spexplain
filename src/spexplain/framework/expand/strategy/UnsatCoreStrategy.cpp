@@ -23,6 +23,18 @@ xai::verifiers::UnsatCoreVerifier & Framework::Expand::UnsatCoreStrategy::getVer
     return const_cast<xai::verifiers::UnsatCoreVerifier &>(std::as_const(*this).getVerifier());
 }
 
+void Framework::Expand::UnsatCoreStrategy::executeInit(Explanations & explanations, Network::Dataset const & data,
+                                                       ExplanationIdx idx) {
+    Strategy::executeInit(explanations, data, idx);
+
+    auto const & varIndicesFilter = config.varIndicesFilter;
+    bool const filteringVars = not varIndicesFilter.empty();
+    if (not filteringVars) { return; }
+
+    auto & verifier = getVerifier();
+    verifier.setUnsatCoreFilter(varIndicesFilter);
+}
+
 void Framework::Expand::UnsatCoreStrategy::executeBody(Explanations & explanations, Network::Dataset const &,
                                                        ExplanationIdx idx) {
     assert(storeNamedTerms());

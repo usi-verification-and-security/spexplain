@@ -21,6 +21,8 @@ struct UnsatCore {
 
 class UnsatCoreVerifier : public Verifier {
 public:
+    virtual void setUnsatCoreFilter(std::vector<NodeIndex> const &) = 0;
+
     virtual UnsatCore getUnsatCore() const = 0;
 };
 } // namespace xai::verifiers

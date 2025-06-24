@@ -124,9 +124,14 @@ Framework::Expand::Strategy::Factory::parseUnsatCore(std::string const & str, au
     UnsatCoreStrategy::Base::Config baseConf;
     UnsatCoreStrategy::Config conf;
     while (not params.empty()) {
-        auto param = std::move(params.front());
+        std::string const paramStr = std::move(params.front());
+        std::istringstream iss{paramStr};
         params.pop();
+        std::string param;
+        iss >> param;
+        if (not iss) { throwInvalidParameterTp<UnsatCoreStrategy>(paramStr); }
         auto const paramLower = toLower(param);
+
         if (paramLower == "sample") {
             baseConf.splitIntervals = false;
             continue;
@@ -139,6 +144,11 @@ Framework::Expand::Strategy::Factory::parseUnsatCore(std::string const & str, au
 
         if (paramLower == "min") {
             conf.minimal = true;
+            continue;
+        }
+
+        if (paramLower == "vars") {
+            baseConf.varIndicesFilter = parseVarIndices(iss);
             continue;
         }
 

@@ -61,8 +61,9 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     //+ template by the strategy and move the params to the classes as well
     printUsageStrategyRow(os, Framework::Expand::NopStrategy::name());
     printUsageStrategyRow(os, Framework::Expand::AbductiveStrategy::name());
+    //+ also include 'vars'
     printUsageStrategyRow(os, Framework::Expand::TrialAndErrorStrategy::name(), {"n <int>"});
-    printUsageStrategyRow(os, UnsatCoreStrategy::name(), {"sample", "interval", "min"});
+    printUsageStrategyRow(os, UnsatCoreStrategy::name(), {"sample", "interval", "min", "vars x<i>..."});
     printUsageStrategyRow(os, InterpolationStrategy::name(),
                           {"weak", "strong", "weaker", "stronger", "bweak", "bstrong", "aweak", "astrong", "aweaker",
                            "astronger", "afactor <factor>", "vars x<i>..."});

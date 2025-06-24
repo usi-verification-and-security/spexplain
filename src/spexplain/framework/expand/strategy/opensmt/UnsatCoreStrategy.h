@@ -10,6 +10,7 @@ public:
     using Base = Framework::Expand::UnsatCoreStrategy;
 
     struct Config {
+        //+ move to the base as well
         bool minimal = false;
     };
 
