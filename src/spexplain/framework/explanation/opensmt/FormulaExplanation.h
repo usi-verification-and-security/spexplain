@@ -38,8 +38,6 @@ public:
 protected:
     xai::verifiers::OpenSMTVerifier const & getVerifier() const;
 
-    std::size_t termSizeOf(Formula const &) const;
-
     void resetFormula();
 
     std::unique_ptr<Formula> formulaPtr{};

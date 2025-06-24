@@ -37,17 +37,14 @@ void Strategy::assertFormulaExplanation(FormulaExplanation const & phiexplanatio
                                         [[maybe_unused]] AssertExplanationConf const & conf) {
     assert(not conf.splitIntervals);
 
-    static std::size_t counter{};
-
     Formula const & phi = phiexplanation.getFormula();
 
     auto & verifier = getVerifier();
-    auto & solver = verifier.getSolver();
-    solver.addAssertion(phi);
-    if (not storeNamedTerms()) { return; }
-
-    [[maybe_unused]] bool const success = solver.tryAddTermNameFor(phi, "phi_"s + std::to_string(counter++));
-    assert(success);
+    if (storeNamedTerms()) {
+        verifier.addExplanationTerm(phi, "phi_");
+    } else {
+        verifier.addTerm(phi);
+    }
 }
 
 bool Strategy::intersectNonIntervalExplanationImpl(std::unique_ptr<Explanation> & explanationPtr,

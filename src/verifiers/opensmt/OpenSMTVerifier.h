@@ -6,6 +6,7 @@
 #include <memory>
 
 namespace opensmt {
+class PTRef;
 class MainSolver;
 }
 
@@ -20,7 +21,14 @@ public:
     OpenSMTVerifier(OpenSMTVerifier &&) = default;
     OpenSMTVerifier & operator=(OpenSMTVerifier &&) = default;
 
+    bool contains(::opensmt::PTRef const &, NodeIndex) const;
+
+    std::size_t termSizeOf(::opensmt::PTRef const &) const;
+
     void loadModel(spexplain::Network const &) override;
+
+    void addTerm(::opensmt::PTRef const &);
+    void addExplanationTerm(::opensmt::PTRef const &, std::string termNamePrefix = "");
 
     void addUpperBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) override;
     void addLowerBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) override;
@@ -38,6 +46,7 @@ public:
 
     UnsatCore getUnsatCore() const override;
 
+    //+ remove from API
     opensmt::MainSolver const & getSolver() const;
     opensmt::MainSolver & getSolver();
 
