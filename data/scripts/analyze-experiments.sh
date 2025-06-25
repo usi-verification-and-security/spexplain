@@ -7,7 +7,7 @@ ANALYZE_SCRIPT="$SCRIPTS_DIR/analyze.sh"
 source "$SCRIPTS_DIR/lib/experiments"
 
 function usage {
-    printf "USAGE: %s <action> <explanations_dir> <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>] [<filter_regex2>]\n" "$0"
+    printf "USAGE: %s <action> <explanations_dir> <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>] [<filter_regex2>] [-h|-f]\n" "$0"
     $ANALYZE_SCRIPT |& grep ACTIONS
     printf "\t[<filter_regex2>] is only to be used with binary actions\n"
 
@@ -56,18 +56,36 @@ maybe_read_consecutive "$1" && shift
 maybe_read_reverse "$1" && shift
 maybe_read_max_samples "$1" && shift
 
-[[ -n $1 ]] && {
+[[ -n $1 && ! $1 =~ ^- ]] && {
     FILTER="$1"
     shift
 }
 
 case $ACTION in
 compare-subset)
-    [[ -n $1 ]] && {
+    [[ -n $1 && ! $1 =~ ^- ]] && {
         FILTER2="$1"
         shift
     }
 esac
+
+FORCE_COMPUTE=0
+[[ $1 =~ ^- ]] && {
+    if [[ $1 == -f ]]; then
+        FORCE_COMPUTE=1
+    elif [[ $1 == -h ]]; then
+        usage 0
+    else
+        printf "Unrecognized option: %s\n" "$1" >&2
+        usage 1 >&2
+    fi
+    shift
+}
+
+[[ -n $1 ]] && {
+    printf "Additional arguments: %s\n" "$*" >&2
+    usage 1 >&2
+}
 
 #++ store consecutive cache to separate files to avoid destroying it
 if [[ -z $INCLUDE_CONSECUTIVE ]]; then
@@ -91,11 +109,6 @@ compare-subset)
     EXPERIMENT_MAX_WIDTH=$(( 1 + $lMAX_EXPERIMENT_NAMES_LEN ))
     ;;
 esac
-
-[[ -n $1 ]] && {
-    printf "Additional arguments: %s\n" "$*" >&2
-    usage 1 >&2
-}
 
 case $ACTION in
 count-fixed|compare-subset)
@@ -244,7 +257,7 @@ for do_reverse in ${do_reverse_args[@]}; do
     fi
 
     unset CACHE
-    [[ -r $lSCRIPT_OUTPUT_CACHE_FILE ]] && {
+    (( ! $FORCE_COMPUTE )) && [[ -r $lSCRIPT_OUTPUT_CACHE_FILE ]] && {
         CACHE=$(<"$lSCRIPT_OUTPUT_CACHE_FILE")
     }
 
