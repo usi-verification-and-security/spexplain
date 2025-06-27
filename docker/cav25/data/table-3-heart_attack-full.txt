@@ -1,0 +1,11 @@
+Dataset size: 303
+Number of features: 13
+
+                              experiments | %dimension | #terms | #checks | time [s]
+REGULAR:
+                                abductive |      37.9% |    8.1 |    13.0 | 0.08
+                      trial_n_4_abductive |      79.1% |    9.3 |    53.4 | 0.63
+                        itp_aweak_bstrong |     100.0% |   51.0 |     1.0 | 0.04
+                     trial_n_4__abductive |      79.1% |    9.3 |    40.4 | 0.53
+             itp_aweak_bstrong__abductive |     100.0% |   45.3 |     1.0 | 0.39
+   itp_aweak_bstrong__trial_n_4_abductive |     100.0% |   63.5 |     1.0 | 2.53

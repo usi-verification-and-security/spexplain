@@ -1,0 +1,20 @@
+Dataset size: 50
+Number of features: 15
+
+                              experiments | #terms | time [s]
+REGULAR:
+                    itp_astronger_bstrong |   29.0 | 0.30
+                      itp_astrong_bstrong |   45.8 | 0.30
+                  itp_afactor_0.5_bstrong |   45.8 | 0.34
+                        itp_aweak_bstrong |   46.1 | 0.30
+                      itp_aweaker_bstrong |   64.1 | 0.42
+              ucore_itp_astronger_bstrong |   29.0 | 0.38
+                ucore_itp_astrong_bstrong |   41.7 | 7.94
+            ucore_itp_afactor_0.5_bstrong |   42.7 | 20.62
+                  ucore_itp_aweak_bstrong |   41.7 | 35.37
+                ucore_itp_aweaker_bstrong |   58.0 | 23.44
+          ucore_min_itp_astronger_bstrong |      X | X
+            ucore_min_itp_astrong_bstrong |      X | X
+        ucore_min_itp_afactor_0.5_bstrong |      X | X
+              ucore_min_itp_aweak_bstrong |      X | X
+            ucore_min_itp_aweaker_bstrong |      X | X
