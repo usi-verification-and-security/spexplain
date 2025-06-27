@@ -72,7 +72,7 @@ case $ACTION in
             suite=${SUITES[$idx]}
 
             for mode in '' consecutive; do
-                CMD="$ROOT_DIR/build-marabou/xspace" TIMEOUT=$TIMEOUT "$SCRIPTS_DIR/run-xspace-all.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec $mode
+                CMD="$ROOT_DIR/build-marabou/spexplain" TIMEOUT=$TIMEOUT "$SCRIPTS_DIR/run-experiments.sh" "$EXPLANATIONS_DIR/$model/$suite" $spec $mode
             done
         done
         ;;
@@ -138,7 +138,7 @@ case $ACTION in
 
                 case $table in
                     table-4)
-                        "$SCRIPTS_DIR/analyze-all.sh" compare-subset "$EXPLANATIONS_DIR/$model/$suite" $spec '^(|ucore(|_min)_)itp_vars_(x[0-9]+_x[0-9]+)' '^slice_\3_\1itp_aweak_bstrong' >"$ofile"
+                        "$SCRIPTS_DIR/analyze-experiments.sh" compare-subset "$EXPLANATIONS_DIR/$model/$suite" $spec '^(|ucore(|_min)_)itp_vars_(x[0-9]+_x[0-9]+)' '^slice_\3_\1itp_aweak_bstrong' >"$ofile"
                         ;;
                 esac
 
@@ -155,7 +155,7 @@ case $ACTION in
 
             [[ $model == mnist ]] && continue
 
-            "$SCRIPTS_DIR/analyze-all.sh" check "$EXPLANATIONS_DIR/$model/$suite" $spec
+            "$SCRIPTS_DIR/analyze-experiments.sh" check "$EXPLANATIONS_DIR/$model/$suite" $spec
         done
         ;;
 esac
