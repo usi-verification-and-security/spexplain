@@ -1,0 +1,10 @@
+Dataset size: 303
+Number of features: 13
+
+                              experiments | %dimension | #terms | time [s]
+REGULAR:
+                    itp_astronger_bstrong |     100.0% |   20.1 | 0.03
+                      itp_astrong_bstrong |     100.0% |   51.0 | 0.04
+                  itp_afactor_0.5_bstrong |     100.0% |   51.0 | 0.04
+                        itp_aweak_bstrong |     100.0% |   51.0 | 0.04
+                      itp_aweaker_bstrong |     100.0% |  198.2 | 0.04

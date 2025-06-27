@@ -1,0 +1,26 @@
+                                                                            experiment |     < |     = |     > |    NC
+REGULAR:
+                                      itp_vars_x1_x4 vs. slice_x1_x4_itp_aweak_bstrong |  0.0% |100.0% |  0.0% |  0.0%
+
+                                      itp_vars_x1_x5 vs. slice_x1_x5_itp_aweak_bstrong |  0.0% |100.0% |  0.0% |  0.0%
+
+                                    itp_vars_x3_x12 vs. slice_x3_x12_itp_aweak_bstrong |  0.0% |100.0% |  0.0% |  0.0%
+
+                                      itp_vars_x5_x8 vs. slice_x5_x8_itp_aweak_bstrong |  0.0% |100.0% |  0.0% |  0.0%
+
+                          ucore_itp_vars_x1_x4 vs. slice_x1_x4_ucore_itp_aweak_bstrong | 31.4% | 53.8% |  8.9% |  5.9%
+
+                          ucore_itp_vars_x1_x5 vs. slice_x1_x5_ucore_itp_aweak_bstrong | 41.3% | 43.2% |  8.3% |  7.3%
+
+                        ucore_itp_vars_x3_x12 vs. slice_x3_x12_ucore_itp_aweak_bstrong |  5.0% | 92.4% |  2.0% |  0.7%
+
+                          ucore_itp_vars_x5_x8 vs. slice_x5_x8_ucore_itp_aweak_bstrong | 42.6% | 43.2% |  7.9% |  6.3%
+
+                  ucore_min_itp_vars_x1_x4 vs. slice_x1_x4_ucore_min_itp_aweak_bstrong |  0.0% |  4.0% | 91.4% |  4.6%
+
+                  ucore_min_itp_vars_x1_x5 vs. slice_x1_x5_ucore_min_itp_aweak_bstrong |  0.0% |  5.6% | 76.6% | 17.8%
+
+                ucore_min_itp_vars_x3_x12 vs. slice_x3_x12_ucore_min_itp_aweak_bstrong |  1.3% | 80.2% | 17.2% |  1.3%
+
+                  ucore_min_itp_vars_x5_x8 vs. slice_x5_x8_ucore_min_itp_aweak_bstrong |  2.3% |  4.0% | 75.6% | 18.2%
+

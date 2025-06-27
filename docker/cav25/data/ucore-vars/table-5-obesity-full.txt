@@ -1,0 +1,11 @@
+Dataset size: 50
+Number of features: 15
+
+                              experiments | #terms | time [s]
+REGULAR:
+                                ^itp_vars |   59.1 | 0.30
+                          ^ucore_itp_vars |   41.9 | 1.17
+                       ucore_min_itp_vars |   14.6 | 5.85
+          slice_.*[0-9]_itp_aweak_bstrong |   59.1 | 0.32
+         slice_.*_ucore_itp_aweak_bstrong |   54.7 | 35.17
+     slice_.*_ucore_min_itp_aweak_bstrong |      X | X
