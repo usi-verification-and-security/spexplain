@@ -1,11 +1,9 @@
-# exp_no = 6
-from matplotlib import pyplot as plt
 import os
 
 from matplotlib import pyplot as plt
 
 from utils import projection
-
+# import parse_smt2
 from parsing import interpret_ineq
 from utils.Spec import *
 
@@ -17,20 +15,19 @@ def plot_multiple_projection(plot_points, bounds, projection_direction, title=f"
     if axis_labels is None:
         axis_labels = [f"X{i}" for i in range(1, len(bounds[0]) + 1)]
 
-    colors = ['red', 'blue', 'red' , 'brown', 'pink', 'cyan']
-    line_colors = ['blue', 'blue', 'orange', 'yellow', 'green', 'blue', 'red', 'purple', 'brown', 'pink', 'cyan']
+    colors = ['green', 'red', 'yellow', 'green', 'red', 'purple', 'brown', 'pink', 'cyan']
+    line_colors = ['blue', 'green', 'red', 'purple', 'brown', 'brown', 'pink', 'cyan']
 
-    shapes = ['o', 's', 'D', 'v', 'o', 'o', 'o', 'o', 'o', 'o', 'o', 'o', 'o', 'o']
-    sizes = [10, 10, 8, 8, 12, 12, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+    shapes = ['o', 's', 'D', 'v', '^', 'o', 'o', 'o', 'o', 'o', 'o', 'o', 'o', 'o', 'o']
+    sizes = [8, 13, 8, 8, 12, 12, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
     alphas = [0.5, 0.6, 0.6, 0.5, 0.6, 0.7, 0.9, 0.55, 0.55, 0.55, 0.55, 0.55]
-    line_widths = [2,2,2,2,5,6,2,2,2,1,1,1,1,1,1,1,1,1,1]
+    line_widths = [2, 3, 2, 1, 0.5, 4, 5, 6, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     # title = str(exp_no)
     a, b = projection_direction
     x_len = bounds[0][1] - bounds[0][0]
     y_len = bounds[1][1] - bounds[1][0]
     # plt.figure(figsize=(8, 8))
 
-    plt.rcParams['text.usetex'] = True
     if ax is None:
         fig, ax = plt.subplots(figsize=(8, 8))
         ax_none = True
@@ -56,15 +53,10 @@ def plot_multiple_projection(plot_points, bounds, projection_direction, title=f"
     ax.set_xlabel(f"X{a} ({axis_labels[a-1]})", fontsize=16)
     ax.set_ylabel(f"X{b} ({axis_labels[b-1]})", fontsize=16)
     ax.grid(alpha=0.3)
-
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles[::-1], labels[::-1], fontsize=14)
-
-    # try:
-    #
-    #     ax.legend(fontsize=14)
-    # except:
-    #     pass
+    try:
+        ax.legend(fontsize=14)
+    except:
+        pass
 
     # Check if the directory exists
     # if not os.path.exists(f"plots/{title}"):
@@ -74,9 +66,9 @@ def plot_multiple_projection(plot_points, bounds, projection_direction, title=f"
     # plt.close()
     if ax_none:
         plt.tight_layout()
-        if not os.path.exists(f"plots/simp/{title}"):
-            os.makedirs(f"plots/simp/{title}")
-        plt.savefig(f"plots/simp/{title}/projection_{a}_{b}.pdf", format='pdf')
+        if not os.path.exists(f"plots/{title}"):
+            os.makedirs(f"plots/{title}")
+        plt.savefig(f"plots/{title}/dude_projection_{a}_{b}.pdf", format='pdf')
         # plt.show()
         plt.close()
 
@@ -112,12 +104,15 @@ if __name__ == '__main__':
     # - selected_axis: the axes to project on, a tuple for each explanation
     """
     exp_files = [
-        "explanations/ucore_min_itp_astrong_bstrong.phi.txt",
-        # "explanations/ucore_itp_astrong_bstrong.phi.txt",
-        "explanations/itp_astrong_bstrong.phi.txt",
+        "examples/full_heart_attack/itp.phi.txt",
+        # "examples/full_heart_attack/itp__trial_n_4_abductive.phi.txt",
+        "examples/full_heart_attack/trial_n_4_abductive.phi.txt",
     ]
-    exp_keys = [r'$\ensuremath{\textrm{\textbf{R}}_\mathit{min}} \circ \texttt{strong}$', r'$\texttt{strong}$']
-    selected_exps = [196, 0, 0, 107]
+    exp_keys = [
+        'weak',
+        "Interval",
+    ]
+    selected_exps = [196,  0, 0, 107]
     selected_axis = [(1, 5), (5, 8), (3, 12), (1, 4)]
 
     all_exps = []
@@ -155,6 +150,7 @@ if __name__ == '__main__':
     plt.tight_layout()
     if not os.path.exists(f"plots/"):
         os.makedirs(f"plots/")
-    plt.savefig(f"plots/0--reduce.pdf", format='pdf')
+    plt.savefig(f"plots/0--int.pdf", format='pdf')
     plt.show()
     plt.close()
+

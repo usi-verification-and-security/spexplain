@@ -1,9 +1,6 @@
-import sys
-
 import numpy as np
 from scipy.optimize import linprog
 import matplotlib.pyplot as plt
-from sympy.matrices.expressions.blockmatrix import bounds
 import parse_smt2
 
 
