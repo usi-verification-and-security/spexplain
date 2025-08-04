@@ -177,7 +177,7 @@ function maybe_replace_subexp {
 
     for i in {1..9}; do
         [[ $dst_filter =~ \\$i ]] || continue
-        local match=$(sed -rn "s/$src_filter/\\$i/p" <<<"$src_str")
+        local match=$(sed -rn "s/^.*${src_filter}.*$/\\$i/p" <<<"$src_str")
         dst_filter="${dst_filter//\\$i/$match}"
     done
 
