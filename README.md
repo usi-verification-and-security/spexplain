@@ -87,5 +87,9 @@ Build with Marabou:
 make marabou
 ```
 
+## Publications
+
+* Space Explanations of Neural Network Classification, CAV 2025 ([link](https://link.springer.com/chapter/10.1007/978-3-031-98682-6_15))
+
 ## Contact
 If you have questions, bug reports, or feature requests, please refer to our [GitHub](https://github.com/usi-verification-and-security/spexplain/issues) issue tracker or send us an email.
