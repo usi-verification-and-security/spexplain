@@ -48,7 +48,7 @@ void Framework::setNetwork(std::unique_ptr<Network> networkPtr_) {
     networkPtr = std::move(networkPtr_);
 
     auto & network = *networkPtr;
-    std::size_t const size = network.getInputSize();
+    std::size_t const size = network.getInputSizeFlat();
     varNames.reserve(size);
     domainIntervals.reserve(size);
     for (VarIdx idx = 0; idx < size; ++idx) {

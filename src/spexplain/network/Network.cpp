@@ -1,5 +1,10 @@
 #include "Network.h"
 
+#include "ConvLayer.h"
+#include "FCLayer.h"
+#include "FlattenLayer.h"
+#include "NetworkLayer.h"
+
 #include <algorithm>
 #include <cassert>
 #include <filesystem>
@@ -32,6 +37,48 @@ namespace {
 
 } // namespace
 
+std::unique_ptr<Network> Network::buildDummyNetwork() {
+    std::vector<std::unique_ptr<NetworkLayer>> layers;
+    auto convLayer = std::make_unique<ConvLayer>(
+        std::vector<std::size_t>{2, 2, 2}, // layer size (height, width, channels)
+        ConvLayer::Weight{Vector3D(1,Vector2D{
+            Values{1.0f, 1.0f}, Values{1.0f, 1.0f}}),
+            Vector3D(1,Vector2D{
+            Values{1.0f, -1.0f}, Values{1.0f, -1.0f}})}, // filter
+        ConvLayer::Bias{0.01f, 0.0f}, // bias
+        1,                     // stride
+        0                      // padding
+    );
+    layers.push_back(std::move(convLayer));
+
+    auto flattenLayer = std::make_unique<FlattenLayer>();
+    layers.push_back(std::move(flattenLayer));
+
+    auto fcLayer = std::make_unique<FCLayer>(
+            std::vector<std::size_t>{1},
+            FCLayer::Weight(1,
+            Values{1.0f, -1.0f, 1.0f, -1.0f, 2.0f, 2.0f, 2.0f, 2.0f}), // weights for hidden FC // weights
+            FCLayer::Bias{1.0f},
+            false // not followed by ReLU
+    );
+    layers.push_back(std::move(fcLayer));
+
+    // Define input and output sizes based on the layers
+    std::vector<std::size_t> numInputs = {3,3}; // Example input size (3x3 image flattened)
+    std::size_t numOutputs = 1;
+
+    // Define input bounds
+    InputVariant inputMinValues = InputVariant{Vector2D{{0.0f,0.0f,0.0f}, {0.0f,0.0f,0.0f}, {0.0f,0.0f,0.0f}}};
+    InputVariant inputMaxValues = InputVariant{Vector2D(3, Values(3, 10.0f))};
+
+
+    // Create the Network instance
+    return std::unique_ptr<Network>{new Network(numInputs, numOutputs, layers.size(), 9,
+                                                    std::move(inputMinValues), std::move(inputMaxValues),
+                                                    std::move(layers))}; // Make sure Network constructor accepts std::vector<std::unique_ptr<NetworkLayer>>
+}
+
+
 /// Load neural network from .nnet file.
 /// \param filename the path to the .nnet file
 /// \return In-memory representation of the network
@@ -45,103 +92,181 @@ namespace {
 /// 7: Mean values of inputs and one value for all outputs (used for normalization)
 /// 8: Range values of inputs and one value for all outputs (used for normalization)
 /// 9+: Begin defining the weight matrix for the first layer, followed by the bias vector. The weights and biases for the second layer follow after, until the weights and biases for the output layer are defined.
-std::unique_ptr<Network> Network::fromNNetFile(std::string_view filename) {
-    std::ifstream file{std::string{filename}};
-    if (not file.good()) { throw std::ifstream::failure{"Could not open model file " + std::string{filename}}; }
+std::unique_ptr<Network> Network::fromNNet(std::string_view filename) {
+     std::ifstream file{std::string{filename}};
+     if (not file.good()) { throw std::ifstream::failure{"Could not open model file " + std::string{filename}}; }
 
-    std::string line;
+     std::string line;
 
-    // Skip header lines
-    while (std::getline(file, line)) {
-        if (line.find("//") == std::string::npos) { break; }
-    }
+     // Skip header lines
+     while (std::getline(file, line)) {
+         if (line.find("//") == std::string::npos) { break; }
+     }
 
-    std::vector<std::string> networkArchitecture = split(line, ',');
-    assert(networkArchitecture.size() == 4);
-    std::size_t numLayers =
-        std::stoull(networkArchitecture[0]) + 1; // The format does not include input layer, but we do
-    std::size_t numInputs = std::stoull(networkArchitecture[1]);
-    std::size_t numOutputs = std::stoull(networkArchitecture[2]);
-    std::size_t maxLayerSize = std::stoull(networkArchitecture[3]);
+     std::vector<std::string> networkArchitecture = split(line, ',');
+     assert(networkArchitecture.size() == 4);
+     std::size_t numLayers = std::stoull(networkArchitecture[0]) + 1; // The format does not include input layer, but we do
+     std::vector<std::size_t> numInputs = {std::stoull(networkArchitecture[1])};
+     std::size_t numOutputs = std::stoull(networkArchitecture[2]);
+     std::size_t maxLayerSize = std::stoull(networkArchitecture[3]);
 
-    // Specify layer sizes
-    std::getline(file, line);
-    auto layer_sizes = parseValues(line, [](auto const & val) { return std::stoull(val); });
-    assert(layer_sizes.size() == numLayers);
+     // Specify layer sizes
+     std::getline(file, line);
+     auto layer_sizes = parseValues(line, [](auto const & val) { return std::stoull(val); });
+     assert(layer_sizes.size() == numLayers);
 
-    // Flag that can be ignored
-    std::getline(file, line);
+     // Flag that can be ignored
+     std::getline(file, line);
 
-    // Min and max input values
-    auto transformation = [](auto const & val) { return std::stof(val); };
-    std::getline(file, line);
-    auto inputMinValues = static_cast<Values &&>(parseValues(line, transformation));
-    std::getline(file, line);
-    auto inputMaxValues = static_cast<Values &&>(parseValues(line, transformation));
-    assert(inputMinValues.size() == numInputs and inputMaxValues.size() == numInputs);
+     // Min and max input values
+     auto transformation = [](auto const & val) { return std::stof(val); };
+     std::getline(file, line);
+     auto inputMinValues = static_cast<Values &&>(parseValues(line, transformation));
+     std::getline(file, line);
+     auto inputMaxValues = static_cast<Values &&>(parseValues(line, transformation));
+    // TODO: Faezeh: make the right assertion: it has the same shape
+     // assert(inputMinValues.size() == numInputs and inputMaxValues.size() == numInputs);
 
-    // Skip normalization information
-    for (int i = 0; i < 2; i++) {
-        std::getline(file, line);
-    }
+     // Skip normalization information
+     for (int i = 0; i < 2; i++) {
+         std::getline(file, line);
+     }
 
-    // Parse model parameters
-    Weights weights(numLayers);
-    Biases biases(numLayers);
-    for (auto layer = 0u; layer < numLayers - 1; layer++) {
-        // Parse weights
-        auto layerSize = layer_sizes.at(layer + 1);
-        for (auto i = 0u; i < layerSize; i++) {
-            std::getline(file, line);
-            std::vector<std::string> weightStrings = split(line, ',');
-            weights[layer].emplace_back();
-            for (auto const & weightString : weightStrings) {
-                weights[layer][i].push_back(std::stof(weightString));
-            }
-        }
+     // Parse model parameters
+     std::vector<std::unique_ptr<NetworkLayer>> layers;
+     for (auto layer = 0u; layer < numLayers - 1; layer++) {
+         // Parse weights
+         auto layerSize = layer_sizes.at(layer + 1);
+         NetworkLayer::Vector2D layerWeights(layerSize);
+         for (auto i = 0u; i < layerSize; i++) {
+             std::getline(file, line);
+             std::vector<std::string> weightStrings = split(line, ',');
+             for (auto const & weightString : weightStrings) {
+                 layerWeights[i].push_back(std::stof(weightString));
+             }
+         }
+         // Parse biases
+         NetworkLayer::Values layerBiases;
+         for (auto i = 0u; i < layerSize; i++) {
+             std::getline(file, line);
+             std::vector<std::string> biasStrings = split(line, ',');
+             std::string biasString = biasStrings[0];
+             layerBiases.push_back(std::stof(biasString));
+         }
+         bool followedByRelu = true;
+         if (layer == numLayers - 2) {
+             followedByRelu = false;
+         }
+         auto fcLayer = std::make_unique<FCLayer>(
+             std::vector<std::size_t>{layerSize},
+             FCLayer::Weight{std::move(layerWeights)}, // weights for hidden FC // weights
+             FCLayer::Bias{std::move(layerBiases)}, // biases for each output node
+             followedByRelu
+         );
+         layers.push_back(std::move(fcLayer));
+     }
+     file.close();
 
-        // Parse biases
-        for (auto i = 0u; i < layerSize; i++) {
-            std::getline(file, line);
-            std::vector<std::string> biasStrings = split(line, ',');
-            std::string biasString = biasStrings[0];
-            biases[layer].push_back(std::stof(biasString));
-        }
-    }
-    file.close();
-
-    return std::unique_ptr<Network>{new Network(numInputs, numOutputs, numLayers, maxLayerSize,
-                                                std::move(inputMinValues), std::move(inputMaxValues),
-                                                std::move(weights), std::move(biases))};
+    return std::unique_ptr<Network>{new Network(numInputs, numOutputs, layers.size(), 9,
+                                                    std::move(inputMinValues), std::move(inputMaxValues),
+                                                    std::move(layers))};
 }
 
-std::size_t Network::getLayerSize(std::size_t layerNum) const {
-    if (layerNum == 0) return numInputs;
-    assert(layerNum <= biases.size());
-    return biases[layerNum - 1].size();
+
+std::vector<size_t> Network::getLayerSize(std::size_t layerNum) const {
+    if (layerNum == 0) return std::vector<size_t>{inputShape};;
+    return getLayer(layerNum)->getLayerSize();
 }
 
-Network::Values const & Network::getWeights(std::size_t layerNum, std::size_t nodeIndex) const {
-    assert(layerNum > 0);
-    assert(nodeIndex < getLayerSize(layerNum));
-    return weights[layerNum - 1][nodeIndex];
-}
-
-Float Network::getBias(std::size_t layerNum, std::size_t nodeIndex) const {
-    assert(layerNum > 0);
-    assert(nodeIndex < getLayerSize(layerNum));
-    return biases[layerNum - 1][nodeIndex];
+NetworkLayer const * Network::getLayer(std::size_t layerNum) const {
+    assert(layerNum < numLayers);
+    return layers.at(layerNum).get();
 }
 
 Float Network::getInputLowerBound(std::size_t nodeIndex) const {
-    assert(nodeIndex < getLayerSize(0));
-    return inputMinimums.at(nodeIndex);
+    if (inputShape.size() == 1) {
+        assert(nodeIndex < getLayerSize(0)[0]);
+        assert(std::holds_alternative<Values>(inputMinimums));
+        const auto & minValuse = std::get<Values>(inputMinimums);
+        return minValuse.at(nodeIndex);
+    } else if (inputShape.size() == 2) {
+        std::size_t rows = inputShape[0];
+        std::size_t cols = inputShape[1];
+        assert(nodeIndex < rows * cols);
+        std::size_t i = nodeIndex / cols;
+        std::size_t j = nodeIndex % cols;
+        return getInputLowerBound(i, j);
+    } else if (inputShape.size() == 3) {
+        std::size_t depth = inputShape[0];
+        std::size_t rows = inputShape[1];
+        std::size_t cols = inputShape[2];
+        assert(nodeIndex < depth * rows * cols);
+        std::size_t i = nodeIndex / (rows * cols);
+        std::size_t j = (nodeIndex / cols) % rows;
+        std::size_t k = nodeIndex % cols;
+        return getInputLowerBound(i, j, k);
+    } else {
+        throw std::logic_error("Input dimension not supported for getInputLowerBound");
+    }
 }
 
 Float Network::getInputUpperBound(std::size_t nodeIndex) const {
-    assert(nodeIndex < getLayerSize(0));
-    return inputMaximums.at(nodeIndex);
+    if (inputShape.size() == 1) {
+        assert(nodeIndex < getLayerSize(0)[0]);
+        assert(std::holds_alternative<Values>(inputMaximums));
+        const auto & minValuse = std::get<Values>(inputMaximums);
+        return minValuse.at(nodeIndex);
+    } else if (inputShape.size() == 2) {
+        std::size_t rows = inputShape[0];
+        std::size_t cols = inputShape[1];
+        assert(nodeIndex < rows * cols);
+        std::size_t i = nodeIndex / cols;
+        std::size_t j = nodeIndex % cols;
+        return getInputUpperBound(i, j);
+    } else if (inputShape.size() == 3) {
+        std::size_t depth = inputShape[0];
+        std::size_t rows = inputShape[1];
+        std::size_t cols = inputShape[2];
+        assert(nodeIndex < depth * rows * cols);
+        std::size_t i = nodeIndex / (rows * cols);
+        std::size_t j = (nodeIndex / cols) % rows;
+        std::size_t k = nodeIndex % cols;
+        return getInputUpperBound(i, j, k);
+    } else {
+        throw std::logic_error("Input dimension not supported for getInputUpperBound");
+    }
 }
+
+// 2D lower bound
+Float Network::getInputLowerBound(std::size_t i, std::size_t j) const {
+    assert(std::holds_alternative<Vector2D>(inputMinimums));
+    const auto & mat = std::get<Vector2D>(inputMinimums);
+    assert(i < mat.size() && j < mat[i].size());
+    return mat[i][j];
+}
+
+Float Network::getInputUpperBound(std::size_t i, std::size_t j) const {
+    assert(std::holds_alternative<Vector2D>(inputMaximums));
+    const auto & mat = std::get<Vector2D>(inputMaximums);
+    assert(i < mat.size() && j < mat[i].size());
+    return mat[i][j];
+}
+
+// 3D lower bound
+Float Network::getInputLowerBound(std::size_t i, std::size_t j, std::size_t k) const {
+    assert(std::holds_alternative<Vector3D>(inputMinimums));
+    const auto & tensor = std::get<Vector3D>(inputMinimums);
+    assert(i < tensor.size() && j < tensor[i].size() && k < tensor[i][j].size());
+    return tensor[i][j][k];
+}
+
+Float Network::getInputUpperBound(std::size_t i, std::size_t j, std::size_t k) const {
+    assert(std::holds_alternative<Vector3D>(inputMaximums));
+    const auto & tensor = std::get<Vector3D>(inputMaximums);
+    assert(i < tensor.size() && j < tensor[i].size() && k < tensor[i][j].size());
+    return tensor[i][j][k];
+}
+
 
 bool Network::isBinaryClassifier() const {
     assert(getOutputSize() != 0);
@@ -150,36 +275,39 @@ bool Network::isBinaryClassifier() const {
 }
 
 Network::Output Network::operator()(Sample const & sample) const {
-    Output::Values values = computeOutputValues(sample);
+    if (sample.size() != getInputSizeFlat()) {
+        throw std::logic_error("Input values do not have expected size!");
+    }
+    auto sampleReshaped = reshapeInput(sample);
+    Output::Values values = computeOutputValues(sampleReshaped);
     Classification cls = computeClassification(values);
 
     return {.classification = std::move(cls), .values = std::move(values)};
 }
 
-Network::Output::Values Network::computeOutputValues(Sample const & sample) const {
+Network::Output::Values Network::computeOutputValues(InputVariant const & sample) const {
     auto inputSize = getInputSize();
-    if (sample.size() != inputSize) { throw std::logic_error("Input values do not have expected size!"); }
+    // if (sample.size() != inputSize) { throw std::logic_error("Input values do not have expected size!"); }
 
-    auto previousLayerValues = sample;
-    Values currentLayerValues;
-    for (auto layer = 1u; layer < getNumLayers(); ++layer) {
-        for (auto node = 0u; node < getLayerSize(layer); ++node) {
-            auto const & incomingWeights = getWeights(layer, node);
-            assert(incomingWeights.size() == previousLayerValues.size());
-            Values addends;
-            for (auto i = 0u; i < incomingWeights.size(); ++i) {
-                addends.push_back(incomingWeights[i] * previousLayerValues[i]);
-            }
-            currentLayerValues.push_back(std::accumulate(addends.begin(), addends.end(), getBias(layer, node)));
+    auto currentLayerInput = sample;
+
+    for (auto layerInd = 0u; layerInd < getNumLayers(); layerInd++) {
+        InputVariant currentLayerOutput;
+        auto layer = getLayer(layerInd);
+        if (auto fcLayer = dynamic_cast<spexplain::FCLayer const *>(layer)) {
+            currentLayerOutput = fcLayer->computeLayerOutput(currentLayerInput);
+        } else if (auto convLayer = dynamic_cast<spexplain::ConvLayer const *>(layer)) {
+            currentLayerOutput = convLayer->computeLayerOutput(currentLayerInput);
+        } else if (auto flattenLayer = dynamic_cast<spexplain::FlattenLayer const *>(layer)) {
+            currentLayerOutput = flattenLayer->computeLayerOutput(currentLayerInput);
+        } else {
+            throw std::logic_error("Unsupported layer type!");
         }
-        if (layer < getNumLayers() - 1) {
-            std::transform(currentLayerValues.begin(), currentLayerValues.end(), currentLayerValues.begin(),
-                           [](Float val) { return std::max(Float{0}, val); });
-            previousLayerValues = std::move(currentLayerValues);
-            currentLayerValues.clear();
-        }
+        currentLayerInput = std::move(currentLayerOutput);
     }
-    return currentLayerValues;
+    assert(std::holds_alternative<Values>(currentLayerInput));
+    auto const & currentLayerOutput = std::get<Values>(currentLayerInput);
+    return currentLayerOutput;
 }
 
 Network::Classification Network::computeClassification(Output::Values const & values) const {
@@ -213,6 +341,37 @@ void Network::Values::print(std::ostream & os) const {
     os << front();
     for (Float val : *this | std::views::drop(1)) {
         os << ',' << val;
+    }
+}
+
+Network::InputVariant Network::reshapeInput(Network::InputVariant sample) const {
+    assert(std::holds_alternative<Values>(sample));
+    auto const & sample1D = std::get<Values>(sample);
+    if (inputShape.size() == 1) {
+        assert(sample1D.size() == inputShape[0]);
+        return sample1D;
+    } else if (inputShape.size() == 2) {
+        assert(sample1D.size() == inputShape[0] * inputShape[1]);
+        Network::Vector2D mat(inputShape[0], Network::Values(inputShape[1]));
+        for (std::size_t i = 0; i < inputShape[0]; ++i) {
+            for (std::size_t j = 0; j < inputShape[1]; ++j) {
+                mat[i][j] = sample1D[i * inputShape[1] + j];
+            }
+        }
+        return Network::InputVariant{mat};
+    } else if (inputShape.size() == 3) {
+        assert(sample1D.size() == inputShape[0] * inputShape[1] * inputShape[2]);
+        Network::Vector3D tensor(inputShape[0], Network::Vector2D(inputShape[1], Network::Values(inputShape[2])));
+        for (std::size_t i = 0; i < inputShape[0]; ++i) {
+            for (std::size_t j = 0; j < inputShape[1]; ++j) {
+                for (std::size_t k = 0; k < inputShape[2]; ++k) {
+                    tensor[i][j][k] = sample1D[i * inputShape[1] * inputShape[2] + j * inputShape[2] + k];
+                }
+            }
+        }
+        return tensor;
+    } else {
+        throw std::logic_error("Input dimension not supported for reshapeInputVars");
     }
 }
 } // namespace spexplain

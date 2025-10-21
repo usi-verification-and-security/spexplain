@@ -1,4 +1,7 @@
 #include "OpenSMTVerifier.h"
+#include "spexplain/network/ConvLayer.h"
+#include "spexplain/network/FCLayer.h"
+#include "spexplain/network/FlattenLayer.h"
 
 #include <api/MainSolver.h>
 #include <common/StringConv.h>
@@ -25,6 +28,9 @@ public:
     std::size_t termSizeOf(PTRef const &) const;
 
     void loadModel(spexplain::Network const &);
+    LayerRefsVariant encodeFCLayer(spexplain::FCLayer const &, LayerRefsVariant const &);
+    LayerRefsVariant encodeConvLayer(spexplain::ConvLayer const &, LayerRefsVariant const &);
+    LayerRefsVariant encodeFlattenLayer(spexplain::FlattenLayer const & , LayerRefsVariant const &);
 
     void setUnsatCoreFilter(std::vector<NodeIndex> const &);
 
@@ -77,6 +83,7 @@ public:
     opensmt::MainSolver & getSolver() { return *solver; }
 
     void printSmtLib2Query(std::ostream &) const;
+    LayerRefsVariant reshapeInputVars(std::vector<std::size_t>);
 
 private:
     //! sync with the framework
@@ -102,7 +109,7 @@ private:
     std::unique_ptr<SMTConfig> config;
     std::vector<PTRef> inputVars;
     std::vector<PTRef> outputVars;
-    std::vector<std::size_t> layerSizes;
+    std::size_t numLayers;
 
     std::vector<NodeIndex> unsatCoreNodeFilter;
 
@@ -274,67 +281,40 @@ std::size_t OpenSMTVerifier::OpenSMTImpl::termSizeOf(PTRef const & term) const {
 }
 
 void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network) {
+    numLayers = network.getNumLayers();
     // create input variables
-    for (NodeIndex i = 0u; i < network.getLayerSize(0); ++i) {
+    auto numInputs = network.getInputSizeFlat();
+    for (NodeIndex i = 0u; i < numInputs; ++i) {
         auto name = inputVarName(i);
         PTRef var = logic->mkRealVar(name.c_str());
         inputVars.push_back(var);
     }
 
     // Create representation for each neuron in hidden layers, from input to output layers
-    std::vector<PTRef> previousLayerRefs = inputVars;
-    for (LayerIndex layer = 1u; layer < network.getNumLayers() - 1; layer++) {
-        std::vector<PTRef> currentLayerRefs;
-        for (NodeIndex node = 0u; node < network.getLayerSize(layer); ++node) {
-            std::vector<PTRef> addends;
-            float bias = network.getBias(layer, node);
-            auto const & weights = network.getWeights(layer, node);
-            PTRef biasTerm = logic->mkRealConst(floatToRational(bias));
-            addends.push_back(biasTerm);
-
-            assert(previousLayerRefs.size() == weights.size());
-            for (int j = 0; j < weights.size(); j++) {
-                PTRef weightTerm = logic->mkRealConst(floatToRational(weights[j]));
-                PTRef addend = logic->mkTimes(weightTerm, previousLayerRefs[j]);
-                addends.push_back(addend);
-            }
-            PTRef input = logic->mkPlus(addends);
-            PTRef relu = logic->mkIte(logic->mkGeq(input, logic->getTerm_RealZero()), input, logic->getTerm_RealZero());
-            currentLayerRefs.push_back(relu);
+    LayerRefsVariant previousLayerRefs = reshapeInputVars(network.getInputSize());
+    for (LayerIndex layerInd = 0u; layerInd < network.getNumLayers(); layerInd++) {
+        LayerRefsVariant currentLayerRefs;
+        auto layer = network.getLayer(layerInd);
+        if (auto fcLayer = dynamic_cast<spexplain::FCLayer const *>(layer)) {
+            currentLayerRefs = std::get<PTRef1D>(encodeFCLayer(*fcLayer, previousLayerRefs));
+        } else if (auto convLayer = dynamic_cast<spexplain::ConvLayer const *>(layer)) {
+            currentLayerRefs = std::get<PTRef3D>(encodeConvLayer(*convLayer, previousLayerRefs));
+        } else if (auto flattenLayer = dynamic_cast<spexplain::FlattenLayer const *>(layer)) {
+            currentLayerRefs = std::get<PTRef1D>(encodeFlattenLayer(*flattenLayer, previousLayerRefs));
+        } else {
+            throw std::logic_error("Unsupported layer type!");
         }
         previousLayerRefs = std::move(currentLayerRefs);
     }
-
-    // Create representation of the outputs (without RELU!)
-    // TODO: Remove code duplication!
-    auto lastLayerIndex = network.getNumLayers() - 1;
-    auto lastLayerSize = network.getLayerSize(lastLayerIndex);
     outputVars.clear();
-    for (NodeIndex node = 0u; node < lastLayerSize; ++node) {
-        std::vector<PTRef> addends;
-        float bias = network.getBias(lastLayerIndex, node);
-        auto const & weights = network.getWeights(lastLayerIndex, node);
-        PTRef biasTerm = logic->mkRealConst(floatToRational(bias));
-        addends.push_back(biasTerm);
 
-        assert(previousLayerRefs.size() == weights.size());
-        for (int j = 0; j < weights.size(); j++) {
-            PTRef weightTerm = logic->mkRealConst(floatToRational(weights[j]));
-            PTRef addend = logic->mkTimes(weightTerm, previousLayerRefs[j]);
-            addends.push_back(addend);
-        }
-        outputVars.push_back(logic->mkPlus(addends));
-    }
-
-    // Store information about layer sizes
-    layerSizes.clear();
-    for (LayerIndex layer = 0u; layer < network.getNumLayers(); layer++) {
-        layerSizes.push_back(network.getLayerSize(layer));
-    }
+    assert(std::holds_alternative<PTRef1D>(previousLayerRefs));
+    const auto &prevLayerRefsVec = std::get<PTRef1D>(previousLayerRefs);
+    outputVars = std::move(const_cast<PTRef1D&>(prevLayerRefsVec));
 
     // Collect hard bounds on inputs
     std::vector<PTRef> bounds;
-    assert(network.getLayerSize(0) == inputVars.size());
+    assert(network.getInputSizeFlat() == inputVars.size());
     for (NodeIndex i = 0; i < inputVars.size(); ++i) {
         float lb = network.getInputLowerBound(i);
         float ub = network.getInputUpperBound(i);
@@ -342,6 +322,146 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
         bounds.push_back(logic->mkLeq(inputVars[i], logic->mkRealConst(floatToRational(ub))));
     }
     addTerm(logic->mkAnd(bounds));
+    std::cout <<  "Encoding the network is done successfully!" << std::endl;
+}
+
+OpenSMTVerifier::LayerRefsVariant OpenSMTVerifier::OpenSMTImpl::encodeFCLayer(spexplain::FCLayer const & layer, LayerRefsVariant const & previousLayerRefs) {
+    assert(std::holds_alternative<PTRef1D>(previousLayerRefs));
+    PTRef1D currentLayerRefs;
+    assert(layer.getLayerSize().size() == 1); // only 1D supported for FC
+    auto const biasVec = layer.getBias();
+
+    for (NodeIndex node = 0u; node < layer.getLayerSize()[0]; ++node) {
+        PTRef1D addends;
+        float bias = biasVec[node];
+        auto const weights = std::get<spexplain::Network::Values>(layer.getWeights(node));
+        PTRef biasTerm = logic->mkRealConst(floatToRational(bias));
+        addends.push_back(biasTerm);
+        auto const & prevLayerRefsVec = std::get<PTRef1D>(previousLayerRefs);
+        assert(prevLayerRefsVec.size() == weights.size());
+        for (int j = 0; j < weights.size(); j++) {
+        PTRef weightTerm = logic->mkRealConst(floatToRational(weights[j]));
+        PTRef addend = logic->mkTimes(weightTerm, prevLayerRefsVec[j]);
+        addends.push_back(addend);
+        }
+        PTRef input = logic->mkPlus(addends);
+        if (layer.followsByRelu()) {
+            // Apply ReLU
+            PTRef relu = logic->mkIte(logic->mkGeq(input, logic->getTerm_RealZero()), input, logic->getTerm_RealZero());
+            currentLayerRefs.push_back(relu);
+        }else {
+            currentLayerRefs.push_back(input);
+        }
+    }
+    return currentLayerRefs;
+}
+
+OpenSMTVerifier::LayerRefsVariant OpenSMTVerifier::OpenSMTImpl::encodeConvLayer(spexplain::ConvLayer const & layer, LayerRefsVariant const & previousLayerRefs) {
+    assert(std::holds_alternative<PTRef3D>(previousLayerRefs) or
+           std::holds_alternative<PTRef2D>(previousLayerRefs));  //2D or 3D inputs
+    // If 2D inputs, convert to 3D
+    PTRef3D previousLayerRefs3D;
+    if (std::holds_alternative<PTRef2D>(previousLayerRefs)) {
+        auto const & prevLayerRefs2D = std::get<PTRef2D>(previousLayerRefs);
+        previousLayerRefs3D.push_back(prevLayerRefs2D);
+    } else {
+        auto &previousLayerRefs3D = std::get<PTRef3D>(previousLayerRefs);
+    }
+    PTRef3D currentLayerRefs;
+    assert(layer.getLayerSize().size() == 3); // only 3D supported for Conv
+    auto const filters = std::get<spexplain::NetworkLayer::Vector4D>(layer.getWeights());
+    auto const biasVec = layer.getBias();
+    int stride = layer.getStride();
+    int padding = layer.getPadding();
+
+    std::size_t inChannels = previousLayerRefs3D.size();
+    std::size_t inRows = previousLayerRefs3D[0].size();
+    std::size_t inCols = previousLayerRefs3D[0][0].size();
+
+    // Pad input: create a new 3D vector of PTRef with zeros for padding
+    PTRef3D inputPadded;
+    for (std::size_t ic = 0; ic < inChannels; ++ic) {
+        PTRef2D paddedChannel(inRows + 2 * padding, PTRef1D(inCols + 2 * padding, logic->getTerm_RealZero()));
+        for (std::size_t i = 0; i < inRows; ++i)
+            for (std::size_t j = 0; j < inCols; ++j)
+                paddedChannel[i + padding][j + padding] = previousLayerRefs3D[ic][i][j];
+        inputPadded.push_back(std::move(paddedChannel));
+    }
+
+    inChannels = inputPadded.size();
+    inRows = inputPadded[0].size();
+    inCols = inputPadded[0][0].size();
+
+    std::size_t outChannels = filters.size();
+    std::size_t filterRows = filters[0][0].size();
+    std::size_t filterCols = filters[0][0][0].size();
+
+    std::size_t outRows = (inRows - filterRows) / layer.getStride() + 1;
+    std::size_t outCols = (inCols - filterCols) / layer.getStride() + 1;
+
+    assert(layer.getLayerSize()[0] == filters.size());
+
+    // Convolution encoding
+    for (std::size_t oc = 0; oc < outChannels; ++oc) {
+        PTRef2D outputChannel;
+        for (std::size_t i = 0; i < outRows; ++i) {
+            PTRef1D outputRow;
+            for (std::size_t j = 0; j < outCols; ++j) {
+                PTRef1D addends;
+                // Add bias
+                float bias = biasVec[oc];
+                addends.push_back(logic->mkRealConst(floatToRational(bias)));
+                // Convolution sum
+                for (std::size_t ic = 0; ic < inChannels; ++ic) {
+                    for (std::size_t m = 0; m < filterRows; ++m) {
+                        for (std::size_t n = 0; n < filterCols; ++n) {
+                            std::size_t x = i * stride + m;
+                            std::size_t y = j * stride + n;
+                            PTRef inputTerm = inputPadded[ic][x][y];
+                            float weight = filters[oc][ic][m][n];
+                            PTRef weightTerm = logic->mkRealConst(floatToRational(weight));
+                            addends.push_back(logic->mkTimes(weightTerm, inputTerm));
+                        }
+                    }
+                }
+                PTRef sum = logic->mkPlus(addends);
+                // Apply ReLU
+                if (layer.followsByRelu()) {
+                    PTRef relu = logic->mkIte(logic->mkGeq(sum, logic->getTerm_RealZero()), sum, logic->getTerm_RealZero());
+                    outputRow.push_back(relu);
+                }else {
+                    outputRow.push_back(sum);
+                }
+            }
+            outputChannel.push_back(std::move(outputRow));
+        }
+        currentLayerRefs.push_back(std::move(outputChannel));
+    }
+    return currentLayerRefs;
+}
+
+OpenSMTVerifier::LayerRefsVariant OpenSMTVerifier::OpenSMTImpl::encodeFlattenLayer(spexplain::FlattenLayer const & layer, LayerRefsVariant const & previousLayerRefs) {
+    assert(std::holds_alternative<PTRef2D>(previousLayerRefs) or std::holds_alternative<PTRef3D>(previousLayerRefs));
+    PTRef1D currentLayerRefs;
+    if (std::holds_alternative<PTRef2D>(previousLayerRefs)) {
+        auto const & prevLayerRefs2D = std::get<PTRef2D>(previousLayerRefs);
+        for (auto const & row : prevLayerRefs2D) {
+            for (auto const & elem : row) {
+                currentLayerRefs.push_back(elem);
+            }
+        }
+        return currentLayerRefs;
+    } else {
+        auto const & prevLayerRefs3D = std::get<PTRef3D>(previousLayerRefs);
+        for (auto const & matrix : prevLayerRefs3D) {
+            for (auto const & row : matrix) {
+                for (auto const & elem : row) {
+                    currentLayerRefs.push_back(elem);
+                }
+            }
+        }
+        return currentLayerRefs;
+    }
 }
 
 void OpenSMTVerifier::OpenSMTImpl::setUnsatCoreFilter(std::vector<NodeIndex> const & filter) {
@@ -370,14 +490,14 @@ void OpenSMTVerifier::OpenSMTImpl::addExplanationTerm(PTRef const & term, std::s
 }
 
 PTRef OpenSMTVerifier::OpenSMTImpl::makeUpperBound(LayerIndex layer, NodeIndex node, FastRational value) {
-    if (layer != 0 and layer != layerSizes.size() - 1)
+    if (layer != 0 and layer != numLayers - 1)
         throw std::logic_error("Unimplemented!");
     PTRef var = layer == 0 ? inputVars.at(node) : outputVars.at(node);
     return logic->mkLeq(var, logic->mkRealConst(value));
 }
 
 PTRef OpenSMTVerifier::OpenSMTImpl::makeLowerBound(LayerIndex layer, NodeIndex node, FastRational value) {
-    if (layer != 0 and layer != layerSizes.size() - 1)
+    if (layer != 0 and layer != numLayers - 1)
         throw std::logic_error("Unimplemented!");
     PTRef var = layer == 0 ? inputVars.at(node) : outputVars.at(node);
     return logic->mkGeq(var, logic->mkRealConst(value));
@@ -618,6 +738,49 @@ void OpenSMTVerifier::OpenSMTImpl::printSmtLib2Query(std::ostream & os) const {
     }
 
     logic.dumpChecksatToFile(os);
+}
+
+OpenSMTVerifier::LayerRefsVariant OpenSMTVerifier::OpenSMTImpl::reshapeInputVars(std::vector<std::size_t> shape) {
+    if (shape.size() == 1) {
+        PTRef1D inputVars1D;
+        for (auto const & var : inputVars) {
+            inputVars1D.push_back(var);
+        }
+        return inputVars1D;
+    } else if (shape.size() == 2) {
+        PTRef2D inputVars2D;
+        std::size_t rows = shape[0];
+        std::size_t cols = shape[1];
+        assert(rows * cols == inputVars.size());
+        for (std::size_t i = 0; i < rows; ++i) {
+            PTRef1D row;
+            for (std::size_t j = 0; j < cols; ++j) {
+                row.push_back(inputVars[i * cols + j]);
+            }
+            inputVars2D.push_back(row);
+        }
+        return inputVars2D;
+    } else if (shape.size() == 3) {
+        PTRef3D inputVars3D;
+        std::size_t depth = shape[0];
+        std::size_t rows = shape[1];
+        std::size_t cols = shape[2];
+        assert(depth * rows * cols == inputVars.size());
+        for (std::size_t d = 0; d < depth; ++d) {
+            PTRef2D matrix;
+            for (std::size_t i = 0; i < rows; ++i) {
+                PTRef1D row;
+                for (std::size_t j = 0; j < cols; ++j) {
+                    row.push_back(inputVars[d * rows * cols + i * cols + j]);
+                }
+                matrix.push_back(row);
+            }
+            inputVars3D.push_back(matrix);
+        }
+        return inputVars3D;
+    } else {
+        throw std::logic_error("Unsupported input shape!");
+    }
 }
 
 } // namespace xai::verifiers

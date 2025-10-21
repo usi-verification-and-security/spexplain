@@ -1,4 +1,14 @@
 // Toy example from TACAS/CAV paper
+// The file begins with header lines, some information about the network architecture, normalization information, and then model parameters. Line by line:
+// 1: Header text. This can be any number of lines so long as they begin with "//"
+// 2: Four values: Number of layers, number of inputs, number of outputs, and maximum layer size
+// 3: A sequence of values describing the network layer sizes. Begin with the input size, then the size of the first layer, second layer, and so on until the output layer size
+// 4: A flag that is no longer used, can be ignored
+// 5: Minimum values of inputs (used to keep inputs within expected range)
+// 6: Maximum values of inputs (used to keep inputs within expected range)
+// 7: Mean values of inputs and one value for all outputs (used for normalization)
+// 8: Range values of inputs and one value for all outputs (used for normalization)
+// 9+: Begin defining the weight matrix for the first layer, followed by the bias vector. The weights and biases for the second layer follow after, until the weights and biases for the output layer are defined.
 2,3,1,3,
 3,2,1,
 0,

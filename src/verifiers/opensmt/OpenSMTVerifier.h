@@ -5,8 +5,11 @@
 
 #include <memory>
 
+#undef setbit
+#undef clrbit
+
 namespace opensmt {
-class PTRef;
+struct PTRef;
 class MainSolver;
 } // namespace opensmt
 
@@ -14,6 +17,14 @@ namespace xai::verifiers {
 
 class OpenSMTVerifier : public UnsatCoreVerifier {
 public:
+    using PTRef1D = std::vector<::opensmt::PTRef>;
+    using PTRef2D = std::vector<std::vector<::opensmt::PTRef>>;
+    using PTRef3D = std::vector<std::vector<std::vector<::opensmt::PTRef>>>;
+
+    using LayerRefsVariant = std::variant<
+        PTRef1D,
+        PTRef2D,
+        PTRef3D >;
     OpenSMTVerifier();
     virtual ~OpenSMTVerifier();
     OpenSMTVerifier(OpenSMTVerifier const &) = delete;

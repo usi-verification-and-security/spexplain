@@ -208,9 +208,42 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     return std::nullopt;
 }
 
+int mainDummy(int argc, char * argv[], int i = 1) {
+    // std::string_view const nnModelFn = argv[++i];
+    // auto networkPtr = spexplain::Network::fromNNet(nnModelFn);
+    auto networkPtr = spexplain::Network::buildDummyNetwork();
+    assert(networkPtr);
+
+    std::string_view const datasetFn = argv[++i];
+
+    std::string_view const strategiesSpec = argv[++i];
+
+    std::string verifierName;
+    std::string explanationsFn;
+
+    spexplain::Framework::Config config;
+
+    if (auto optRet = getOpts(argc, argv, config, verifierName, explanationsFn)) { return *optRet; }
+
+    auto dataset = spexplain::Network::Dataset{datasetFn};
+    std::size_t const size = dataset.size();
+
+    std::istringstream strategiesSpecIss{std::string{strategiesSpec}};
+    spexplain::Framework framework{config, std::move(networkPtr), verifierName, strategiesSpecIss};
+
+    // Dump the SMT-LIB2 queries for all classifications of the dummy network
+    framework.dumpClassificationsAsSmtLib2Queries();
+
+    spexplain::Explanations explanations =
+        explanationsFn.empty() ? framework.explain(dataset) : framework.expand(explanationsFn, dataset);
+    assert(explanations.size() == size);
+
+    return 0;
+}
+
 int mainExplain(int argc, char * argv[], int i) {
     std::string_view const nnModelFn = argv[++i];
-    auto networkPtr = spexplain::Network::fromNNetFile(nnModelFn);
+    auto networkPtr = spexplain::Network::fromNNet(nnModelFn);
     assert(networkPtr);
 
     std::string_view const datasetFn = argv[++i];
@@ -239,7 +272,8 @@ int mainExplain(int argc, char * argv[], int i) {
 
 int mainDumpPsi(int argc, char * argv[], int i) {
     std::string_view const nnModelFn = argv[++i];
-    auto networkPtr = spexplain::Network::fromNNetFile(nnModelFn);
+    auto networkPtr = spexplain::Network::fromNNet(nnModelFn);
+    // auto networkPtr = spexplain::Network::buildDummyNetwork();
     assert(networkPtr);
 
     std::string verifierName;
@@ -267,6 +301,12 @@ int main(int argc, char * argv[]) try {
     assert(nArgs >= 0);
     if (nArgs == 0) {
         printUsage(argv);
+        return 0;
+    }
+    std::string_view const arg1 = argv[1];
+    if (arg1 == "dummy") {
+        std::cout << "Running dummy example...\n";
+        mainDummy(argc, argv);
         return 0;
     }
 

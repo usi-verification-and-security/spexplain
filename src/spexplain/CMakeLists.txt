@@ -7,6 +7,9 @@ PRIVATE
     common/Print.cpp
     network/Network.cpp
     network/Dataset.cpp
+    network/ConvLayer.cpp
+    network/FCLayer.cpp
+    network/FlattenLayer.cpp
     framework/Framework.cpp
     framework/Parse.cpp
     framework/Preprocess.cpp
