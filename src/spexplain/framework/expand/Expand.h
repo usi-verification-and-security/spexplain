@@ -73,7 +73,10 @@ protected:
     void assertClassification(Network::Classification const &);
     void resetClassification();
 
-    void printStatsHead(Network::Dataset const &) const;
+    void printHead(std::ostream &, Network::Dataset const &) const;
+    void printProgress(std::ostream &, Network::Dataset const &, ExplanationIdx,
+                       std::string_view caption = "sample") const;
+
     void printStats(Explanation const &, Network::Dataset const &, ExplanationIdx) const;
 
     Framework & framework;

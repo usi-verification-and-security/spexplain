@@ -7,16 +7,27 @@
 #include <spexplain/network/Dataset.h>
 
 #include <optional>
+#include <string>
+#include <string_view>
 
 namespace spexplain {
 //+ move parsing cmdline options here
-//+ after construction, make the conf const
 class Framework::Config {
 public:
     using Verbosity = short;
 
+    // Not always, it may use Marabou if suitable:
+    // static inline std::string const defaultVerifierName = "opensmt";
+    static inline std::string const defaultExplanationsFileName = "phi.txt";
+
+    void setVerifierName(std::string_view name) { verifierName = name; }
+
+    void setExplanationsFileName(std::string_view fileName) { explanationsFileName = fileName; }
+    void setStatsFileName(std::string_view fileName) { statsFileName = fileName; }
+
     void setVerbosity(Verbosity verb) { verbosity = verb; }
     void beVerbose() { setVerbosity(1); }
+    void beQuiet() { setVerbosity(-1); }
 
     void reverseVarOrdering() { reverseVarOrder = true; }
 
@@ -41,8 +52,20 @@ public:
     void filterIncorrectSamples() { optFilterCorrectSamples = false; }
     void filterSamplesOfExpectedClass(Network::Classification::Label l) { optFilterSamplesOfExpectedClass = l; }
 
+    std::string_view getVerifierName() const { return verifierName; }
+    bool verifierNameIsSet() const { return not getVerifierName().empty(); }
+
+    std::string_view getExplanationsFileName() const {
+        if (not explanationsFileNameIsSet()) { return defaultExplanationsFileName; }
+        return explanationsFileName;
+    }
+    bool explanationsFileNameIsSet() const { return not explanationsFileName.empty(); }
+    std::string_view getStatsFileName() const { return statsFileName; }
+    bool statsFileNameIsSet() const { return not getStatsFileName().empty(); }
+
     Verbosity getVerbosity() const { return verbosity; }
     bool isVerbose() const { return getVerbosity() > 0; }
+    bool isQuiet() const { return getVerbosity() < 0; }
 
     bool isReverseVarOrdering() const { return reverseVarOrder; }
 
@@ -75,6 +98,11 @@ public:
     }
 
 protected:
+    std::string_view verifierName{};
+
+    std::string_view explanationsFileName{};
+    std::string_view statsFileName{};
+
     Verbosity verbosity{};
 
     bool reverseVarOrder{};

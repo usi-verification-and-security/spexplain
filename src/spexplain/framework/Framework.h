@@ -36,8 +36,6 @@ public:
     Framework(Config const &);
     Framework(Config const &, std::unique_ptr<Network>);
     Framework(Config const &, std::unique_ptr<Network>, std::istream & expandStrategiesSpec);
-    Framework(Config const &, std::unique_ptr<Network>, std::string_view verifierName,
-              std::istream & expandStrategiesSpec);
     ~Framework();
 
     void setConfig(Config const &);
@@ -55,7 +53,13 @@ public:
     }
 
     void setExpand(std::istream & strategiesSpec);
-    void setExpand(std::string_view verifierName, std::istream & strategiesSpec);
+
+    // Sufficient to set in Config
+    void setVerifierName(std::string_view name);
+
+    // Sufficient to set in Config
+    void setExplanationsFileName(std::string_view fileName);
+    void setStatsFileName(std::string_view fileName);
 
     std::size_t varSize() const { return varNames.size(); }
     VarName const & getVarName(VarIdx idx) const { return varNames[idx]; }
@@ -99,7 +103,7 @@ protected:
         return *printPtr;
     }
 
-    std::unique_ptr<Config> configPtr;
+    std::unique_ptr<Config const> configPtr;
 
     std::unique_ptr<Network> networkPtr{};
     VarNames varNames{};

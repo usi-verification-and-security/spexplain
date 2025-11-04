@@ -35,16 +35,17 @@ maybe_read_max_samples "$1" && shift
 set_cmd
 set_timeout
 
-OPTIONS=(-sv)
+declare -a OPTIONS
+OPTIONS=(--quiet --format=smtlib2)
 
 [[ -n $MAX_SAMPLES ]] && {
     OUTPUT_DIR+=/$MAX_SAMPLES_NAME
-    OPTIONS+=(-Sn$MAX_SAMPLES)
+    OPTIONS+=(--shuffle-samples --max-samples=$MAX_SAMPLES)
 }
 
 [[ -n $REVERSE ]] && {
     OUTPUT_DIR+=/reverse
-    OPTIONS+=(-r)
+    OPTIONS+=(--reverse-var)
 }
 
 mkdir -p "$OUTPUT_DIR" >/dev/null || exit $?
@@ -58,8 +59,6 @@ function set_file {
     lfile="${OUTPUT_DIR}/${experiment}.${type}.txt"
 }
 
-ARGS=()
-
 for t in phi stats time; do
     set_file ${t}_file "$EXPERIMENT" $t
 done
@@ -67,7 +66,12 @@ done
 [[ -n $SRC_EXPERIMENT ]] && {
     set_file src_phi_file "$SRC_EXPERIMENT" phi
 
-    ARGS+=(-E "$src_phi_file")
+    OPTIONS+=(--input-explanations=\"$src_phi_file\")
 }
 
-exec timeout $TIMEOUT bash -c "{ time ${CMD} \"$MODEL\" \"$DATASET\" \"$STRATEGIES\" ${OPTIONS[@]} "'"$@"'" >\"$phi_file\" 2>\"$stats_file\" ; } 2>\"$time_file\"" spexplain "${ARGS[@]}" "$@"
+OPTIONS+=(
+    --output-explanations=\"$phi_file\"
+    --output-stats=\"$stats_file\"
+)
+
+exec timeout $TIMEOUT bash -c "{ time ${CMD} \"$MODEL\" \"$DATASET\" \"$STRATEGIES\" ${OPTIONS[*]} "'"$@"'" ; } 2>\"$time_file\"" spexplain "$@"

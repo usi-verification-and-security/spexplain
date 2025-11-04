@@ -68,7 +68,10 @@ std::unique_ptr<xai::verifiers::Verifier> Framework::Expand::makeVerifier(std::s
 }
 
 void Framework::Expand::setVerifier() {
-    setVerifier(""sv);
+    auto const & config = framework.getConfig();
+    auto verifierName = config.getVerifierName();
+
+    setVerifier(verifierName);
 }
 
 void Framework::Expand::setVerifier(std::string_view name) {
@@ -161,12 +164,25 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
                                     std::to_string(explanations.size()) + " < " + std::to_string(data.size())};
     }
 
-    auto & print = framework.getPrint();
-    bool const printingStats = not print.ignoringStats();
-    bool const printingExplanations = not print.ignoringExplanations();
-    auto & cexp = print.explanations();
+    auto const & config = framework.getConfig();
 
-    if (printingStats) { printStatsHead(data); }
+    auto & print = framework.getPrint();
+    bool const printingInfo = not print.ignoringInfo();
+    bool const printingExplanations = not print.ignoringExplanations();
+    bool const printingStats = not print.ignoringStats();
+    auto & cinfo = print.info();
+    auto & cexp = print.explanations();
+    auto & cstats = print.stats();
+    assert(printingExplanations);
+
+    if (printingInfo) {
+        cinfo << "Writing explanations to: " << config.getExplanationsFileName() << "\n";
+        if (printingStats) { cinfo << "Writing statistics to: " << config.getStatsFileName() << "\n"; }
+        cinfo << '\n';
+        printHead(cinfo, data);
+    }
+
+    if (printingStats) { printHead(cstats, data); }
 
     initVerifier();
 
@@ -175,6 +191,11 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
 
     Network::Dataset::SampleIndices const indices = makeSampleIndices(data);
     for (auto idx : indices) {
+        if (printingInfo) {
+            printProgress(cinfo, data, idx);
+            cinfo << " ..." << std::endl;
+        }
+
         // Seems quite more efficient than if outside the loop, at least with 'abductive'
         assertModel();
 
@@ -198,6 +219,8 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
 
         resetModel();
     }
+
+    cinfo << "\nDone." << std::endl;
 }
 
 void Framework::Expand::initVerifier() {
@@ -244,21 +267,23 @@ void Framework::Expand::resetClassification() {
     verifierPtr->resetSample();
 }
 
-void Framework::Expand::printStatsHead(Network::Dataset const & data) const {
-    auto & print = framework.getPrint();
-    assert(not print.ignoringStats());
-    auto & cstats = print.stats();
-
+void Framework::Expand::printHead(std::ostream & os, Network::Dataset const & data) const {
     auto const & config = framework.getConfig();
 
     std::size_t const size = data.size();
-    cstats << "Dataset size: " << size << '\n';
+    os << "Dataset size: " << size << '\n';
     if (config.limitingMaxSamples()) {
         auto const maxSamples = config.getMaxSamples();
-        if (maxSamples < size) { cstats << "Number of samples: " << maxSamples << '\n'; }
+        if (maxSamples < size) { os << "Number of samples: " << maxSamples << '\n'; }
     }
-    cstats << "Number of variables: " << framework.varSize() << '\n';
-    cstats << std::string(60, '-') << '\n';
+    os << "Number of variables: " << framework.varSize() << '\n';
+    os << std::string(60, '-') << std::endl;
+}
+
+void Framework::Expand::printProgress(std::ostream & os, Network::Dataset const & data, ExplanationIdx idx,
+                                      std::string_view caption) const {
+    std::size_t const dataSize = data.size();
+    os << caption << " [" << idx + 1 << '/' << dataSize << ']';
 }
 
 void Framework::Expand::printStats(Explanation const & explanation, Network::Dataset const & data,
@@ -272,7 +297,6 @@ void Framework::Expand::printStats(Explanation const & explanation, Network::Dat
     std::size_t const expVarSize = explanation.varSize();
     assert(expVarSize <= varSize);
 
-    std::size_t const dataSize = data.size();
     auto const & sample = data.getSample(idx);
     auto const & expClass = data.getExpectedClassification(idx).label;
     auto const & compClass = data.getComputedOutput(idx).classification.label;
@@ -284,7 +308,8 @@ void Framework::Expand::printStats(Explanation const & explanation, Network::Dat
     assert(termSize > 0);
 
     cstats << '\n';
-    cstats << "sample [" << idx + 1 << '/' << dataSize << "]: " << sample << '\n';
+    printProgress(cstats, data, idx);
+    cstats << ": " << sample << '\n';
     cstats << "expected output: " << expClass << '\n';
     cstats << "computed output: " << compClass << '\n';
     cstats << "#checks: " << verifierPtr->getChecksCount() << '\n';

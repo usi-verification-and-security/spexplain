@@ -78,26 +78,31 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     os << "OPTIONS:\n";
     printUsageOptRow(os, 'h', "", "Prints this help message and exits");
     printUsageOptRow(os, 'V', "<name>", "Set the verifier");
-    printUsageOptRow(os, 'E', "<file>", "Use explanations from file as starting points");
+    printUsageOptRow(os, 'E', "<file>", "Use explanations from the file as starting points");
+    printUsageOptRow(os, 'e', "<file>",
+                     "Output explanations into the file (default: "s + Framework::Config::defaultExplanationsFileName +
+                         ")");
+    printUsageOptRow(os, 's', "<file>", "Output statistics into the file");
     printUsageOptRow(os, 'v', "", "Run in verbose mode");
-    printUsageOptRow(os, 'r', "", "Reverse the order of variables");
-    printUsageOptRow(os, 's', "", "Print the resulting explanations in the SMT-LIB2 format");
-    printUsageOptRow(os, 'i', "", "Print the resulting explanations in the form of intervals");
+    printUsageOptRow(os, 'q', "", "Run in quiet mode");
+    printUsageOptRow(os, 'R', "", "Reverse the order of variables");
+    printUsageOptRow(os, 'S', "", "Print the resulting explanations in the SMT-LIB2 format");
+    printUsageOptRow(os, 'I', "", "Print the resulting explanations in the form of intervals");
+    printUsageOptRow(os, 'r', "", "Shuffle (randomize) samples");
     printUsageOptRow(os, 'n', "<int>", "Maximum no. samples to be processed");
-    printUsageOptRow(os, 'S', "", "Shuffle samples");
 
     os << "\nEXAMPLES:\n";
-    os << cmd << " explain data/models/toy.nnet data/datasets/toy.csv abductive\n";
-    os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'ucore interval, min' -rvs\n";
+    os << cmd << " explain data/models/toy.nnet data/datasets/toy.csv abductive -e data/explanations/toy.phi.txt\n";
+    os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'ucore interval, min' -RvS -e toy.phi.txt\n";
     os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'itp aweaker, bstrong; ucore'\n";
-    os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'trial n 2' -n1\n";
+    os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'trial n 2' -n1 -s stats.txt\n";
     os << cmd << " dump-psi data/models/toy.nnet\n";
 
     os.flush();
 }
 
-std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config & config, std::string & verifierName,
-                           std::string & explanationsFn) {
+std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config & config,
+                           std::string * explanationsFnPtr = nullptr) {
 
     int selectedLongOpt = 0;
     // constexpr int versionLongOpt = 1;
@@ -108,18 +113,23 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     struct ::option longOptions[] = {{"help", no_argument, nullptr, 'h'},
                                      {"verifier", required_argument, nullptr, 'V'},
                                      {"input-explanations", required_argument, nullptr, 'E'},
+                                     {"output-explanations", required_argument, nullptr, 'e'},
+                                     {"output-stats", required_argument, nullptr, 's'},
                                      {"verbose", no_argument, nullptr, 'v'},
+                                     {"quiet", no_argument, nullptr, 'q'},
                                      // {"version", no_argument, &selectedLongOpt, versionLongOpt},
-                                     {"reverse-var", no_argument, nullptr, 'r'},
+                                     {"reverse-var", no_argument, nullptr, 'R'},
                                      {"format", required_argument, &selectedLongOpt, formatLongOpt},
-                                     {"shuffle-samples", no_argument, nullptr, 'S'},
+                                     {"shuffle-samples", no_argument, nullptr, 'r'},
                                      {"max-samples", required_argument, nullptr, 'n'},
                                      {"filter-samples", required_argument, &selectedLongOpt, filterLongOpt},
                                      {0, 0, 0, 0}};
 
+    std::string optString = ":hV:E:e:s:vqRSIrn:";
+
     while (true) {
         int optIndex = 0;
-        int c = getopt_long(argc, argv, ":hV:E:vrsiSn:", longOptions, &optIndex);
+        int c = getopt_long(argc, argv, optString.c_str(), longOptions, &optIndex);
         if (c == -1) { break; }
 
         switch (c) {
@@ -172,24 +182,38 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                 printUsage(argv);
                 return 0;
             case 'V':
-                verifierName = optarg;
+                config.setVerifierName(optarg);
                 break;
             case 'E':
-                explanationsFn = optarg;
+                if (not explanationsFnPtr) {
+                    std::cerr << "Option '-" << char(c) << "' is invalid in this context\n";
+                    printUsage(argv, std::cerr);
+                    return 1;
+                }
+                *explanationsFnPtr = optarg;
+                break;
+            case 'e':
+                config.setExplanationsFileName(optarg);
+                break;
+            case 's':
+                config.setStatsFileName(optarg);
                 break;
             case 'v':
                 config.beVerbose();
                 break;
-            case 'r':
+            case 'q':
+                config.beQuiet();
+                break;
+            case 'R':
                 config.reverseVarOrdering();
                 break;
-            case 's':
+            case 'S':
                 config.printIntervalExplanationsInSmtLib2Format();
                 break;
-            case 'i':
+            case 'I':
                 config.printIntervalExplanationsInIntervalFormat();
                 break;
-            case 'S':
+            case 'r':
                 config.shuffleSamples();
                 break;
             case 'n': {
@@ -197,6 +221,10 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                 config.setMaxSamples(n);
                 break;
             }
+            case ':':
+                std::cerr << "Option: '-" << char(optopt) << "' requires an argument\n\n";
+                printUsage(argv, std::cerr);
+                return 1;
             default:
                 assert(c == '?');
                 std::cerr << "Unrecognized option: '-" << char(optopt) << "'\n\n";
@@ -208,7 +236,16 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     return std::nullopt;
 }
 
-int mainExplain(int argc, char * argv[], int i) {
+int mainExplain(int argc, char * argv[], int i, int nArgs) {
+    assert(nArgs >= 1);
+
+    constexpr int minArgs = 3;
+    if (nArgs < minArgs) {
+        std::cerr << "Expected at least " << minArgs << " arguments for explain, got: " << nArgs << '\n';
+        printUsage(argv, std::cerr);
+        return 1;
+    }
+
     std::string_view const nnModelFn = argv[++i];
     auto networkPtr = spexplain::Network::fromNNetFile(nnModelFn);
     assert(networkPtr);
@@ -217,18 +254,17 @@ int mainExplain(int argc, char * argv[], int i) {
 
     std::string_view const strategiesSpec = argv[++i];
 
-    std::string verifierName;
     std::string explanationsFn;
 
     spexplain::Framework::Config config;
 
-    if (auto optRet = getOpts(argc, argv, config, verifierName, explanationsFn)) { return *optRet; }
+    if (auto optRet = getOpts(argc, argv, config, &explanationsFn)) { return *optRet; }
+
+    std::istringstream strategiesSpecIss{std::string{strategiesSpec}};
+    spexplain::Framework framework{config, std::move(networkPtr), strategiesSpecIss};
 
     auto dataset = spexplain::Network::Dataset{datasetFn};
     std::size_t const size = dataset.size();
-
-    std::istringstream strategiesSpecIss{std::string{strategiesSpec}};
-    spexplain::Framework framework{config, std::move(networkPtr), verifierName, strategiesSpecIss};
 
     spexplain::Explanations explanations =
         explanationsFn.empty() ? framework.explain(dataset) : framework.expand(explanationsFn, dataset);
@@ -237,22 +273,20 @@ int mainExplain(int argc, char * argv[], int i) {
     return 0;
 }
 
-int mainDumpPsi(int argc, char * argv[], int i) {
+int mainDumpPsi(int argc, char * argv[], int i, [[maybe_unused]] int nArgs) {
+    assert(nArgs >= 1);
+
     std::string_view const nnModelFn = argv[++i];
     auto networkPtr = spexplain::Network::fromNNetFile(nnModelFn);
     assert(networkPtr);
 
-    std::string verifierName;
-    //+ does not make sense here
-    std::string explanationsFn;
-
     spexplain::Framework::Config config;
 
-    if (auto optRet = getOpts(argc, argv, config, verifierName, explanationsFn)) { return *optRet; }
+    if (auto optRet = getOpts(argc, argv, config)) { return *optRet; }
 
     //++ should not be necessary
     std::istringstream strategiesSpecIss{spexplain::Framework::Expand::NopStrategy::name()};
-    spexplain::Framework framework{config, std::move(networkPtr), verifierName, strategiesSpecIss};
+    spexplain::Framework framework{config, std::move(networkPtr), strategiesSpecIss};
 
     framework.dumpClassificationsAsSmtLib2Queries();
 
@@ -263,7 +297,7 @@ int mainDumpPsi(int argc, char * argv[], int i) {
 int main(int argc, char * argv[]) try {
     constexpr int minArgs = 2;
 
-    int const nArgs = argc - 1;
+    int nArgs = argc - 1;
     assert(nArgs >= 0);
     if (nArgs == 0) {
         printUsage(argv);
@@ -277,15 +311,16 @@ int main(int argc, char * argv[]) try {
     }
 
     int i = 0;
-
     std::string_view const maybeAction = argv[++i];
+    --nArgs;
 
-    if (maybeAction == "explain") { return mainExplain(argc, argv, i); }
-    if (maybeAction == "dump-psi") { return mainDumpPsi(argc, argv, i); }
+    if (maybeAction == "explain") { return mainExplain(argc, argv, i, nArgs); }
+    if (maybeAction == "dump-psi") { return mainDumpPsi(argc, argv, i, nArgs); }
 
     // Assume the default action
     --i;
-    return mainExplain(argc, argv, i);
+    ++nArgs;
+    return mainExplain(argc, argv, i, nArgs);
 
 } catch (std::system_error const & e) {
     std::cerr << "Terminated with a system error:\n" << e.what() << '\n' << std::endl;

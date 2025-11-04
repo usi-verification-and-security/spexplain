@@ -31,12 +31,6 @@ Framework::Framework(Config const & config, std::unique_ptr<Network> networkPtr_
     setExpand(expandStrategiesSpec);
 }
 
-Framework::Framework(Config const & config, std::unique_ptr<Network> networkPtr_, std::string_view verifierName,
-                     std::istream & expandStrategiesSpec)
-    : Framework(config, std::move(networkPtr_)) {
-    setExpand(verifierName, expandStrategiesSpec);
-}
-
 Framework::~Framework() = default;
 
 void Framework::setConfig(Config const & config) {
@@ -63,10 +57,19 @@ void Framework::setExpand(std::istream & strategiesSpec) {
     expandPtr->setVerifier();
 }
 
-void Framework::setExpand(std::string_view verifierName, std::istream & strategiesSpec) {
+void Framework::setVerifierName(std::string_view name) {
     assert(expandPtr);
-    expandPtr->setStrategies(strategiesSpec);
-    expandPtr->setVerifier(verifierName);
+    expandPtr->setVerifier(name);
+}
+
+void Framework::setExplanationsFileName(std::string_view fileName) {
+    assert(printPtr);
+    printPtr->setExplanationsFileName(fileName);
+}
+
+void Framework::setStatsFileName(std::string_view fileName) {
+    assert(printPtr);
+    printPtr->setStatsFileName(fileName);
 }
 
 void Framework::dumpClassificationsAsSmtLib2Queries() {
