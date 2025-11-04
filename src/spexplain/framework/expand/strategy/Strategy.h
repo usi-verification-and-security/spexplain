@@ -34,6 +34,8 @@ protected:
     xai::verifiers::Verifier const & getVerifier() const { return expand.getVerifier(); }
     xai::verifiers::Verifier & getVerifier() { return *expand.verifierPtr; }
 
+    [[noreturn]] static void throwUnknownResultInternalException() { throw UnknownResultInternalException{}; }
+
     virtual bool storeNamedTerms() const { return false; }
 
     virtual void executeInit(Explanations &, Network::Dataset const &, ExplanationIdx);

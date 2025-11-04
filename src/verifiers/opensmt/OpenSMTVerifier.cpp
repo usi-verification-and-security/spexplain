@@ -65,6 +65,8 @@ public:
     void push();
     void pop();
 
+    void setTimeLimit(std::chrono::milliseconds);
+
     Answer check();
 
     void resetSampleQuery();
@@ -178,6 +180,10 @@ void OpenSMTVerifier::pushImpl() {
 
 void OpenSMTVerifier::popImpl() {
     pimpl->pop();
+}
+
+void OpenSMTVerifier::setTimeLimit(std::chrono::milliseconds limit) {
+    pimpl->setTimeLimit(limit);
 }
 
 Verifier::Answer OpenSMTVerifier::checkImpl() {
@@ -485,6 +491,10 @@ void OpenSMTVerifier::OpenSMTImpl::push() {
 
 void OpenSMTVerifier::OpenSMTImpl::pop() {
     solver->pop();
+}
+
+void OpenSMTVerifier::OpenSMTImpl::setTimeLimit(std::chrono::milliseconds limit) {
+    solver->setTimeLimit(limit);
 }
 
 Verifier::Answer OpenSMTVerifier::OpenSMTImpl::check() {

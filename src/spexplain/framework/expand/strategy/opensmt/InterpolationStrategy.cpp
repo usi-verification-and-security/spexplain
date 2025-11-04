@@ -120,7 +120,8 @@ void InterpolationStrategy::executeBody(Explanations & explanations, Network::Da
 
     ::opensmt::vec<Formula> itps;
     auto interpolationContext = solver.getInterpolationContext();
-    interpolationContext->getSingleInterpolant(itps, part);
+    bool const success = interpolationContext->getSingleInterpolant(itps, part);
+    if (not success) { throwUnknownResultInternalException(); }
     assert(itps.size() == 1);
     Formula itp = itps[0];
 

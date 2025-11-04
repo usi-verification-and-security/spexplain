@@ -3,6 +3,7 @@
 
 #include <spexplain/network/Network.h>
 
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -48,6 +49,8 @@ public:
 
     virtual void push() { pushImpl(); }
     virtual void pop() { popImpl(); }
+
+    virtual void setTimeLimit(std::chrono::milliseconds) {}
 
     virtual Answer check() {
         ++checksCount;

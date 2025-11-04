@@ -299,7 +299,8 @@ void Framework::Expand::Strategy::assertEquality(VarIdx idx, EqBound const & eq)
 
 bool Framework::Expand::Strategy::checkFormsExplanation() {
     auto answer = getVerifier().check();
-    assert(answer == xai::verifiers::Verifier::Answer::SAT or answer == xai::verifiers::Verifier::Answer::UNSAT);
+    assert(answer != xai::verifiers::Verifier::Answer::ERROR);
+    if (answer == xai::verifiers::Verifier::Answer::UNKNOWN) { throwUnknownResultInternalException(); }
     return (answer == xai::verifiers::Verifier::Answer::UNSAT);
 }
 

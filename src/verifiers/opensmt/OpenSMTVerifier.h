@@ -42,6 +42,8 @@ public:
 
     void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, Float rhs) override;
 
+    void setTimeLimit(std::chrono::milliseconds) override;
+
     void resetSampleQuery() override;
     void resetSample() override;
     void reset() override;

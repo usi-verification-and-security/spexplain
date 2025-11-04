@@ -6,6 +6,7 @@
 
 #include <spexplain/network/Dataset.h>
 
+#include <chrono>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -52,6 +53,10 @@ public:
     void filterCorrectSamples() { optFilterCorrectSamples = true; }
     void filterIncorrectSamples() { optFilterCorrectSamples = false; }
     void filterSamplesOfExpectedClass(Network::Classification::Label l) { optFilterSamplesOfExpectedClass = l; }
+
+    void setTimeLimitPerExplanation(std::size_t limit_ms) {
+        timeLimitPerExplanation = std::chrono::milliseconds{limit_ms};
+    }
 
     [[nodiscard]]
     std::string_view getVerifierName() const { return verifierName; }
@@ -100,6 +105,17 @@ public:
     bool printingIntervalExplanationsInIntervalFormat() const {
         return intervalExplanationPrintFormat == IntervalExplanation::PrintFormat::intervals;
     }
+    [[nodiscard]]
+    char getPrintingIntervalExplanationsDelim() const {
+        switch (getPrintingIntervalExplanationsFormat()) {
+            default:
+                return IntervalExplanation::PrintConfig{}.delim;
+            case IntervalExplanation::PrintFormat::bounds:
+                return IntervalExplanation::defaultBoundsPrintConfig.delim;
+            case IntervalExplanation::PrintFormat::intervals:
+                return IntervalExplanation::defaultIntervalsPrintConfig.delim;
+        }
+    }
 
     [[nodiscard]]
     bool shufflingSamples() const { return _shuffleSamples; }
@@ -123,6 +139,11 @@ public:
         return *optFilterSamplesOfExpectedClass;
     }
 
+    [[nodiscard]]
+    std::chrono::milliseconds getTimeLimitPerExplanation() const { return timeLimitPerExplanation; }
+    [[nodiscard]]
+    bool timeLimitPerExplanationIsSet() const { return getTimeLimitPerExplanation().count() > 0; }
+
 protected:
     std::string_view verifierName{};
 
@@ -142,6 +163,8 @@ protected:
 
     std::optional<bool> optFilterCorrectSamples{};
     std::optional<Network::Classification::Label> optFilterSamplesOfExpectedClass{};
+
+    std::chrono::milliseconds timeLimitPerExplanation{};
 };
 } // namespace spexplain
 

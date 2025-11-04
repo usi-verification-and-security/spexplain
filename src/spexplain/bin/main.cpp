@@ -112,6 +112,8 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     printUsageOptRow(os, 'n', "<int>", "Maximum no. samples to be processed");
     printUsageLongOptRow(os, "filter-samples", "[in]correct|class<c>",
                          "Only process sample points that match the given filter");
+    printUsageLongOptRow(os, "time-limit-per");
+    printUsageOptRow(os, 't', "<ms>", "Time limit per explanation in miliseconds");
 
     os << "\nEXAMPLES:\n";
     os << cmd << " explain data/models/toy.nnet data/datasets/toy.csv abductive -e data/explanations/toy.phi.txt\n";
@@ -146,9 +148,10 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                                      {"shuffle-samples", no_argument, nullptr, 'r'},
                                      {"max-samples", required_argument, nullptr, 'n'},
                                      {"filter-samples", required_argument, &selectedLongOpt, filterLongOpt},
+                                     {"time-limit-per", required_argument, nullptr, 't'},
                                      {0, 0, 0, 0}};
 
-    std::string optString = ":hV:E:e:s:vqRSIrn:";
+    std::string optString = ":hV:E:e:s:vqRSIrn:t:";
 
     while (true) {
         int optIndex = 0;
@@ -245,6 +248,11 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
             case 'n': {
                 auto const n = std::stoull(optarg);
                 config.setMaxSamples(n);
+                break;
+            }
+            case 't': {
+                auto const limit = std::stoull(optarg);
+                config.setTimeLimitPerExplanation(limit);
                 break;
             }
             case ':':
