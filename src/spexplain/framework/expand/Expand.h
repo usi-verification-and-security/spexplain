@@ -79,7 +79,9 @@ protected:
     void printProgress(std::ostream &, Network::Dataset const &, ExplanationIdx,
                        std::string_view caption = "sample") const;
 
-    void printStats(Explanation const &, Network::Dataset const &, ExplanationIdx) const;
+    void printStatsOf(Explanation const &, Network::Dataset const &, ExplanationIdx) const;
+    void printStatsHeadOf(Network::Dataset const &, ExplanationIdx) const;
+    void printStatsBodyOf(Explanation const &) const;
 
     Framework & framework;
 

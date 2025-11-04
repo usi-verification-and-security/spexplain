@@ -243,7 +243,7 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
 
         auto & explanation = getExplanation(explanations, idx);
         //+ get rid of the conditionals
-        if (printingStats) { printStats(explanation, data, idx); }
+        if (printingStats) { printStatsOf(explanation, data, idx); }
         if (printingExplanations) {
             explanation.print(cexp);
             cexp << std::endl;
@@ -326,8 +326,31 @@ void Framework::Expand::printProgress(std::ostream & os, Network::Dataset const 
     os << caption << " [" << idx + 1 << '/' << dataSize << ']';
 }
 
-void Framework::Expand::printStats(Explanation const & explanation, Network::Dataset const & data,
-                                   ExplanationIdx idx) const {
+void Framework::Expand::printStatsOf(Explanation const & explanation, Network::Dataset const & data,
+                                     ExplanationIdx idx) const {
+
+    printStatsHeadOf(data, idx);
+    printStatsBodyOf(explanation);
+}
+
+void Framework::Expand::printStatsHeadOf(Network::Dataset const & data, ExplanationIdx idx) const {
+    auto & print = framework.getPrint();
+    assert(not print.ignoringStats());
+    auto & cstats = print.stats();
+
+    auto const & sample = data.getSample(idx);
+    auto const & expClass = data.getExpectedClassification(idx).label;
+    auto const & compClass = data.getComputedOutput(idx).classification.label;
+
+    cstats << '\n';
+    printProgress(cstats, data, idx);
+    cstats << ": " << sample << '\n';
+    cstats << "expected output: " << expClass << '\n';
+    cstats << "computed output: " << compClass << '\n';
+    cstats << "#checks: " << verifierPtr->getChecksCount() << '\n';
+}
+
+void Framework::Expand::printStatsBodyOf(Explanation const & explanation) const {
     auto & print = framework.getPrint();
     assert(not print.ignoringStats());
     auto & cstats = print.stats();
@@ -337,22 +360,12 @@ void Framework::Expand::printStats(Explanation const & explanation, Network::Dat
     std::size_t const expVarSize = explanation.varSize();
     assert(expVarSize <= varSize);
 
-    auto const & sample = data.getSample(idx);
-    auto const & expClass = data.getExpectedClassification(idx).label;
-    auto const & compClass = data.getComputedOutput(idx).classification.label;
-
     std::size_t const fixedCount = explanation.getFixedCount();
     assert(fixedCount <= expVarSize);
 
     std::size_t const termSize = explanation.termSize();
     assert(termSize > 0);
 
-    cstats << '\n';
-    printProgress(cstats, data, idx);
-    cstats << ": " << sample << '\n';
-    cstats << "expected output: " << expClass << '\n';
-    cstats << "computed output: " << compClass << '\n';
-    cstats << "#checks: " << verifierPtr->getChecksCount() << '\n';
     cstats << "#features: " << expVarSize << '/' << varSize << std::endl;
 
     assert(not explanation.supportsVolume() or explanation.getRelativeVolumeSkipFixed() > 0);
