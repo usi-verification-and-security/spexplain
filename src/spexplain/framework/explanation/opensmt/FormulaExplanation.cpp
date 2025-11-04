@@ -62,6 +62,6 @@ void FormulaExplanation::intersect(FormulaExplanation && rhs) {
 void FormulaExplanation::printSmtLib2(std::ostream & os) const {
     auto & solver = getVerifier().getSolver();
     auto & logic = solver.getLogic();
-    os << logic.printTerm(*formulaPtr);
+    os << logic.termToSMT2String(*formulaPtr);
 }
 } // namespace spexplain::opensmt

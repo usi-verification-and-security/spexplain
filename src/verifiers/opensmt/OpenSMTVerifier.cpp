@@ -614,7 +614,7 @@ void OpenSMTVerifier::OpenSMTImpl::printSmtLib2Query(std::ostream & os) const {
     for (PTRef phi : solver.getCurrentAssertionsView()) {
         // necessary for removing auxiliary ITE terms but yields redundant constraints
         // phi = logic.removeAuxVars(phi);
-        os << "(assert " << logic.printTerm(phi) << " )\n";
+        os << "(assert " << logic.termToSMT2String(phi) << " )\n";
     }
 
     logic.dumpChecksatToFile(os);
