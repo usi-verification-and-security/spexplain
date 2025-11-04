@@ -205,8 +205,12 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
 
         if (printingInfo) {
             printProgress(cinfo, data, idx);
-            cinfo << " ..." << std::endl;
+            cinfo << " ... ";
+            cinfo.flush();
         }
+
+        bool timeout = false;
+        if (config.timeLimitPerExplanationIsSet()) { verifierPtr->setTimeLimit(config.getTimeLimitPerExplanation()); }
 
         // Seems quite more efficient than if outside the loop, at least with 'abductive'
         assertModel();
@@ -215,17 +219,33 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
         auto const & cls = output.classification;
         assertClassification(cls);
 
-        for (auto & strategy : strategies) {
-            strategy->execute(explanations, data, idx);
-        }
+        try {
+            for (auto & strategy : strategies) {
+                strategy->execute(explanations, data, idx);
+            }
+        } catch (UnknownResultInternalException) { timeout = true; }
 
-        auto & explanation = getExplanation(explanations, idx);
-        //+ get rid of the conditionals
-        if (printingStats) { printStatsOf(explanation, data, idx); }
-        if (printingExplanations) {
-            explanation.print(cexp);
-            cexp << std::endl;
+        assert(config.timeLimitPerExplanationIsSet() or not timeout);
+
+        if (not timeout) {
+            auto & explanation = getExplanation(explanations, idx);
+            cinfo << "done";
+            //+ get rid of the conditionals
+            if (printingStats) { printStatsOf(explanation, data, idx); }
+            if (printingExplanations) {
+                explanation.print(cexp);
+                cexp << std::endl;
+            }
+        } else {
+            cinfo << "timeout";
+            if (printingStats) { printStatsHeadOf(data, idx); }
+            if (printingExplanations) {
+                //! the default format does not work if not yielding interval explanations
+                char const delim = config.getPrintingIntervalExplanationsDelim();
+                cexp << invalidExplanationString << delim << std::endl;
+            }
         }
+        cinfo << std::endl;
 
         resetClassification();
 
@@ -233,9 +253,14 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
 
         if (not printingTimes) { continue; }
 
-        auto const finish = std::chrono::steady_clock::now();
-        std::chrono::duration<double> const duration = finish - start;
-        ctimes << std::setprecision(3) << duration.count() << std::endl;
+        if (not timeout) {
+            auto const finish = std::chrono::steady_clock::now();
+            std::chrono::duration<double> const duration = finish - start;
+            ctimes << std::setprecision(3) << duration.count();
+        } else {
+            ctimes << invalidExplanationString;
+        }
+        ctimes << std::endl;
     }
 
     cinfo << "\nDone." << std::endl;
