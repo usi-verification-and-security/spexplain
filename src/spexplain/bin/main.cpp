@@ -148,7 +148,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                             config.printIntervalExplanationsInIntervalFormat();
                         } else {
                             assert(optargStr == "bounds");
-                            config.printingIntervalExplanationsInBoundFormat();
+                            config.printIntervalExplanationsInBoundFormat();
                         }
                         break;
                     case filterLongOpt:
