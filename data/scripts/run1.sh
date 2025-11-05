@@ -59,7 +59,7 @@ function set_file {
     lfile="${OUTPUT_DIR}/${experiment}.${type}.txt"
 }
 
-for t in out err phi stats time; do
+for t in out err phi stats times time; do
     set_file ${t}_file "$EXPERIMENT" $t
 done
 
@@ -72,6 +72,7 @@ done
 OPTIONS+=(
     --output-explanations=\"$phi_file\"
     --output-stats=\"$stats_file\"
+    --output-times=\"$times_file\"
 )
 
 exec timeout $TIMEOUT bash -c "{ time ${CMD} \"$MODEL\" \"$DATASET\" \"$STRATEGIES\" ${OPTIONS[*]} "'"$@"'" >\"$out_file\" 2>\"$err_file\" ; } 2>\"$time_file\"" spexplain "$@"
