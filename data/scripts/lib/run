@@ -51,6 +51,8 @@ TIMEOUT_STATUS=124
 function set_timeout {
     [[ -z $TIMEOUT ]] && TIMEOUT=30m
     export TIMEOUT
+    ## No default value
+    export TIMEOUT_PER
 }
 
 function set_experiment_name_from_strategies {

@@ -51,6 +51,25 @@ OPTIONS=(--quiet --format=smtlib2)
     OPTIONS+=(--reverse-var)
 }
 
+[[ -n $TIMEOUT_PER ]] && {
+    [[ $TIMEOUT_PER =~ ^[0-9]+(|\.[0-9]*)(|[smhd])$ ]] || {
+        printf "Unrecognized timeout per explanations: %s\n" "$TIMEOUT_PER" >&2
+        usage 1 >&2
+    }
+    if [[ $TIMEOUT_PER =~ d$ ]]; then
+        TIMEOUT_PER_MS=$(bc -l <<<"${TIMEOUT_PER%d} * 1000 * 60 * 60 * 24")
+    elif [[ $TIMEOUT_PER =~ h$ ]]; then
+        TIMEOUT_PER_MS=$(bc -l <<<"${TIMEOUT_PER%h} * 1000 * 60 * 60")
+    elif [[ $TIMEOUT_PER =~ m$ ]]; then
+        TIMEOUT_PER_MS=$(bc -l <<<"${TIMEOUT_PER%m} * 1000 * 60")
+    else
+        TIMEOUT_PER_MS=$(bc -l <<<"${TIMEOUT_PER%s} * 1000")
+    fi
+    TIMEOUT_PER_MS=${TIMEOUT_PER_MS%.*}
+
+    OPTIONS+=(--time-limit-per=$TIMEOUT_PER_MS)
+}
+
 mkdir -p "$OUTPUT_DIR" >/dev/null || exit $?
 
 function set_file {
