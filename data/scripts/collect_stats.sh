@@ -46,6 +46,7 @@ declare -A {SUM_STR,COUNT}_perc_fixed_features
 declare -A {SUM_STR,COUNT}_perc_dimension
 declare -A {SUM_STR,COUNT}_nterms
 declare -A {SUM_STR,COUNT}_nchecks
+declare -A {SUM_STR,COUNT}_perc_completed
 declare -A {SUM_STR,COUNT}_avg_time_s
 
 FORMAT_perc_features='%.1f%%'
@@ -53,6 +54,7 @@ FORMAT_perc_fixed_features='%.1f%%'
 FORMAT_perc_dimension='%.1f%%'
 FORMAT_nterms='%.1f'
 FORMAT_nchecks='%.1f'
+FORMAT_perc_completed='%.1f%%'
 FORMAT_avg_time_s='%.2f'
 
 declare -A EXCLUDE_COLUMNS
@@ -109,6 +111,12 @@ TERMS_MAX_WIDTH=${#TERMS_CAPTION}
 CHECKS_CAPTION='#checks'
 CHECKS_MAX_WIDTH=${#CHECKS_CAPTION}
 
+COMPLETED_CAPTION='%completed'
+COMPLETED_MAX_WIDTH=${#COMPLETED_CAPTION}
+
+AVG_TIME_CAPTION='time [s]'
+AVG_TIME_MAX_WIDTH=${#AVG_TIME_CAPTION}
+
 function compute_term_size {
     local phi_file="$1"
     local n_lines=$2
@@ -136,7 +144,9 @@ function print_header {
         [[ -z ${EXCLUDE_COLUMNS[$DIMENSION_CAPTION]} ]] && printf " | %s" "$DIMENSION_CAPTION"
         [[ -z ${EXCLUDE_COLUMNS[$TERMS_CAPTION]} ]] && printf " | %s" "$TERMS_CAPTION"
         [[ -z ${EXCLUDE_COLUMNS[$CHECKS_CAPTION]} ]] && printf " | %s" "$CHECKS_CAPTION"
-        printf " | time [s]\n"
+        printf " | %s" "$COMPLETED_CAPTION"
+        printf " | %s" "$AVG_TIME_CAPTION"
+        printf "\n"
 
         PRINTED_HEADER=1
     }
@@ -226,6 +236,7 @@ for do_reverse in ${do_reverse_args[@]}; do
     perc_dimension_str_array=()
     nterms_str_array=()
     nchecks_str_array=()
+    perc_completed_str_array=()
     avg_time_s_str_array=()
 
     for experiment in ${lEXPERIMENT_NAMES[@]}; do
@@ -247,6 +258,12 @@ for do_reverse in ${do_reverse_args[@]}; do
             cleanup 1
         }
 
+        times_file="${STATS_DIR}/${experiment_stem}.times.txt"
+        [[ -r $times_file ]] || {
+            printf "File '%s' is not a readable.\n" "$times_file" >&2
+            cleanup 1
+        }
+
         phi_file="${STATS_DIR}/${experiment_stem}.phi.txt"
         [[ -r $phi_file ]] || {
             printf "File '%s' is not a readable.\n" "$phi_file" >&2
@@ -261,6 +278,9 @@ for do_reverse in ${do_reverse_args[@]}; do
 
         time_str=$(sed -n 's/^user[^0-9]*\([0-9].*\)$/\1/p' <"$time_file")
         if [[ -z $time_str ]]; then
+            n_timeouts_stats=X
+            # perc_timeouts=X
+            perc_completed=X
             perc_features=X
             perc_fixed_features=X
             perc_dimension=X
@@ -273,29 +293,50 @@ for do_reverse in ${do_reverse_args[@]}; do
                 cleanup 3
             }
 
-            perc_features=$(sed -n 's/^.*#any features: \([^%]*\)%.*$/\1/p' <<<"$stats")
-            perc_fixed_features=$(sed -n 's/^.*#fixed features: \([^%]*\)%.*$/\1/p' <<<"$stats")
-            nterms_stats=$(sed -n 's/^.*#terms: \(.*\)$/\1/p' <<<"$stats")
+            n_timeouts_stats=$(sed -n 's/^Timeouts:[^0-9]*\([0-9]*\)$/\1/p' <<<"$stats")
+            # perc_timeouts=$(sed -n 's/^.*#timeouts: \([^%]*\)%.*$/\1/p' <<<"$stats")
+            perc_completed=$(sed -n 's/^.*#completed: \([^%]*\)%.*$/\1/p' <<<"$stats")
             nchecks=$(sed -n 's/^.*#checks: \(.*\)$/\1/p' <<<"$stats")
 
-            perc_dimension=$(bc -l <<<"100 - $perc_fixed_features")
-
-            nterms=$(compute_term_size "$phi_file" $size)
-            [[ -z $nterms_stats ]] && {
-                ##! fragile
-                nterms_stats=$(bc -l <<<"($features * $perc_features)/100")
-                nterms_stats=$(printf '%.1f' $nterms_stats)
-            }
-            [[ $nterms == $nterms_stats ]] || {
-                printf "%s: encountered inconsistency: stats.termSize != termSize(phi): %s != %s\n" $experiment_stem "$nterms_stats" "$nterms" >&2
+            n_timeouts=$(grep '<null>' <"$times_file" | wc -l)
+            [[ $n_timeouts == $n_timeouts_stats ]] || {
+                printf "%s: encountered inconsistency: stats.n_timeouts != n_timeouts(times): %s != %s\n" $experiment_stem "$n_timeouts_stats" "$n_timeouts" >&2
                 cleanup 3
             }
 
-            time_min=${time_str%%m*}
-            time_s=${time_str##*m}
-            time_s=${time_s%s}
-            total_time_s=$(bc -l <<<"${time_min}*60 + ${time_s}")
-            avg_time_s=$(bc -l <<<"${total_time_s}/${size}")
+            completed=$(( $size - $n_timeouts ))
+            if (( $completed > 0 )); then
+                perc_features=$(sed -n 's/^.*#any features: \([^%]*\)%.*$/\1/p' <<<"$stats")
+                perc_fixed_features=$(sed -n 's/^.*#fixed features: \([^%]*\)%.*$/\1/p' <<<"$stats")
+                nterms_stats=$(sed -n 's/^.*#terms: \(.*\)$/\1/p' <<<"$stats")
+
+                perc_dimension=$(bc -l <<<"100 - $perc_fixed_features")
+
+                nterms=$(compute_term_size "$phi_file" $completed)
+                [[ -z $nterms_stats ]] && {
+                    ##! fragile
+                    nterms_stats=$(bc -l <<<"($features * $perc_features)/100")
+                    nterms_stats=$(printf '%.1f' $nterms_stats)
+                }
+                [[ $nterms == $nterms_stats ]] || {
+                    printf "%s: encountered inconsistency: stats.termSize != termSize(phi): %s != %s\n" $experiment_stem "$nterms_stats" "$nterms" >&2
+                    cleanup 3
+                }
+
+                time_min=${time_str%%m*}
+                time_s=${time_str##*m}
+                time_s=${time_s%s}
+                total_time_s=$(bc -l <<<"${time_min}*60 + ${time_s}")
+                ## this would include timeouts
+                # avg_time_s=$(bc -l <<<"${total_time_s}/${size}")
+                avg_time_s=$(awk 'BEGIN{ sum=0; cnt=0; } /^[0-9.]/{ sum+=$1; cnt++; } END{ printf("%.2f\n", sum/cnt) }' <"$times_file")
+            else
+                perc_features=X
+                perc_fixed_features=X
+                perc_dimension=X
+                nterms=X
+                avg_time_s=X
+            fi
         fi
 
         for avg_filter in "${AVERAGE_FILTERS[@]}"; do
@@ -306,20 +347,23 @@ for do_reverse in ${do_reverse_args[@]}; do
             SUM_STR_perc_dimension["$avg_filter"]+="$perc_dimension+"
             SUM_STR_nterms["$avg_filter"]+="$nterms+"
             SUM_STR_nchecks["$avg_filter"]+="$nchecks+"
+            SUM_STR_perc_completed["$avg_filter"]+="$perc_completed+"
             SUM_STR_avg_time_s["$avg_filter"]+="$avg_time_s+"
             (( COUNT_perc_features["$avg_filter"] ++ ))
             (( COUNT_perc_fixed_features["$avg_filter"] ++ ))
             (( COUNT_perc_dimension["$avg_filter"] ++ ))
             (( COUNT_nterms["$avg_filter"] ++ ))
             (( COUNT_nchecks["$avg_filter"] ++ ))
+            (( COUNT_perc_completed["$avg_filter"] ++ ))
             (( COUNT_avg_time_s["$avg_filter"] ++ ))
 
-            if (( ${COUNT_perc_features["$avg_filter"]} == 1 )); then
+            if (( ${COUNT_perc_completed["$avg_filter"]} == 1 )); then
                 perc_features_str_array+=(@AVG)
                 perc_fixed_features_str_array+=(@AVG)
                 perc_dimension_str_array+=(@AVG)
                 nterms_str_array+=(@AVG)
                 nchecks_str_array+=(@AVG)
+                perc_completed_str_array+=(@AVG)
                 avg_time_s_str_array+=(@AVG)
             else
                 perc_features_str_array+=(@SKIP)
@@ -327,6 +371,7 @@ for do_reverse in ${do_reverse_args[@]}; do
                 perc_dimension_str_array+=(@SKIP)
                 nterms_str_array+=(@SKIP)
                 nchecks_str_array+=(@SKIP)
+                perc_completed_str_array+=(@SKIP)
                 avg_time_s_str_array+=(@SKIP)
             fi
 
@@ -342,6 +387,7 @@ for do_reverse in ${do_reverse_args[@]}; do
         store_var_into_str_array perc_dimension
         store_var_into_str_array nterms
         store_var_into_str_array nchecks
+        store_var_into_str_array perc_completed
         store_var_into_str_array avg_time_s
     done
 
@@ -353,6 +399,7 @@ for do_reverse in ${do_reverse_args[@]}; do
         perc_dimension_str="${perc_dimension_str_array[$idx]}"
         nterms_str="${nterms_str_array[$idx]}"
         nchecks_str="${nchecks_str_array[$idx]}"
+        perc_completed_str="${perc_completed_str_array[$idx]}"
         avg_time_s_str="${avg_time_s_str_array[$idx]}"
 
         postprocess_str_var perc_features_str "$experiment" || continue
@@ -360,6 +407,7 @@ for do_reverse in ${do_reverse_args[@]}; do
         postprocess_str_var perc_dimension_str "$experiment" || continue
         postprocess_str_var nterms_str "$experiment" || continue
         postprocess_str_var nchecks_str "$experiment" || continue
+        postprocess_str_var perc_completed_str "$experiment" || continue
         postprocess_str_var avg_time_s_str "$experiment" || continue
 
         printf "%${EXPERIMENT_MAX_WIDTH}s" "$experiment"
@@ -368,7 +416,8 @@ for do_reverse in ${do_reverse_args[@]}; do
         [[ -z ${EXCLUDE_COLUMNS[$DIMENSION_CAPTION]} ]] && printf " | %${DIMENSION_MAX_WIDTH}s" "$perc_dimension_str"
         [[ -z ${EXCLUDE_COLUMNS[$TERMS_CAPTION]} ]] && printf " | %${TERMS_MAX_WIDTH}s" "$nterms_str"
         [[ -z ${EXCLUDE_COLUMNS[$CHECKS_CAPTION]} ]] && printf " | %${CHECKS_MAX_WIDTH}s" "$nchecks_str"
-        printf " | %s" "$avg_time_s_str"
+        printf " | %${COMPLETED_MAX_WIDTH}s" "$perc_completed_str"
+        printf " | %${AVG_TIME_MAX_WIDTH}s" "$avg_time_s_str"
         printf "\n"
     done
 done

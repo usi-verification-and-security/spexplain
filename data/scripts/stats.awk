@@ -57,6 +57,10 @@ function assert(condition, string) {
    cnt_checks++
 }
 
+/<timeout>/ {
+   timeouts_cnt++
+}
+
 /relVolume\*:/ {
    split($NF, nums, "%")
    sum_volume += nums[1]
@@ -74,26 +78,39 @@ END {
       } else {
          assert(total_cnt == max_samples, "total_cnt == max_samples: " total_cnt " == " max_samples)
       }
+
+      if (cnt_checks > 0) {
+         assert(total_cnt == 0 || total_cnt == cnt_checks, "total_cnt == cnt_checks: " total_cnt " == " cnt_checks)
+      }
+
+      if (timeouts_cnt == "") timeouts_cnt = 0
+      completed_cnt = total_cnt - timeouts_cnt
+
+      if (cnt_volume > 0) {
+         assert(completed_cnt == 0 || completed_cnt == cnt_volume, "completed_cnt == cnt_volume: " completed_cnt " == " cnt_volume)
+      }
    }
    if (variables_cnt > 0) {
       print("Features: " variables_cnt)
    }
    if (total_cnt > 0) {
-      printf("avg #correct classifications: %.1f%%\n", (correct_cnt/total_cnt)*100)
+      print("Timeouts: " timeouts_cnt)
+      # printf("avg #timeouts: %.1f%%\n", (timeouts_cnt/total_cnt)*100)
+      printf("avg #completed: %.1f%%\n", (completed_cnt/total_cnt)*100)
+      printf("avg #correct classifications (incl. timeouted): %.1f%%\n", (correct_cnt/total_cnt)*100)
    }
-   printf("avg #any features: %.1f%%\n", (sum_size/div_sum_size)*100)
-   if (div_sum_fixed > 0) printf("avg #fixed features: %.1f%%\n", (sum_fixed/div_sum_fixed)*100)
-   else printf("avg #fixed features: %.1f%%\n", (sum_size/div_sum_size)*100)
+   if (div_sum_size > 0) {
+      printf("avg #any features: %.1f%%\n", (sum_size/div_sum_size)*100)
+      if (div_sum_fixed > 0) printf("avg #fixed features: %.1f%%\n", (sum_fixed/div_sum_fixed)*100)
+      else printf("avg #fixed features: %.1f%%\n", (sum_size/div_sum_size)*100)
+   }
    if (cnt_termsize > 0) {
-      assert(total_cnt == 0 || total_cnt == cnt_termsize, "total_cnt == cnt_termsize: " total_cnt " == " cnt_termsize)
       printf("avg #terms: %.1f\n", (sum_termsize/cnt_termsize))
    }
    if (cnt_volume > 0) {
-      assert(total_cnt == 0 || total_cnt == cnt_volume, "total_cnt == cnt_volume: " total_cnt " == " cnt_volume)
       printf("avg relVolume*: %.2f%%\n", sum_volume/cnt_volume)
    }
    if (cnt_checks > 0) {
-      assert(total_cnt == 0 || total_cnt == cnt_checks, "total_cnt == cnt_checks: " total_cnt " == " cnt_checks)
       printf("avg #checks: %.1f\n", (sum_checks/cnt_checks))
    }
 }
