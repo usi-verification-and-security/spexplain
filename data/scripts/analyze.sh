@@ -257,8 +257,11 @@ compare-subset)
     ;;
 esac
 
+i=-1
 cnt=0
+any_timeout_cnt=0
 while true; do
+    (( ++i ))
     while read line && [[ -z ${line// } ]]; do :; done
     [[ -z $line ]] && break
 
@@ -280,8 +283,21 @@ while true; do
     compare-subset)
         while read line2 <&3 && [[ -z ${line2// } ]]; do :; done
         [[ -z $line2 ]] && {
-            printf "Unexpected missing data from the second file at cnt=%d\n" $cnt >&2
+            printf "Unexpected missing data from the second file at i=%d\n" $i >&2
             cleanup 9
+        }
+        ;;
+    esac
+
+    [[ $line == '<null>' ]] && {
+        (( ++any_timeout_cnt ))
+        continue
+    }
+    case $ACTION in
+    compare-subset)
+        [[ $line2 == '<null>' ]] && {
+            (( ++any_timeout_cnt ))
+            continue
         }
         ;;
     esac
@@ -380,12 +396,12 @@ case $ACTION in
 compare-subset)
     [[ -z $MAX_LINES ]] && cnt=${#IFILES_SUBSET[@]}
 
-    [[ -z $MAX_LINES && $cnt != $N_LINES ]] && {
-        printf "Unexpected mismatch of the # processed lines: %d != %d\n" $cnt $N_LINES >&2
+    [[ -z $MAX_LINES ]] && (( $cnt + $any_timeout_cnt != $N_LINES )) && {
+        printf "Unexpected mismatch of the # processed and timeouted lines: %d + %d = %d != %d\n" $cnt $any_timeout_cnt $(($cnt+$any_timeout_cnt)) $N_LINES >&2
         cleanup 9
     }
-    [[ -n $MAX_LINES && $cnt != $MAX_LINES ]] && {
-        printf "Unexpected mismatch of the bounded # processed lines: %d != %d\n" $cnt $MAX_LINES >&2
+    [[ -n $MAX_LINES ]] && (( $cnt + $any_timeout_cnt != $MAX_LINES )) && {
+        printf "Unexpected mismatch of the bounded # processed and timeouted lines: %d + %d = %d != %d\n" $cnt $any_timeout_cnt $(($cnt+$any_timeout_cnt)) $MAX_LINES >&2
         cleanup 9
     }
     ;;
