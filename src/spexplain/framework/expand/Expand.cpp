@@ -205,8 +205,12 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
 
         if (printingInfo) {
             printProgress(cinfo, data, idx);
-            cinfo << " ..." << std::endl;
+            cinfo << " ... ";
+            cinfo.flush();
         }
+
+        bool timeout = false;
+        if (config.timeLimitPerExplanationIsSet()) { verifierPtr->setTimeLimit(config.getTimeLimitPerExplanation()); }
 
         // Seems quite more efficient than if outside the loop, at least with 'abductive'
         assertModel();
@@ -215,17 +219,33 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
         auto const & cls = output.classification;
         assertClassification(cls);
 
-        for (auto & strategy : strategies) {
-            strategy->execute(explanations, data, idx);
-        }
+        try {
+            for (auto & strategy : strategies) {
+                strategy->execute(explanations, data, idx);
+            }
+        } catch (UnknownResultInternalException) { timeout = true; }
 
-        auto & explanation = getExplanation(explanations, idx);
-        //+ get rid of the conditionals
-        if (printingStats) { printStats(explanation, data, idx); }
-        if (printingExplanations) {
-            explanation.print(cexp);
-            cexp << std::endl;
+        assert(config.timeLimitPerExplanationIsSet() or not timeout);
+
+        if (not timeout) {
+            auto & explanation = getExplanation(explanations, idx);
+            cinfo << "done";
+            //+ get rid of the conditionals
+            if (printingStats) { printStatsOf(explanation, data, idx); }
+            if (printingExplanations) {
+                explanation.print(cexp);
+                cexp << std::endl;
+            }
+        } else {
+            cinfo << "timeout";
+            if (printingStats) { printStatsHeadOf(data, idx); }
+            if (printingExplanations) {
+                //! the default format does not work if not yielding interval explanations
+                char const delim = config.getPrintingIntervalExplanationsDelim();
+                cexp << invalidExplanationString << delim << std::endl;
+            }
         }
+        cinfo << std::endl;
 
         resetClassification();
 
@@ -233,9 +253,14 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
 
         if (not printingTimes) { continue; }
 
-        auto const finish = std::chrono::steady_clock::now();
-        std::chrono::duration<double> const duration = finish - start;
-        ctimes << std::setprecision(3) << duration.count() << std::endl;
+        if (not timeout) {
+            auto const finish = std::chrono::steady_clock::now();
+            std::chrono::duration<double> const duration = finish - start;
+            ctimes << std::setprecision(3) << duration.count();
+        } else {
+            ctimes << invalidExplanationString;
+        }
+        ctimes << std::endl;
     }
 
     cinfo << "\nDone." << std::endl;
@@ -304,8 +329,31 @@ void Framework::Expand::printProgress(std::ostream & os, Network::Dataset const 
     os << caption << " [" << idx + 1 << '/' << dataSize << ']';
 }
 
-void Framework::Expand::printStats(Explanation const & explanation, Network::Dataset const & data,
-                                   ExplanationIdx idx) const {
+void Framework::Expand::printStatsOf(Explanation const & explanation, Network::Dataset const & data,
+                                     ExplanationIdx idx) const {
+
+    printStatsHeadOf(data, idx);
+    printStatsBodyOf(explanation);
+}
+
+void Framework::Expand::printStatsHeadOf(Network::Dataset const & data, ExplanationIdx idx) const {
+    auto & print = framework.getPrint();
+    assert(not print.ignoringStats());
+    auto & cstats = print.stats();
+
+    auto const & sample = data.getSample(idx);
+    auto const & expClass = data.getExpectedClassification(idx).label;
+    auto const & compClass = data.getComputedOutput(idx).classification.label;
+
+    cstats << '\n';
+    printProgress(cstats, data, idx);
+    cstats << ": " << sample << '\n';
+    cstats << "expected output: " << expClass << '\n';
+    cstats << "computed output: " << compClass << '\n';
+    cstats << "#checks: " << verifierPtr->getChecksCount() << '\n';
+}
+
+void Framework::Expand::printStatsBodyOf(Explanation const & explanation) const {
     auto & print = framework.getPrint();
     assert(not print.ignoringStats());
     auto & cstats = print.stats();
@@ -315,22 +363,12 @@ void Framework::Expand::printStats(Explanation const & explanation, Network::Dat
     std::size_t const expVarSize = explanation.varSize();
     assert(expVarSize <= varSize);
 
-    auto const & sample = data.getSample(idx);
-    auto const & expClass = data.getExpectedClassification(idx).label;
-    auto const & compClass = data.getComputedOutput(idx).classification.label;
-
     std::size_t const fixedCount = explanation.getFixedCount();
     assert(fixedCount <= expVarSize);
 
     std::size_t const termSize = explanation.termSize();
     assert(termSize > 0);
 
-    cstats << '\n';
-    printProgress(cstats, data, idx);
-    cstats << ": " << sample << '\n';
-    cstats << "expected output: " << expClass << '\n';
-    cstats << "computed output: " << compClass << '\n';
-    cstats << "#checks: " << verifierPtr->getChecksCount() << '\n';
     cstats << "#features: " << expVarSize << '/' << varSize << std::endl;
 
     assert(not explanation.supportsVolume() or explanation.getRelativeVolumeSkipFixed() > 0);

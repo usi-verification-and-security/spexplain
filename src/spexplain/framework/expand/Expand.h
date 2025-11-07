@@ -38,6 +38,8 @@ public:
 
     using Strategies = std::vector<std::unique_ptr<Strategy>>;
 
+    static constexpr char const * invalidExplanationString = "<null>";
+
     Expand(Framework &);
 
     Framework const & getFramework() const { return framework; }
@@ -58,6 +60,9 @@ public:
     void operator()(Explanations &, Network::Dataset const &);
 
 protected:
+    struct UnknownResultInternalException {};
+    static constexpr UnknownResultInternalException unknownResultInternalException{};
+
     void addStrategy(std::unique_ptr<Strategy>);
 
     std::unique_ptr<xai::verifiers::Verifier> makeVerifier(std::string_view name) const;
@@ -77,7 +82,9 @@ protected:
     void printProgress(std::ostream &, Network::Dataset const &, ExplanationIdx,
                        std::string_view caption = "sample") const;
 
-    void printStats(Explanation const &, Network::Dataset const &, ExplanationIdx) const;
+    void printStatsOf(Explanation const &, Network::Dataset const &, ExplanationIdx) const;
+    void printStatsHeadOf(Network::Dataset const &, ExplanationIdx) const;
+    void printStatsBodyOf(Explanation const &) const;
 
     Framework & framework;
 

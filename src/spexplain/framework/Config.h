@@ -6,6 +6,7 @@
 
 #include <spexplain/network/Dataset.h>
 
+#include <chrono>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -53,52 +54,95 @@ public:
     void filterIncorrectSamples() { optFilterCorrectSamples = false; }
     void filterSamplesOfExpectedClass(Network::Classification::Label l) { optFilterSamplesOfExpectedClass = l; }
 
+    void setTimeLimitPerExplanation(std::size_t limit_ms) {
+        timeLimitPerExplanation = std::chrono::milliseconds{limit_ms};
+    }
+
+    [[nodiscard]]
     std::string_view getVerifierName() const { return verifierName; }
+    [[nodiscard]]
     bool verifierNameIsSet() const { return not getVerifierName().empty(); }
 
+    [[nodiscard]]
     std::string_view getExplanationsFileName() const {
         if (not explanationsFileNameIsSet()) { return defaultExplanationsFileName; }
         return explanationsFileName;
     }
+    [[nodiscard]]
     bool explanationsFileNameIsSet() const { return not explanationsFileName.empty(); }
+    [[nodiscard]]
     std::string_view getStatsFileName() const { return statsFileName; }
+    [[nodiscard]]
     bool statsFileNameIsSet() const { return not getStatsFileName().empty(); }
+    [[nodiscard]]
     std::string_view getTimesFileName() const { return timesFileName; }
+    [[nodiscard]]
     bool timesFileNameIsSet() const { return not getTimesFileName().empty(); }
 
+    [[nodiscard]]
     Verbosity getVerbosity() const { return verbosity; }
+    [[nodiscard]]
     bool isVerbose() const { return getVerbosity() > 0; }
+    [[nodiscard]]
     bool isQuiet() const { return getVerbosity() < 0; }
 
+    [[nodiscard]]
     bool isReverseVarOrdering() const { return reverseVarOrder; }
 
+    [[nodiscard]]
     IntervalExplanation::PrintFormat const & getPrintingIntervalExplanationsFormat() const {
         return intervalExplanationPrintFormat;
     }
+    [[nodiscard]]
     bool printingIntervalExplanationsInSmtLib2Format() const {
         return intervalExplanationPrintFormat == IntervalExplanation::PrintFormat::smtlib2;
     }
+    [[nodiscard]]
     bool printingIntervalExplanationsInBoundFormat() const {
         return intervalExplanationPrintFormat == IntervalExplanation::PrintFormat::bounds;
     }
+    [[nodiscard]]
     bool printingIntervalExplanationsInIntervalFormat() const {
         return intervalExplanationPrintFormat == IntervalExplanation::PrintFormat::intervals;
     }
+    [[nodiscard]]
+    char getPrintingIntervalExplanationsDelim() const {
+        switch (getPrintingIntervalExplanationsFormat()) {
+            default:
+                return IntervalExplanation::PrintConfig{}.delim;
+            case IntervalExplanation::PrintFormat::bounds:
+                return IntervalExplanation::defaultBoundsPrintConfig.delim;
+            case IntervalExplanation::PrintFormat::intervals:
+                return IntervalExplanation::defaultIntervalsPrintConfig.delim;
+        }
+    }
 
+    [[nodiscard]]
     bool shufflingSamples() const { return _shuffleSamples; }
 
+    [[nodiscard]]
     std::size_t getMaxSamples() const { return maxSamples; }
+    [[nodiscard]]
     bool limitingMaxSamples() const { return getMaxSamples() > 0; }
 
+    [[nodiscard]]
     bool filteringCorrectSamples() const { return optFilterCorrectSamples.has_value() and *optFilterCorrectSamples; }
+    [[nodiscard]]
     bool filteringIncorrectSamples() const {
         return optFilterCorrectSamples.has_value() and not *optFilterCorrectSamples;
     }
+    [[nodiscard]]
     bool filteringSamplesOfExpectedClass() const { return optFilterSamplesOfExpectedClass.has_value(); }
+    [[nodiscard]]
     Network::Classification::Label const & getSamplesExpectedClassFilter() const {
         assert(filteringSamplesOfExpectedClass());
         return *optFilterSamplesOfExpectedClass;
     }
+
+    [[nodiscard]]
+    std::chrono::milliseconds getTimeLimitPerExplanation() const { return timeLimitPerExplanation; }
+    [[nodiscard]]
+    bool timeLimitPerExplanationIsSet() const { return getTimeLimitPerExplanation().count() > 0; }
 
 protected:
     std::string_view verifierName{};
@@ -119,6 +163,8 @@ protected:
 
     std::optional<bool> optFilterCorrectSamples{};
     std::optional<Network::Classification::Label> optFilterSamplesOfExpectedClass{};
+
+    std::chrono::milliseconds timeLimitPerExplanation{};
 };
 } // namespace spexplain
 
