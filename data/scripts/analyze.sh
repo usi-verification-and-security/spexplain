@@ -50,26 +50,34 @@ esac
 FILE="$1"
 shift
 
+unset STATS_FILE
 if [[ $FILE =~ \.phi\.txt$ ]]; then
     PHI_FILE="$FILE"
-    STATS_FILE="${FILE/.phi./.stats.}"
 elif [[ $FILE =~ \.stats\.txt$ ]]; then
     STATS_FILE="$FILE"
     PHI_FILE="${FILE/.stats./.phi.}"
+elif [[ -r $FILE ]]; then
+    PHI_FILE="${FILE}"
 else
-    STATS_FILE="${FILE%.}.stats.txt"
-    PHI_FILE="${FILE%.}.phi.txt"
+    PHI_FILE="${FILE%.*}.phi.txt"
 fi
-
-[[ -r $STATS_FILE ]] || {
-    printf "\nNot readable stats data file: %s\n" "$STATS_FILE" >&2
-    usage 1
-}
 
 [[ -r $PHI_FILE ]] || {
     printf "\nNot readable formula data file: %s\n" "$PHI_FILE" >&2
     usage 1
 }
+
+case $ACTION in
+check)
+    [[ -z $STATS_FILE ]] && STATS_FILE="${PHI_FILE%.*}.stats.txt"
+    [[ -r $STATS_FILE ]] || STATS_FILE="${PHI_FILE/phi/stats}"
+
+    [[ -r $STATS_FILE ]] || {
+        printf "\nNot readable stats data file: %s\n" "$STATS_FILE" >&2
+        usage 1
+    }
+    ;;
+esac
 
 case $ACTION in
 compare-subset)
@@ -238,11 +246,14 @@ count-fixed)
 esac
 
 case $ACTION in
+check)
+    FILE2="$STATS_FILE"
+    ;;
 compare-subset)
     FILE2="$PHI_FILE2"
     ;;
 *)
-    FILE2="$STATS_FILE"
+    FILE2=/dev/null
     ;;
 esac
 
