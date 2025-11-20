@@ -77,6 +77,11 @@ void Framework::setTimesFileName(std::string_view fileName) {
     printPtr->setTimesFileName(fileName);
 }
 
+void Framework::dumpDomainsAsSmtLib2Query() {
+    //++ move outside of Expand -> probably also move the verifier right into the fw
+    expandPtr->dumpDomainsAsSmtLib2Query();
+}
+
 void Framework::dumpClassificationsAsSmtLib2Queries() {
     //++ move outside of Expand -> probably also move the verifier right into the fw
     expandPtr->dumpClassificationsAsSmtLib2Queries();

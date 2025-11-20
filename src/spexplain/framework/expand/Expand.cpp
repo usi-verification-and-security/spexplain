@@ -116,6 +116,18 @@ Network::Dataset::SampleIndices Framework::Expand::getSampleIndices(Network::Dat
     return data.getSampleIndicesOfExpectedClass(label);
 }
 
+void Framework::Expand::dumpDomainsAsSmtLib2Query() {
+    auto & print = framework.getPrint();
+    auto & cinfo = print.info();
+
+    std::string const fname = "psi_d.smt2";
+    std::ofstream ofs{fname};
+
+    printDomainsAsSmtLib2Query(ofs);
+
+    cinfo << "Dumped domains SMT query to: " << fname << '\n';
+}
+
 void Framework::Expand::dumpClassificationsAsSmtLib2Queries() {
     auto & print = framework.getPrint();
     auto & cinfo = print.info();
@@ -130,13 +142,23 @@ void Framework::Expand::dumpClassificationsAsSmtLib2Queries() {
     for (Network::Classification::Label l = 0; l < nOutputs; ++l) {
         Network::Classification cls{.label = l};
 
-        std::string fname = "psi_c" + std::to_string(l) + ".smt2";
+        std::string const fname = "psi_c" + std::to_string(l) + ".smt2";
         std::ofstream ofs{fname};
 
         printClassificationAsSmtLib2Query(ofs, cls);
 
         cinfo << "Dumped classification " << l << " SMT query to: " << fname << '\n';
     }
+}
+
+void Framework::Expand::printDomainsAsSmtLib2Query(std::ostream & os) {
+    auto & verifier = getVerifier();
+
+    initVerifier();
+
+    assertModel();
+
+    verifier.printSmtLib2Query(os);
 }
 
 void Framework::Expand::printClassificationAsSmtLib2Query(std::ostream & os, Network::Classification const & cls) {

@@ -293,6 +293,7 @@ int mainDumpPsi(int argc, char * argv[], int i, [[maybe_unused]] int nArgs) {
     std::istringstream strategiesSpecIss{spexplain::Framework::Expand::NopStrategy::name()};
     spexplain::Framework framework{config, std::move(networkPtr), strategiesSpecIss};
 
+    framework.dumpDomainsAsSmtLib2Query();
     framework.dumpClassificationsAsSmtLib2Queries();
 
     return 0;

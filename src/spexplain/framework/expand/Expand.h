@@ -52,7 +52,9 @@ public:
         return *verifierPtr;
     }
 
+    void dumpDomainsAsSmtLib2Query();
     void dumpClassificationsAsSmtLib2Queries();
+    void printDomainsAsSmtLib2Query(std::ostream &);
     void printClassificationAsSmtLib2Query(std::ostream &, Network::Classification const &);
 
     void operator()(Explanations &, Network::Dataset const &);
