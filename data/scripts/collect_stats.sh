@@ -34,7 +34,7 @@ maybe_read_consecutive "$1" && shift
 maybe_read_reverse "$1" && shift
 maybe_read_max_samples "$1" && shift
 
-[[ -n $1 ]] && {
+[[ -n $1 && ! $1 =~ ^-- ]] && {
     FILTER="$1"
     shift
 }
