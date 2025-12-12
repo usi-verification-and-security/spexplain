@@ -86,6 +86,10 @@ private:
         return "x" + std::to_string(node + 1);
     }
 
+    static std::string neuronVarName(LayerIndex layer, NodeIndex node, std::string basename = "n") {
+        return "l" + std::to_string(layer) + "_" + std::move(basename) + std::to_string(node + 1);
+    }
+
     std::string makeExplanationTermName(std::string prefix = "") {
         return prefix + "t" + std::to_string(explanationTerms.size() - 1);
     }
@@ -98,6 +102,8 @@ private:
     NodeIndex nodeIndexOfInputUpperBound(PTRef term) const { return inputVarUpperBoundToIndex.at(term); }
     NodeIndex nodeIndexOfInputEquality(PTRef term) const { return inputVarEqualityToIndex.at(term); }
     NodeIndex nodeIndexOfInputInterval(PTRef term) const { return inputVarIntervalToIndex.at(term); }
+
+    void addNeuronTerm(LayerIndex layer, NodeIndex node, PTRef input, PTRef neuronVar);
 
     std::unique_ptr<ArithLogic> logic;
     std::unique_ptr<MainSolver> solver;
@@ -324,14 +330,11 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
             }
             PTRef input = logic->mkPlus(addends);
 
-            PTRef cond = logic->mkGeq(input, logic->getTerm_RealZero());
+            auto neuronName = neuronVarName(layer, node);
+            PTRef neuronVar = logic->mkRealVar(neuronName.c_str());
+            currentLayerRefs.push_back(neuronVar);
 
-            auto name = "l" + std::to_string(layer) + "_n" + std::to_string(node + 1);
-            PTRef var = logic->mkRealVar(name.c_str());
-            currentLayerRefs.push_back(var);
-
-            addTerm(logic->mkImpl(cond, logic->mkEq(var, input)));
-            addTerm(logic->mkImpl(logic->mkNot(cond), logic->mkEq(var, logic->getTerm_RealZero())));
+            addNeuronTerm(layer, node, input, neuronVar);
         }
 
         neuronVars.push_back(currentLayerRefs);
@@ -365,6 +368,19 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
 
         addTerm(logic->mkEq(var, input));
     }
+}
+
+void OpenSMTVerifier::OpenSMTImpl::addNeuronTerm(LayerIndex layer, NodeIndex node, PTRef input, PTRef neuronVar) {
+    // Hard constraints
+    PTRef zero = logic->getTerm_RealZero();
+    addTerm(logic->mkGeq(neuronVar, input));
+    addTerm(logic->mkGeq(neuronVar, zero));
+
+    // Constraints that depend on activation
+    PTRef active = logic->mkLeq(neuronVar, input);
+    PTRef inactive = logic->mkLeq(neuronVar, zero);
+
+    addTerm(logic->mkOr(active, inactive));
 }
 
 void OpenSMTVerifier::OpenSMTImpl::setUnsatCoreFilter(std::vector<NodeIndex> const & filter) {
