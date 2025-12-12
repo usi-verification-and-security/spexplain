@@ -326,18 +326,20 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
             }
             PTRef input = logic->mkPlus(addends);
 
-            PTRef cond = logic->mkGeq(input, logic->getTerm_RealZero());
+            PTRef zero = logic->getTerm_RealZero();
 
             if (not encodingNeuronVariables) {
-                PTRef relu = logic->mkIte(cond, input, logic->getTerm_RealZero());
+                PTRef cond = logic->mkGeq(input, zero);
+                PTRef relu = logic->mkIte(cond, input, zero);
                 currentLayerRefs.push_back(relu);
             } else {
                 auto name = "l" + std::to_string(layer) + "_n" + std::to_string(node + 1);
                 PTRef var = logic->mkRealVar(name.c_str());
                 currentLayerRefs.push_back(var);
 
-                addTerm(logic->mkImpl(cond, logic->mkEq(var, input)));
-                addTerm(logic->mkImpl(logic->mkNot(cond), logic->mkEq(var, logic->getTerm_RealZero())));
+                addTerm(logic->mkGeq(var, zero));
+                addTerm(logic->mkGeq(var, input));
+                addTerm(logic->mkOr(logic->mkLeq(var, zero), logic->mkLeq(var, input)));
             }
         }
 

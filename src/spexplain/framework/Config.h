@@ -149,7 +149,7 @@ protected:
     std::optional<bool> optFilterCorrectSamples{};
     std::optional<Network::Classification::Label> optFilterSamplesOfExpectedClass{};
 
-    bool _encodingNeuronVariables{};
+    bool _encodingNeuronVariables{true};
 };
 } // namespace spexplain
 
