@@ -346,7 +346,7 @@ for do_reverse in ${do_reverse_args[@]}; do
     done
 
     for idx in ${!experiment_array[@]}; do
-        experiment=${experiment_array[$idx]}
+        experiment="${experiment_array[$idx]}"
 
         perc_features_str="${perc_features_str_array[$idx]}"
         perc_fixed_features_str="${perc_fixed_features_str_array[$idx]}"
@@ -355,12 +355,12 @@ for do_reverse in ${do_reverse_args[@]}; do
         nchecks_str="${nchecks_str_array[$idx]}"
         avg_time_s_str="${avg_time_s_str_array[$idx]}"
 
-        postprocess_str_var perc_features_str $experiment || continue
-        postprocess_str_var perc_fixed_features_str $experiment || continue
-        postprocess_str_var perc_dimension_str $experiment || continue
-        postprocess_str_var nterms_str $experiment || continue
-        postprocess_str_var nchecks_str $experiment || continue
-        postprocess_str_var avg_time_s_str $experiment || continue
+        postprocess_str_var perc_features_str "$experiment" || continue
+        postprocess_str_var perc_fixed_features_str "$experiment" || continue
+        postprocess_str_var perc_dimension_str "$experiment" || continue
+        postprocess_str_var nterms_str "$experiment" || continue
+        postprocess_str_var nchecks_str "$experiment" || continue
+        postprocess_str_var avg_time_s_str "$experiment" || continue
 
         printf "%${EXPERIMENT_MAX_WIDTH}s" $experiment
         [[ -z ${EXCLUDE_COLUMNS[$FEATURES_CAPTION]} ]] && printf " | %${FEATURES_MAX_WIDTH}s" $perc_features_str
