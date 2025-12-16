@@ -42,6 +42,7 @@ public:
     std::size_t getInputSize() const { return numInputs; }
     std::size_t getOutputSize() const { return numOutputs; }
     std::size_t getNumLayers() const { return numLayers; }
+    std::size_t getNumHiddenLayers() const { return getNumLayers() - 2; }
     std::size_t getLayerSize(std::size_t layerNum) const;
 
     Values const & getWeights(std::size_t layerNum, std::size_t nodeIndex) const;
