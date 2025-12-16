@@ -20,6 +20,8 @@ FastRational floatToRational(float value);
 
 class OpenSMTVerifier::OpenSMTImpl {
 public:
+    OpenSMTImpl(OpenSMTVerifier & verifier_) : verifier{verifier_} {}
+
     bool contains(PTRef const &, NodeIndex) const;
 
     std::size_t termSizeOf(PTRef const &) const;
@@ -59,6 +61,8 @@ public:
     void addClassificationConstraint(NodeIndex node, float threshold);
 
     void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs);
+
+    void addPreference(PTRef const &);
 
     void init();
 
@@ -103,6 +107,8 @@ private:
 
     void addNeuronTerm(LayerIndex layer, NodeIndex node, PTRef input, PTRef neuronVar);
 
+    OpenSMTVerifier & verifier;
+
     std::unique_ptr<ArithLogic> logic;
     std::unique_ptr<MainSolver> solver;
     std::unique_ptr<SMTConfig> config;
@@ -123,7 +129,7 @@ private:
     std::unordered_map<PTRef, NodeIndex, PTRefHash> inputVarIntervalToIndex;
 };
 
-OpenSMTVerifier::OpenSMTVerifier() : pimpl{std::make_unique<OpenSMTImpl>()} {}
+OpenSMTVerifier::OpenSMTVerifier() : pimpl{std::make_unique<OpenSMTImpl>(*this)} {}
 
 OpenSMTVerifier::~OpenSMTVerifier() {}
 
@@ -173,6 +179,10 @@ void OpenSMTVerifier::addClassificationConstraint(NodeIndex node, float threshol
 
 void OpenSMTVerifier::addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs) {
     pimpl->addConstraint(layer, lhs, rhs);
+}
+
+void OpenSMTVerifier::addPreference(PTRef const & term) {
+    pimpl->addPreference(term);
 }
 
 void OpenSMTVerifier::initImpl() {
@@ -374,7 +384,26 @@ void OpenSMTVerifier::OpenSMTImpl::addNeuronTerm(LayerIndex layer, NodeIndex nod
     PTRef active = logic->mkLeq(neuronVar, input);
     PTRef inactive = logic->mkLeq(neuronVar, zero);
 
+    if (auto optFixedActivation = verifier.getFixedNeuronActivation(layer, node)) {
+        //+ can be useful if done incrementally
+        if (*optFixedActivation) {
+            addTerm(active);
+        } else {
+            addTerm(inactive);
+        }
+
+        return;
+    }
+
     addTerm(logic->mkOr(active, inactive));
+
+    if (auto optPreferredActivation = verifier.getPreferredNeuronActivation(layer, node)) {
+        if (*optPreferredActivation) {
+            addPreference(active);
+        } else {
+            addPreference(inactive);
+        }
+    }
 }
 
 void OpenSMTVerifier::OpenSMTImpl::setUnsatCoreFilter(std::vector<NodeIndex> const & filter) {
@@ -509,6 +538,10 @@ void OpenSMTVerifier::OpenSMTImpl::addClassificationConstraint(NodeIndex node, f
 
 void
 OpenSMTVerifier::OpenSMTImpl::addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs) {
+    throw std::logic_error("Unimplemented!");
+}
+
+void OpenSMTVerifier::OpenSMTImpl::addPreference(PTRef const & term) {
     throw std::logic_error("Unimplemented!");
 }
 
