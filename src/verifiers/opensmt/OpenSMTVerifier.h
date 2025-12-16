@@ -42,6 +42,8 @@ public:
 
     void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs) override;
 
+    void addPreference(::opensmt::PTRef const &);
+
     void resetSampleQuery() override;
     void resetSample() override;
     void reset() override;

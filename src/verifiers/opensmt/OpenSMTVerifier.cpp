@@ -20,6 +20,8 @@ FastRational floatToRational(float value);
 
 class OpenSMTVerifier::OpenSMTImpl {
 public:
+    OpenSMTImpl(OpenSMTVerifier & verifier_) : verifier{verifier_} {}
+
     bool contains(PTRef const &, NodeIndex) const;
 
     std::size_t termSizeOf(PTRef const &) const;
@@ -59,6 +61,8 @@ public:
     void addClassificationConstraint(NodeIndex node, float threshold);
 
     void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs);
+
+    void addPreference(PTRef const &);
 
     void init();
 
@@ -103,6 +107,8 @@ private:
 
     void addNeuronTerm(LayerIndex layer, NodeIndex node, PTRef input, PTRef neuronVar);
 
+    OpenSMTVerifier & verifier;
+
     std::unique_ptr<ArithLogic> logic;
     std::unique_ptr<MainSolver> solver;
     std::unique_ptr<SMTConfig> config;
@@ -123,7 +129,7 @@ private:
     std::unordered_map<PTRef, NodeIndex, PTRefHash> inputVarIntervalToIndex;
 };
 
-OpenSMTVerifier::OpenSMTVerifier() : pimpl{std::make_unique<OpenSMTImpl>()} {}
+OpenSMTVerifier::OpenSMTVerifier() : pimpl{std::make_unique<OpenSMTImpl>(*this)} {}
 
 OpenSMTVerifier::~OpenSMTVerifier() {}
 
@@ -173,6 +179,10 @@ void OpenSMTVerifier::addClassificationConstraint(NodeIndex node, float threshol
 
 void OpenSMTVerifier::addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs) {
     pimpl->addConstraint(layer, lhs, rhs);
+}
+
+void OpenSMTVerifier::addPreference(PTRef const & term) {
+    pimpl->addPreference(term);
 }
 
 void OpenSMTVerifier::initImpl() {
@@ -365,16 +375,53 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
 }
 
 void OpenSMTVerifier::OpenSMTImpl::addNeuronTerm(LayerIndex layer, NodeIndex node, PTRef input, PTRef neuronVar) {
-    // Hard constraints
     PTRef zero = logic->getTerm_RealZero();
-    addTerm(logic->mkGeq(neuronVar, input));
-    addTerm(logic->mkGeq(neuronVar, zero));
+
+    PTRef activeCond = logic->mkGeq(input, zero);
+    PTRef inactiveCond = logic->mkNot(activeCond);
+
+    // Hard constraints
+    PTRef activeGeq = logic->mkGeq(neuronVar, input);
+    PTRef inactiveGeq = logic->mkGeq(neuronVar, zero);
 
     // Constraints that depend on activation
-    PTRef active = logic->mkLeq(neuronVar, input);
-    PTRef inactive = logic->mkLeq(neuronVar, zero);
+    // Option #1
+    PTRef activeLeq = logic->mkLeq(neuronVar, input);
+    PTRef inactiveLeq = logic->mkLeq(neuronVar, zero);
+    PTRef leqOr = logic->mkOr(activeLeq, inactiveLeq);
+    // Option #2
+    PTRef activeEq = logic->mkEq(neuronVar, input);
+    PTRef inactiveEq = logic->mkEq(neuronVar, zero);
+    PTRef activeImpl = logic->mkImpl(activeCond, activeEq);
+    PTRef inactiveImpl = logic->mkImpl(inactiveCond, inactiveEq);
 
-    addTerm(logic->mkOr(active, inactive));
+    if (auto optFixedActivation = verifier.getFixedNeuronActivation(layer, node)) {
+        //+ can be useful to do this incrementally
+        if (*optFixedActivation) {
+            addTerm(activeEq);
+        } else {
+            addTerm(inactiveEq);
+        }
+
+        return;
+    }
+
+    if (auto optPreferredActivation = verifier.getPreferredNeuronActivation(layer, node)) {
+        addTerm(activeImpl);
+        addTerm(inactiveImpl);
+
+        if (*optPreferredActivation) {
+            addPreference(activeCond);
+        } else {
+            addPreference(inactiveCond);
+        }
+
+        return;
+    }
+
+    addTerm(activeGeq);
+    addTerm(inactiveGeq);
+    addTerm(leqOr);
 }
 
 void OpenSMTVerifier::OpenSMTImpl::setUnsatCoreFilter(std::vector<NodeIndex> const & filter) {
@@ -509,6 +556,10 @@ void OpenSMTVerifier::OpenSMTImpl::addClassificationConstraint(NodeIndex node, f
 
 void
 OpenSMTVerifier::OpenSMTImpl::addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs) {
+    throw std::logic_error("Unimplemented!");
+}
+
+void OpenSMTVerifier::OpenSMTImpl::addPreference(PTRef const & term) {
     throw std::logic_error("Unimplemented!");
 }
 
