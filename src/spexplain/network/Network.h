@@ -42,6 +42,7 @@ public:
     std::size_t nInputs() const { return numInputs; }
     std::size_t nOutputs() const { return numOutputs; }
     std::size_t nLayers() const { return numLayers; }
+    std::size_t nHiddenLayers() const { return nLayers() - 2; }
 
     std::size_t nClasses() const;
 
