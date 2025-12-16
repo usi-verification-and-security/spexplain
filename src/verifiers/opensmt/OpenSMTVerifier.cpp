@@ -103,7 +103,7 @@ private:
     NodeIndex nodeIndexOfInputEquality(PTRef term) const { return inputVarEqualityToIndex.at(term); }
     NodeIndex nodeIndexOfInputInterval(PTRef term) const { return inputVarIntervalToIndex.at(term); }
 
-    void addNeuronTerm(LayerIndex layer, NodeIndex node, PTRef input, PTRef neuronVar);
+    void addNeuronTerm(spexplain::Network const &, LayerIndex layer, NodeIndex node, PTRef input, PTRef neuronVar);
 
     std::unique_ptr<ArithLogic> logic;
     std::unique_ptr<MainSolver> solver;
@@ -334,7 +334,7 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
             PTRef neuronVar = logic->mkRealVar(neuronName.c_str());
             currentLayerRefs.push_back(neuronVar);
 
-            addNeuronTerm(layer, node, input, neuronVar);
+            addNeuronTerm(network, layer, node, input, neuronVar);
         }
 
         neuronVars.push_back(currentLayerRefs);
@@ -370,17 +370,60 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
     }
 }
 
-void OpenSMTVerifier::OpenSMTImpl::addNeuronTerm(LayerIndex layer, NodeIndex node, PTRef input, PTRef neuronVar) {
-    // Hard constraints
+void OpenSMTVerifier::OpenSMTImpl::addNeuronTerm(spexplain::Network const & network, LayerIndex layer, NodeIndex node,
+                                                 PTRef input, PTRef neuronVar) {
+    assert(layer > 0);
+
     PTRef zero = logic->getTerm_RealZero();
-    addTerm(logic->mkGeq(neuronVar, input));
-    addTerm(logic->mkGeq(neuronVar, zero));
 
-    // Constraints that depend on activation
-    PTRef active = logic->mkLeq(neuronVar, input);
-    PTRef inactive = logic->mkLeq(neuronVar, zero);
+    // Construct lazily on demand, input may be large
+    static auto const activeCondF = [](ArithLogic & logic_, PTRef input_, PTRef zero_) {
+        return logic_.mkGeq(input_, zero_);
+    };
+    static auto const inactiveCondF = [](ArithLogic & logic_, PTRef input_, PTRef zero_) {
+        return logic_.mkNot(activeCondF(logic_, input_, zero_));
+    };
 
-    addTerm(logic->mkOr(active, inactive));
+    static auto const activeEqF = [](ArithLogic & logic_, PTRef neuronVar_, PTRef input_) {
+        return logic_.mkEq(neuronVar_, input_);
+    };
+    static auto const inactiveEqF = [](ArithLogic & logic_, PTRef neuronVar_, PTRef zero_) {
+        return logic_.mkEq(neuronVar_, zero_);
+    };
+
+    bool const isSingleHiddenLayer = network.getNumHiddenLayers() == 1;
+
+    PTRef activeCond;
+    PTRef inactiveCond;
+    PTRef activeLeq;
+    PTRef inactiveLeq;
+    if (isSingleHiddenLayer) {
+        // Hard constraints
+        PTRef activeGeq = logic->mkGeq(neuronVar, input);
+        PTRef inactiveGeq = logic->mkGeq(neuronVar, zero);
+
+        // Constraints that depend on activation
+        activeLeq = logic->mkLeq(neuronVar, input);
+        inactiveLeq = logic->mkLeq(neuronVar, zero);
+
+        addTerm(activeGeq);
+        addTerm(inactiveGeq);
+
+        addTerm(logic->mkOr(activeLeq, inactiveLeq));
+    } else {
+        activeCond = activeCondF(*logic, input, zero);
+        inactiveCond = inactiveCondF(*logic, input, zero);
+
+        // Constraints that depend on activation
+        PTRef activeEq = activeEqF(*logic, neuronVar, input);
+        PTRef inactiveEq = inactiveEqF(*logic, neuronVar, zero);
+
+        PTRef activeImpl = logic->mkImpl(activeCond, activeEq);
+        PTRef inactiveImpl = logic->mkImpl(inactiveCond, inactiveEq);
+
+        addTerm(activeImpl);
+        addTerm(inactiveImpl);
+    }
 }
 
 void OpenSMTVerifier::OpenSMTImpl::setUnsatCoreFilter(std::vector<NodeIndex> const & filter) {
