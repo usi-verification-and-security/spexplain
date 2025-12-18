@@ -25,7 +25,7 @@ public:
 
     std::size_t termSizeOf(::opensmt::PTRef const &) const;
 
-    void loadModel(spexplain::Network const &) override;
+    void assertSampleModel(spexplain::Network const &) override;
 
     void setUnsatCoreFilter(std::vector<NodeIndex> const &) override;
 
@@ -48,7 +48,7 @@ public:
 
     void resetSampleQuery() override;
     void resetSample() override;
-    void reset() override;
+    void resetSampleModel() override;
 
     UnsatCore getUnsatCore() const override;
 
