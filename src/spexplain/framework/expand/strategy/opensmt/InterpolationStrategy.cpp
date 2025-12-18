@@ -129,6 +129,7 @@ void InterpolationStrategy::executeBody(Explanations & explanations, Network::Da
     bool const itpIsConj = logic.isAnd(itp);
 #ifndef NDEBUG
     bool const strongBoolItpAlg = config.boolInterpolationAlg == BoolInterpolationAlg::strong;
+    bool const weakerArithItpAlg = config.arithInterpolationAlg == ArithInterpolationAlg::weaker;
     auto const isLit = [&logic](auto & phi) {
         assert(not logic.isFalse(phi));
         assert(not logic.isTrue(phi));
@@ -138,7 +139,7 @@ void InterpolationStrategy::executeBody(Explanations & explanations, Network::Da
         assert(phiTerm.size() == 1);
         return logic.isAtom(phiTerm[0]);
     };
-    assert(not strongBoolItpAlg or itpIsConj or isLit(itp));
+    assert(not strongBoolItpAlg or weakerArithItpAlg or itpIsConj or isLit(itp));
 #endif
 
     if (not filteringVars and not itpIsConj) {
