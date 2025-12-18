@@ -5,7 +5,7 @@ DIRNAME=$(dirname "$0")
 source "$DIRNAME/lib/run"
 
 function usage {
-    printf "USAGE: %s <output_dir> <exp_strategies_spec> <name> [reverse] [<max_samples>] <args>...\n" "$0"
+    printf "USAGE: %s <output_dir> <exp_strategies_spec> [<name>] [reverse] [<max_samples>] <args>...\n" "$0"
 
     [[ -n $1 ]] && exit $1
 }
@@ -19,9 +19,12 @@ shift
 STRATEGIES="$1"
 shift
 
-[[ -z $1 || $1 =~ ^(reverse|short)$ ]] && usage 1 >&2
-EXPERIMENT="$1"
-shift
+if [[ -z $1 || $1 =~ ^(reverse|short)$ ]]; then
+    set_experiment_name_from_strategies EXPERIMENT "$STRATEGIES"
+else
+    EXPERIMENT="$1"
+    shift
+fi
 
 [[ $1 == reverse ]] && {
     REVERSE=1

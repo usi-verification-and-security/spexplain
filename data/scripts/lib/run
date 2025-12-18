@@ -52,3 +52,26 @@ function set_timeout {
     [[ -z $TIMEOUT ]] && TIMEOUT=30m
     export TIMEOUT
 }
+
+function set_experiment_name_from_strategies {
+    local -n lname=$1
+    local strategies="$2"
+
+    shopt -qs extglob
+
+    strategies="${strategies//+( )/ }"
+    strategies="${strategies//, /,}"
+    strategies="${strategies//; /;}"
+    strategies="${strategies// /_}"
+    strategies=${strategies//,/_}
+
+    local IFS=';'
+    local arr=($strategies)
+    local i
+    lname=
+    for (( i=${#arr[@]}-1; i > 0; --i )); do
+        lname+=${arr[$i]}_
+    done
+
+    lname+=${arr[0]}
+}
