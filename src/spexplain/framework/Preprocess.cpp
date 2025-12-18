@@ -26,7 +26,7 @@ void Framework::Preprocess::operator()(Network::Dataset & dataset) const {
     outputs.reserve(size);
     for (auto const & sample : samples) {
         assert(sample.size() == framework.varSize());
-        Network::Output output = network(sample);
+        Network::Output output = network.evaluate(sample, {.storeHiddenNeuronValues = true});
         outputs.push_back(std::move(output));
     }
 
