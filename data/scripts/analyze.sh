@@ -315,7 +315,7 @@ while true; do
         case $ACTION in
         check)
             ## + we do not check that psi alone and also phi alone are both SAT
-            printf "(assert %s)" "$line" >>$ifile
+            printf "(assert %s)\n" "$line" >>$ifile
             ;;
         count-fixed)
             var=$arg
@@ -460,7 +460,7 @@ compare-subset)
             case $ACTION in
             check)
                 printf "NOT space explanation [%d]:\n" $idx >&2
-                sed -n '$p' $ifile >&2
+                tail -n 2 $ifile | head -n 1 >&2
                 cp -v $ifile $(basename $ifile) >&2
                 cleanup 3
                 ;;
