@@ -64,7 +64,7 @@ class MarabouVerifier::MarabouImpl {
 public:
     MarabouImpl();
 
-    void loadModel(spexplain::Network const &);
+    void assertSampleModel(spexplain::Network const &);
 
     void addUpperBound(LayerIndex layer, NodeIndex var, Float value);
     void addLowerBound(LayerIndex layer, NodeIndex var, Float value);
@@ -86,8 +86,8 @@ MarabouVerifier::MarabouVerifier() : pimpl{std::make_unique<MarabouImpl>()} {}
 
 MarabouVerifier::~MarabouVerifier() {}
 
-void MarabouVerifier::loadModel(spexplain::Network const & network) {
-    pimpl->loadModel(network);
+void MarabouVerifier::assertSampleModel(spexplain::Network const & network) {
+    pimpl->assertSampleModel(network);
 }
 
 void MarabouVerifier::addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool /*explanationTerm*/) {
@@ -337,7 +337,7 @@ MarabouVerifier::MarabouImpl::MarabouImpl() {
     Options::get()->setInt(Options::IntOptions::VERBOSITY, 0);
 }
 
-void MarabouVerifier::MarabouImpl::loadModel(const spexplain::Network & network) {
+void MarabouVerifier::MarabouImpl::assertSampleModel(const spexplain::Network & network) {
     queryWrapper = QueryIncrementalWrapper::fromNNet(network);
 }
 

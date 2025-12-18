@@ -76,8 +76,14 @@ protected:
 
     void initVerifier();
 
-    void assertModel();
-    void resetModel();
+    void preprocessGroundModel(Network::Dataset const &);
+    void preprocessSampleModel(Network::Output const &);
+    void assertGroundModel();
+    void assertSampleModel();
+    void resetSampleModel();
+    void resetGroundModel();
+
+    void resetVerifier();
 
     void assertClassification(Network::Classification const &);
     void resetClassification();
