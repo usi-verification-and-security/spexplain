@@ -33,6 +33,8 @@ public:
 
         Classification classification;
         Values values{};
+
+        std::vector<Values> hiddenNeuronValues{};
     };
 
     class Dataset;
@@ -42,6 +44,7 @@ public:
     std::size_t getInputSize() const { return numInputs; }
     std::size_t getOutputSize() const { return numOutputs; }
     std::size_t getNumLayers() const { return numLayers; }
+    std::size_t getNumHiddenLayers() const { return getNumLayers() - 2; }
     std::size_t getLayerSize(std::size_t layerNum) const;
 
     Values const & getWeights(std::size_t layerNum, std::size_t nodeIndex) const;
@@ -53,10 +56,15 @@ public:
 
     bool isBinaryClassifier() const;
 
-    Output operator()(Sample const &) const;
+    struct EvalConfig {
+        bool storeHiddenNeuronValues{false};
+    };
+    Output operator()(Sample const & sample) const { return evaluate(sample); }
+    Output evaluate(Sample const & sample, EvalConfig const &) const;
+    Output evaluate(Sample const & sample) const { return evaluate(sample, {}); }
 
 protected:
-    Output::Values computeOutputValues(Sample const &) const;
+    std::vector<Output::Values> computeOutputValues(Sample const &, EvalConfig const &) const;
 
     Classification computeClassification(Output::Values const &) const;
     Classification computeBinaryClassification(Output::Values const &) const;
@@ -86,6 +94,14 @@ private:
     Weights weights;
     Biases biases;
 };
+
+Float getOutputValue(Network::Output::Values const &, std::size_t nodeIndex);
+inline Float getOutputValue(Network::Output const & output, std::size_t nodeIndex) {
+    return getOutputValue(output.values, nodeIndex);
+}
+
+Float getHiddenNeuronValue(Network::Output const &, std::size_t layerNum, std::size_t nodeIndex);
+bool activatedHiddenNeuron(Network::Output const &, std::size_t layerNum, std::size_t nodeIndex);
 } // namespace spexplain
 
 #endif // SPEXPLAIN_NETWORK_H
