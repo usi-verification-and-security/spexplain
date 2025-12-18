@@ -9,6 +9,8 @@
 #include <sstream>
 
 namespace spexplain {
+using namespace std::string_literals;
+
 namespace {
     std::vector<std::string> split(std::string const & s, char delimiter) {
         std::vector<std::string> tokens;
@@ -150,21 +152,48 @@ Float Network::getInputUpperBound(std::size_t nodeIndex) const {
     return inputMaximums.at(nodeIndex);
 }
 
-Network::Output Network::operator()(Sample const & sample) const {
-    Output::Values values = computeOutputValues(sample);
+Network::Output Network::evaluate(Sample const & sample, EvalConfig const & conf) const {
+    std::vector<Output::Values> allValues = computeOutputValues(sample, conf);
+    assert(allValues.size() >= 1);
+    assert(conf.storeHiddenNeuronValues or allValues.size() == 1);
+    Output::Values values = std::move(allValues.back());
+    assert(values.size() == nOutputs());
+
     Classification cls = computeClassification(values);
 
-    return {.classification = std::move(cls), .values = std::move(values)};
+    std::vector<Output::Values> hiddenNeuronValues;
+    if (conf.storeHiddenNeuronValues) {
+        allValues.pop_back();
+        hiddenNeuronValues = std::move(allValues);
+        assert(hiddenNeuronValues.size() == nHiddenLayers());
+    }
+
+    return {.classification = std::move(cls),
+            .values = std::move(values),
+            .hiddenNeuronValues = std::move(hiddenNeuronValues)};
 }
 
-Network::Output::Values Network::computeOutputValues(Sample const & sample) const {
+std::vector<Network::Output::Values> Network::computeOutputValues(Sample const & sample,
+                                                                  EvalConfig const & evalConf) const {
     std::size_t const nVars = nInputs();
     if (sample.size() != nVars) { throw std::logic_error("Input values do not have expected size!"); }
 
+    bool const storeHiddenNeuronValues = evalConf.storeHiddenNeuronValues;
+
+    static_assert(std::is_same_v<Values, Output::Values>);
+
+    std::size_t const nLayers_ = nLayers();
+
     auto previousLayerValues = sample;
     Values currentLayerValues;
-    std::size_t const nLayers_ = nLayers();
-    for (std::size_t layer = 1; layer < nLayers_; ++layer) {
+    std::vector<Values> outputValues;
+    if (not storeHiddenNeuronValues) {
+        outputValues.reserve(1);
+    } else {
+        outputValues.reserve(nLayers_ - 1);
+    }
+    assert(nLayers_ >= 2);
+    for (std::size_t layer = 1;; ++layer) {
         std::size_t const layerSize = getLayerSize(layer);
         for (std::size_t node = 0; node < layerSize; ++node) {
             auto const & incomingWeights = getWeights(layer, node);
@@ -173,16 +202,24 @@ Network::Output::Values Network::computeOutputValues(Sample const & sample) cons
             for (auto i = 0u; i < incomingWeights.size(); ++i) {
                 addends.push_back(incomingWeights[i] * previousLayerValues[i]);
             }
-            currentLayerValues.push_back(std::accumulate(addends.begin(), addends.end(), getBias(layer, node)));
+            Float sum = std::accumulate(addends.begin(), addends.end(), getBias(layer, node));
+            currentLayerValues.push_back(sum);
         }
-        if (layer < nLayers_ - 1) {
-            std::transform(currentLayerValues.begin(), currentLayerValues.end(), currentLayerValues.begin(),
-                           [](Float val) { return std::max(Float{0}, val); });
-            previousLayerValues = std::move(currentLayerValues);
-            currentLayerValues.clear();
-        }
+
+        assert(layer <= nLayers_ - 1);
+        if (layer == nLayers_ - 1) { break; }
+
+        std::transform(currentLayerValues.begin(), currentLayerValues.end(), currentLayerValues.begin(),
+                       [](Float val) { return std::max(Float{0}, val); });
+        if (storeHiddenNeuronValues) { outputValues.push_back(currentLayerValues); }
+        previousLayerValues = std::move(currentLayerValues);
+        currentLayerValues.clear();
     }
-    return currentLayerValues;
+    assert(not storeHiddenNeuronValues or outputValues.size() == nLayers_ - 2);
+
+    outputValues.push_back(std::move(currentLayerValues));
+
+    return outputValues;
 }
 
 Network::Classification Network::computeClassification(Output::Values const & values) const {
@@ -218,5 +255,27 @@ void Network::Values::print(std::ostream & os) const {
     for (Float val : *this | std::views::drop(1)) {
         os << ',' << val;
     }
+}
+
+Float getOutputValue(Network::Output::Values const & values, std::size_t nodeIndex) {
+    assert(nodeIndex < values.size());
+    return values[nodeIndex];
+}
+
+Float getHiddenNeuronValue(Network::Output const & output, std::size_t layerNum, std::size_t nodeIndex) {
+    auto & hiddenNeuronValues = output.hiddenNeuronValues;
+    std::size_t const hiddenLayerIdx = layerNum - 1;
+    if (hiddenLayerIdx >= hiddenNeuronValues.size()) {
+        throw std::out_of_range{"Hidden layer index is out of range: "s + std::to_string(layerNum) +
+                                " >= " + std::to_string(hiddenNeuronValues.size() + 1)};
+    }
+
+    auto & layerNeuronValues = hiddenNeuronValues[hiddenLayerIdx];
+    return getOutputValue(layerNeuronValues, nodeIndex);
+}
+
+bool activatedHiddenNeuron(Network::Output const & output, std::size_t layerNum, std::size_t nodeIndex) {
+    Float const value = getHiddenNeuronValue(output, layerNum, nodeIndex);
+    return value > Float{0};
 }
 } // namespace spexplain
