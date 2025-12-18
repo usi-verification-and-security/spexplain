@@ -26,7 +26,7 @@ public:
 
     std::size_t termSizeOf(PTRef const &) const;
 
-    void loadModel(spexplain::Network const &);
+    void assertSampleModel(spexplain::Network const &);
 
     void setUnsatCoreFilter(std::vector<NodeIndex> const &);
 
@@ -75,7 +75,7 @@ public:
 
     void resetSampleQuery();
     void resetSample();
-    void reset();
+    void resetSampleModel();
 
     UnsatCore getUnsatCore() const;
 
@@ -143,8 +143,8 @@ std::size_t OpenSMTVerifier::termSizeOf(PTRef const & term) const {
     return pimpl->termSizeOf(term);
 }
 
-void OpenSMTVerifier::loadModel(spexplain::Network const & network) {
-    pimpl->loadModel(network);
+void OpenSMTVerifier::assertSampleModel(spexplain::Network const & network) {
+    pimpl->assertSampleModel(network);
 }
 
 void OpenSMTVerifier::setUnsatCoreFilter(std::vector<NodeIndex> const & filter) {
@@ -217,9 +217,9 @@ void OpenSMTVerifier::resetSample() {
     UnsatCoreVerifier::resetSample();
 }
 
-void OpenSMTVerifier::reset() {
-    pimpl->reset();
-    UnsatCoreVerifier::reset();
+void OpenSMTVerifier::resetSampleModel() {
+    pimpl->resetSampleModel();
+    UnsatCoreVerifier::resetSampleModel();
 }
 
 UnsatCore OpenSMTVerifier::getUnsatCore() const {
@@ -296,7 +296,8 @@ std::size_t OpenSMTVerifier::OpenSMTImpl::termSizeOf(PTRef const & term) const {
     return totalSize;
 }
 
-void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network) {
+//+ move same common parts into assertGroundModel, but incremental assertions seem much slower
+void OpenSMTVerifier::OpenSMTImpl::assertSampleModel(spexplain::Network const & network) {
     // Store information about layer sizes
     layerSizes.clear();
     for (LayerIndex layer = 0u; layer < network.getNumLayers(); layer++) {
@@ -637,7 +638,8 @@ void OpenSMTVerifier::OpenSMTImpl::resetSample() {
     // resetSampleQuery() is called by Verifier
 }
 
-void OpenSMTVerifier::OpenSMTImpl::reset() {
+//+ move sth. common into resetGroundModel
+void OpenSMTVerifier::OpenSMTImpl::resetSampleModel() {
     logic = std::make_unique<ArithLogic>(opensmt::Logic_t::QF_LRA);
     solver = std::make_unique<MainSolver>(*logic, *config, "verifier");
     inputVars.clear();

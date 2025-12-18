@@ -156,7 +156,8 @@ void Framework::Expand::printDomainsAsSmtLib2Query(std::ostream & os) {
 
     initVerifier();
 
-    assertModel();
+    assertGroundModel();
+    assertSampleModel();
 
     verifier.printSmtLib2Query(os);
 }
@@ -169,7 +170,8 @@ void Framework::Expand::printClassificationAsSmtLib2Query(std::ostream & os, Net
     initVerifier();
 
     os << "(set-info :source \"class " << label << "\")\n";
-    assertModel();
+    assertGroundModel();
+    assertSampleModel();
     assertClassification(cls);
 
     verifier.printSmtLib2Query(os);
@@ -219,9 +221,8 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
     };
 
     initVerifier();
-
-    // Such incrementality does not seem to be beneficial
-    // assertModel();
+    preprocessGroundModel(data);
+    assertGroundModel();
 
     Network::Dataset::SampleIndices const indices = makeSampleIndices(data);
     for (auto idx : indices) {
@@ -237,10 +238,11 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
         bool timeout = false;
         if (timeoutPerIsSet) { verifierPtr->setTimeLimit(timeoutPer); }
 
-        // Seems quite more efficient than if outside the loop, at least with 'abductive'
-        assertModel();
-
         auto const & output = data.getComputedOutput(idx);
+
+        preprocessSampleModel(output);
+        assertSampleModel();
+
         auto const & cls = output.classification;
         assertClassification(cls);
 
@@ -277,7 +279,7 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
 
         resetClassification();
 
-        resetModel();
+        resetSampleModel();
 
         if (not printingTimes) { continue; }
 
@@ -291,6 +293,10 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
         ctimes << std::endl;
     }
 
+    resetGroundModel();
+
+    // resetVerifier() not needed here
+
     cinfo << "\nDone." << std::endl;
 }
 
@@ -299,12 +305,38 @@ void Framework::Expand::initVerifier() {
     verifierPtr->init();
 }
 
-void Framework::Expand::assertModel() {
-    auto & network = framework.getNetwork();
-    verifierPtr->loadModel(network);
+void Framework::Expand::preprocessGroundModel(Network::Dataset const &) {
+    assert(verifierPtr);
 }
 
-void Framework::Expand::resetModel() {
+void Framework::Expand::preprocessSampleModel(Network::Output const &) {
+    assert(verifierPtr);
+}
+
+void Framework::Expand::assertGroundModel() {
+    assert(verifierPtr);
+    auto & network = framework.getNetwork();
+    verifierPtr->assertGroundModel(network);
+}
+
+void Framework::Expand::assertSampleModel() {
+    assert(verifierPtr);
+    auto & network = framework.getNetwork();
+    verifierPtr->assertSampleModel(network);
+}
+
+void Framework::Expand::resetSampleModel() {
+    assert(verifierPtr);
+    verifierPtr->resetSampleModel();
+}
+
+void Framework::Expand::resetGroundModel() {
+    assert(verifierPtr);
+    verifierPtr->resetGroundModel();
+}
+
+void Framework::Expand::resetVerifier() {
+    assert(verifierPtr);
     verifierPtr->reset();
 }
 
