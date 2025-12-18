@@ -34,7 +34,8 @@ public:
     std::optional<bool> getFixedNeuronActivation(LayerIndex, NodeIndex) const;
     std::optional<bool> getPreferredNeuronActivation(LayerIndex, NodeIndex) const;
 
-    virtual void loadModel(spexplain::Network const &) = 0;
+    virtual void assertGroundModel(spexplain::Network const &) {}
+    virtual void assertSampleModel(spexplain::Network const &) = 0;
 
     virtual void addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) = 0;
     virtual void addLowerBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) = 0;
@@ -69,7 +70,13 @@ public:
 
     virtual void resetSampleQuery() {}
     virtual void resetSample();
-    virtual void reset() { resetSample(); }
+    virtual void resetSampleModel() { resetSample(); }
+    virtual void resetGroundModel() {}
+
+    virtual void reset() {
+        resetSampleModel();
+        resetGroundModel();
+    }
 
     virtual void printSmtLib2Query(std::ostream &) const = 0;
 
