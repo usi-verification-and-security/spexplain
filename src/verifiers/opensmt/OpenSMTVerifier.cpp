@@ -592,7 +592,7 @@ OpenSMTVerifier::OpenSMTImpl::addConstraint(LayerIndex layer, std::vector<std::p
 }
 
 void OpenSMTVerifier::OpenSMTImpl::addPreference(PTRef const & term) {
-    throw std::logic_error("Unimplemented!");
+    solver->addDecisionPreference(term);
 }
 
 void OpenSMTVerifier::OpenSMTImpl::push() {
