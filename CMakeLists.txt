@@ -16,7 +16,7 @@ SET(OPENSMT_HOME CACHE STRING "OpenSMT installation directory")
     FetchContent_Declare(
         OpenSMT
         GIT_REPOSITORY https://github.com/usi-verification-and-security/opensmt.git
-        GIT_TAG spexplain
+        GIT_TAG origin/spexplain
         GIT_SHALLOW true
         GIT_PROGRESS true
     )
@@ -45,7 +45,7 @@ if (ENABLE_MARABOU)
             # GIT_REPOSITORY https://github.com/NeuralNetworkVerification/Marabou.git
             # GIT_TAG 215828c64e624be7917e69e4e873c746d8df25a2
             GIT_REPOSITORY https://github.com/Tomaqa/Marabou.git
-            GIT_TAG spexplain
+            GIT_TAG origin/spexplain
             GIT_SHALLOW true
             GIT_PROGRESS true
         )
