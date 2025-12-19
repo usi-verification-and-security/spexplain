@@ -325,8 +325,21 @@ void Framework::Expand::preprocessGroundModel(Network::Dataset const &) {
     assert(verifierPtr);
 }
 
-void Framework::Expand::preprocessSampleModel(Network::Output const &) {
+void Framework::Expand::preprocessSampleModel(Network::Output const & output) {
     assert(verifierPtr);
+    auto & verifier = *verifierPtr;
+    auto & network = framework.getNetwork();
+
+    xai::verifiers::LayerIndex const nHiddenLayers = network.getNumHiddenLayers();
+    assert(nHiddenLayers == network.getNumLayers() - 2);
+    for (xai::verifiers::LayerIndex layer = 1; layer < nHiddenLayers + 1; ++layer) {
+        xai::verifiers::NodeIndex const nNodes = network.getLayerSize(layer);
+        for (xai::verifiers::NodeIndex node = 0; node < nNodes; ++node) {
+            bool const activated = activatedHiddenNeuron(output, layer, node);
+
+            verifier.preferNeuronActivation(layer, node, nHiddenLayers, nNodes, activated);
+        }
+    }
 }
 
 void Framework::Expand::assertGroundModel() {
