@@ -10,7 +10,7 @@ function usage {
     printf "USAGE: %s <explanations_dir> <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>] [<OPTIONS>]\n" "$0"
     printf "OPTIONS:\n"
     printf "\t--exclude-column <name>\t\tExclude given column\n"
-    printf "\t--average <regex>\t\tAverage columns for rows mathing the regex (can be repeated)\n"
+    printf "\t--average [<regex>]\t\tAverage columns for all rows [matching the regex] (can be repeated)\n"
 
     [[ -n $1 ]] && exit $1
 }
@@ -71,11 +71,11 @@ while [[ -n $1 ]]; do
             ;;
 
         --average)
-            [[ -z $1 ]] && {
-                printf "Option '%s': expected regex argument.\n" "$opt" >&2
-                usage 2 >&2
-            }
-            AVERAGE_FILTERS+=("$1")
+            if [[ -n $1 ]]; then
+                AVERAGE_FILTERS+=("$1")
+            else
+                AVERAGE_FILTERS+=('.*')
+            fi
             shift
             ;;
     esac
