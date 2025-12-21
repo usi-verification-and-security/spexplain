@@ -375,6 +375,10 @@ void OpenSMTVerifier::OpenSMTImpl::addNeuronTerm(LayerIndex layer, NodeIndex nod
     PTRef inactive = logic->mkLeq(neuronVar, zero);
 
     addTerm(logic->mkOr(active, inactive));
+
+    PTRef condActive = logic->mkGeq(input, zero);
+    addTerm(logic->mkImpl(condActive, active));
+    addTerm(logic->mkImpl(logic->mkNot(condActive), inactive));
 }
 
 void OpenSMTVerifier::OpenSMTImpl::setUnsatCoreFilter(std::vector<NodeIndex> const & filter) {
