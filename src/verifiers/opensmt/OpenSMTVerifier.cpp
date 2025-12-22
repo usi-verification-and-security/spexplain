@@ -385,6 +385,9 @@ void OpenSMTVerifier::OpenSMTImpl::addNeuronTerm(LayerIndex layer, NodeIndex nod
     PTRef active = logic->mkLeq(neuronVar, input);
     PTRef inactive = logic->mkLeq(neuronVar, zero);
 
+    PTRef condActive = logic->mkGeq(input, zero);
+    PTRef condInactive = logic->mkNot(condActive);
+
     if (auto optFixedActivation = verifier.getFixedNeuronActivation(layer, node)) {
         //+ can be useful if done incrementally
         if (*optFixedActivation) {
@@ -398,11 +401,14 @@ void OpenSMTVerifier::OpenSMTImpl::addNeuronTerm(LayerIndex layer, NodeIndex nod
 
     addTerm(logic->mkOr(active, inactive));
 
+    addTerm(logic->mkImpl(condActive, active));
+    addTerm(logic->mkImpl(condInactive, inactive));
+
     if (auto optPreferredActivation = verifier.getPreferredNeuronActivation(layer, node)) {
         if (*optPreferredActivation) {
-            addPreference(active);
+            addPreference(condActive);
         } else {
-            addPreference(inactive);
+            addPreference(condInactive);
         }
     }
 }
