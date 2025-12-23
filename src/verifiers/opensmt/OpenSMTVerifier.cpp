@@ -5,6 +5,11 @@
 #include <logics/ArithLogic.h>
 #include <logics/LogicFactory.h>
 
+#include <spexplain/common/Macro.h>
+#include <spexplain/framework/explanation/ConjunctExplanation.h>
+#include <spexplain/framework/explanation/opensmt/FormulaExplanation.h>
+#include <spexplain/network/Network.h>
+
 #include <algorithm>
 #include <ranges>
 #include <string>
@@ -15,7 +20,7 @@ namespace xai::verifiers {
 using namespace opensmt;
 
 namespace { // Helper methods
-FastRational floatToRational(float value);
+    FastRational floatToRational(float value);
 }
 
 class OpenSMTVerifier::OpenSMTImpl {
@@ -75,6 +80,8 @@ public:
     void resetSample();
     void resetSampleModel();
 
+    std::unique_ptr<spexplain::Explanation> getSampleModelAssumptions(spexplain::Framework const &);
+
     UnsatCore getUnsatCore() const;
 
     opensmt::MainSolver const & getSolver() const { return *solver; }
@@ -116,6 +123,8 @@ private:
     std::vector<std::vector<PTRef>> neuronVars;
     std::vector<PTRef> outputVars;
     std::vector<std::size_t> layerSizes;
+
+    std::vector<PTRef> sampleModelAssumptions;
 
     std::vector<NodeIndex> unsatCoreNodeFilter;
 
@@ -214,6 +223,10 @@ void OpenSMTVerifier::resetSample() {
 void OpenSMTVerifier::resetSampleModel() {
     pimpl->resetSampleModel();
     UnsatCoreVerifier::resetSampleModel();
+}
+
+std::unique_ptr<spexplain::Explanation> OpenSMTVerifier::getSampleModelAssumptions(spexplain::Framework const & fw) {
+    return pimpl->getSampleModelAssumptions(fw);
 }
 
 UnsatCore OpenSMTVerifier::getUnsatCore() const {
@@ -400,8 +413,10 @@ void OpenSMTVerifier::OpenSMTImpl::addNeuronTerm(LayerIndex layer, NodeIndex nod
         //+ can be useful to do this incrementally
         if (*optFixedActivation) {
             addTerm(activeEq);
+            sampleModelAssumptions.push_back(activeCond);
         } else {
             addTerm(inactiveEq);
+            sampleModelAssumptions.push_back(inactiveCond);
         }
 
         return;
@@ -611,7 +626,20 @@ void OpenSMTVerifier::OpenSMTImpl::resetSampleModel() {
     neuronVars.clear();
     outputVars.clear();
 
+    sampleModelAssumptions.clear();
+
     // resetSample() is called by Verifier
+}
+
+std::unique_ptr<spexplain::Explanation>
+OpenSMTVerifier::OpenSMTImpl::getSampleModelAssumptions(spexplain::Framework const & framework) {
+    spexplain::ConjunctExplanation cexplanation{framework};
+    for (PTRef assump : sampleModelAssumptions) {
+        auto phiexplanationPtr = std::make_unique<spexplain::opensmt::FormulaExplanation>(framework, assump);
+        cexplanation.insertExplanation(std::move(phiexplanationPtr));
+    }
+
+    return MAKE_UNIQUE(std::move(cexplanation));
 }
 
 UnsatCore OpenSMTVerifier::OpenSMTImpl::getUnsatCore() const {
