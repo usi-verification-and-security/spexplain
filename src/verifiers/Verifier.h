@@ -1,12 +1,17 @@
 #ifndef XAI_SMT_VERIFIER_H
 #define XAI_SMT_VERIFIER_H
 
-#include <spexplain/network/Network.h>
-
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+namespace spexplain {
+class Explanation;
+class Framework;
+class Network;
+} // namespace spexplain
 
 //++ move into spexplain namespace
 namespace xai::verifiers {
@@ -62,6 +67,8 @@ public:
     }
 
     std::size_t getChecksCount() const { return checksCount; }
+
+    virtual std::unique_ptr<spexplain::Explanation> getSampleModelAssumptions(spexplain::Framework const &);
 
     virtual void resetSampleQuery() {}
     virtual void resetSample();

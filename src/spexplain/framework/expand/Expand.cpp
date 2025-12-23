@@ -243,6 +243,8 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
             strategy->execute(explanations, data, idx);
         }
 
+        postprocessExplanation(explanations, idx);
+
         auto & explanation = getExplanation(explanations, idx);
         //+ get rid of the conditionals
         if (printingStats) { printStatsOf(explanation, data, idx); }
@@ -289,6 +291,7 @@ void Framework::Expand::preprocessSampleModel(Network::Output const & output) {
         xai::verifiers::NodeIndex const nNodes = network.getLayerSize(layer);
         for (xai::verifiers::NodeIndex node = 0; node < nNodes; ++node) {
             bool const activated = activatedHiddenNeuron(output, layer, node);
+            verifier.fixNeuronActivation(layer, node, nHiddenLayers, nNodes, activated);
 
             verifier.preferNeuronActivation(layer, node, nHiddenLayers, nNodes, activated);
         }
@@ -350,6 +353,15 @@ void Framework::Expand::assertClassification(Network::Classification const & cls
 void Framework::Expand::resetClassification() {
     verifierPtr->pop();
     verifierPtr->resetSample();
+}
+
+void Framework::Expand::postprocessExplanation(Explanations & explanations, ExplanationIdx idx) {
+    auto & lastStrategy = getLastStrategy();
+    auto & explanationPtr = getExplanationPtr(explanations, idx);
+
+    if (auto cexplanationPtr = verifierPtr->getSampleModelAssumptions(framework)) {
+        lastStrategy.intersectExplanation(explanationPtr, std::move(cexplanationPtr));
+    }
 }
 
 void Framework::Expand::printHead(std::ostream & os, Network::Dataset const & data) const {

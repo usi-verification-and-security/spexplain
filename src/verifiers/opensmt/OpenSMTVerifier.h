@@ -44,6 +44,8 @@ public:
 
     void addPreference(::opensmt::PTRef const &);
 
+    std::unique_ptr<spexplain::Explanation> getSampleModelAssumptions(spexplain::Framework const &) override;
+
     void resetSampleQuery() override;
     void resetSample() override;
     void resetSampleModel() override;
