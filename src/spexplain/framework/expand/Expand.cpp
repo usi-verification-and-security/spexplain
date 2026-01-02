@@ -321,7 +321,7 @@ void Framework::Expand::preprocessSampleModel(Network::Output const & output) {
         for (xai::verifiers::NodeIndex node = 0; node < nNodes; ++node) {
             bool const activated = activatedHiddenNeuron(output, layer, node);
 
-            verifier.preferNeuronActivation(layer, node, nHiddenLayers, nNodes, activated);
+            verifier.tryPreferNeuronActivation(layer, node, nHiddenLayers, nNodes, activated);
         }
     }
 }
