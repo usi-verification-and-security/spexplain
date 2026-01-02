@@ -30,6 +30,9 @@ public:
 
     void fixNeuronActivation(LayerIndex, NodeIndex, size_t nHiddenLayers, size_t layerSize, bool activation);
     void preferNeuronActivation(LayerIndex, NodeIndex, size_t nHiddenLayers, size_t layerSize, bool activation);
+    // Do not insert neuron activation if one already exists
+    bool tryFixNeuronActivation(LayerIndex, NodeIndex, size_t nHiddenLayers, size_t layerSize, bool activation);
+    bool tryPreferNeuronActivation(LayerIndex, NodeIndex, size_t nHiddenLayers, size_t layerSize, bool activation);
 
     std::optional<bool> getFixedNeuronActivation(LayerIndex, NodeIndex) const;
     std::optional<bool> getPreferredNeuronActivation(LayerIndex, NodeIndex) const;

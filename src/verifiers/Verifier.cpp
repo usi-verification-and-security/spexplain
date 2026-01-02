@@ -7,25 +7,45 @@
 namespace xai::verifiers {
 
 namespace {
-    void insertArgsToTp(auto & vectorOfMaps, LayerIndex layer, NodeIndex node, size_t nHiddenLayers, size_t layerSize,
+    template<bool overwriteV>
+    bool insertArgsToTp(auto & vectorOfMaps, LayerIndex layer, NodeIndex node, size_t nHiddenLayers, size_t layerSize,
                         auto &&... args) {
+        using VectorOfMaps = std::remove_cvref_t<decltype(vectorOfMaps)>;
+        using Map = typename VectorOfMaps::value_type;
+
         assert(layer <= nHiddenLayers);
         assert(node < layerSize);
         vectorOfMaps.resize(nHiddenLayers + 1);
         auto & map = vectorOfMaps[layer];
         map.reserve(layerSize);
-        map.emplace(node, FORWARD(args)...);
+        if constexpr (overwriteV) {
+            map.insert_or_assign(node, typename Map::mapped_type{FORWARD(args)...});
+            return true;
+        } else {
+            auto [it, inserted] = map.try_emplace(node, FORWARD(args)...);
+            return inserted;
+        }
     }
 } // namespace
 
 void Verifier::fixNeuronActivation(LayerIndex layer, NodeIndex node, size_t nHiddenLayers, size_t layerSize,
                                    bool activation) {
-    insertArgsToTp(fixedNeuronActivations, layer, node, nHiddenLayers, layerSize, activation);
+    insertArgsToTp<true>(fixedNeuronActivations, layer, node, nHiddenLayers, layerSize, activation);
 }
 
 void Verifier::preferNeuronActivation(LayerIndex layer, NodeIndex node, size_t nHiddenLayers, size_t layerSize,
                                       bool activation) {
-    insertArgsToTp(preferredNeuronActivations, layer, node, nHiddenLayers, layerSize, activation);
+    insertArgsToTp<true>(preferredNeuronActivations, layer, node, nHiddenLayers, layerSize, activation);
+}
+
+bool Verifier::tryFixNeuronActivation(LayerIndex layer, NodeIndex node, size_t nHiddenLayers, size_t layerSize,
+                                      bool activation) {
+    return insertArgsToTp<false>(fixedNeuronActivations, layer, node, nHiddenLayers, layerSize, activation);
+}
+
+bool Verifier::tryPreferNeuronActivation(LayerIndex layer, NodeIndex node, size_t nHiddenLayers, size_t layerSize,
+                                         bool activation) {
+    return insertArgsToTp<false>(preferredNeuronActivations, layer, node, nHiddenLayers, layerSize, activation);
 }
 
 namespace {
