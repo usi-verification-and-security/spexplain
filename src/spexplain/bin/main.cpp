@@ -109,6 +109,8 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     constexpr int formatLongOpt = 2;
     constexpr int filterLongOpt = 3;
     constexpr int outputTimesLongOpt = 4;
+    constexpr int fixDefaultSampleNeuronActivationsLongOpt = 5;
+    constexpr int preferDefaultSampleNeuronActivationsLongOpt = 6;
 
     //+ not documented
     struct ::option longOptions[] = {{"help", no_argument, nullptr, 'h'},
@@ -121,6 +123,10 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                                      {"quiet", no_argument, nullptr, 'q'},
                                      // {"version", no_argument, &selectedLongOpt, versionLongOpt},
                                      {"reverse-var", no_argument, nullptr, 'R'},
+                                     {"fix-default-sample-neuron-activations", required_argument, &selectedLongOpt,
+                                      fixDefaultSampleNeuronActivationsLongOpt},
+                                     {"prefer-default-sample-neuron-activations", required_argument, &selectedLongOpt,
+                                      preferDefaultSampleNeuronActivationsLongOpt},
                                      {"format", required_argument, &selectedLongOpt, formatLongOpt},
                                      {"shuffle-samples", no_argument, nullptr, 'r'},
                                      {"max-samples", required_argument, nullptr, 'n'},
@@ -183,6 +189,14 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                         assert(false);
                         break;
                     }
+                    case fixDefaultSampleNeuronActivationsLongOpt:
+                        config.fixDefaultSampleNeuronActivations(
+                            spexplain::makeDefaultSampleNeuronActivations(optargStr));
+                        break;
+                    case preferDefaultSampleNeuronActivationsLongOpt:
+                        config.preferDefaultSampleNeuronActivations(
+                            spexplain::makeDefaultSampleNeuronActivations(optargStr));
+                        break;
                 }
                 break;
             }

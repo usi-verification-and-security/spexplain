@@ -7,6 +7,7 @@ PRIVATE
     common/Print.cpp
     network/Network.cpp
     network/Dataset.cpp
+    framework/Config.cpp
     framework/Framework.cpp
     framework/Parse.cpp
     framework/Preprocess.cpp
