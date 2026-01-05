@@ -17,6 +17,8 @@ class Framework::Config {
 public:
     using Verbosity = short;
 
+    enum class DefaultSampleNeuronActivations { none, all, active, inactive };
+
     // Not always, it may use Marabou if suitable:
     // static inline std::string const defaultVerifierName = "opensmt";
     static inline std::string const defaultExplanationsFileName = "phi.txt";
@@ -32,6 +34,15 @@ public:
     void beQuiet() { setVerbosity(-1); }
 
     void reverseVarOrdering() { reverseVarOrder = true; }
+
+    void fixDefaultSampleNeuronActivations(
+        DefaultSampleNeuronActivations sampleNeuronActivations = DefaultSampleNeuronActivations::all) {
+        _fixDefaultSampleNeuronActivations = sampleNeuronActivations;
+    }
+    void preferDefaultSampleNeuronActivations(
+        DefaultSampleNeuronActivations sampleNeuronActivations = DefaultSampleNeuronActivations::all) {
+        _preferDefaultSampleNeuronActivations = sampleNeuronActivations;
+    }
 
     void setPrintIntervalExplanationsFormat(IntervalExplanation::PrintFormat tp) {
         intervalExplanationPrintFormat = tp;
@@ -88,6 +99,15 @@ public:
 
     [[nodiscard]]
     bool isReverseVarOrdering() const { return reverseVarOrder; }
+
+    [[nodiscard]]
+    DefaultSampleNeuronActivations getDefaultFixingOfSampleNeuronActivations() const {
+        return _fixDefaultSampleNeuronActivations;
+    }
+    [[nodiscard]]
+    DefaultSampleNeuronActivations getDefaultPreferenceOfSampleNeuronActivations() const {
+        return _preferDefaultSampleNeuronActivations;
+    }
 
     [[nodiscard]]
     IntervalExplanation::PrintFormat const & getPrintingIntervalExplanationsFormat() const {
@@ -155,6 +175,9 @@ protected:
 
     bool reverseVarOrder{};
 
+    DefaultSampleNeuronActivations _fixDefaultSampleNeuronActivations{DefaultSampleNeuronActivations::none};
+    DefaultSampleNeuronActivations _preferDefaultSampleNeuronActivations{DefaultSampleNeuronActivations::all};
+
     IntervalExplanation::PrintFormat intervalExplanationPrintFormat{IntervalExplanation::PrintFormat::bounds};
 
     bool _shuffleSamples{};
@@ -166,6 +189,10 @@ protected:
 
     std::chrono::milliseconds timeLimitPerExplanation{};
 };
+
+Framework::Config::DefaultSampleNeuronActivations makeDefaultSampleNeuronActivations(std::string_view);
+
+bool usingSampleNeuronActivations(Framework::Config::DefaultSampleNeuronActivations, bool sampleActivated);
 } // namespace spexplain
 
 #endif // SPEXPLAIN_CONFIG_H

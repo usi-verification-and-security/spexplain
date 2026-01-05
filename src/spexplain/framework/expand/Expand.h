@@ -71,6 +71,13 @@ protected:
 
     Network::Dataset::SampleIndices makeSampleIndices(Network::Dataset const &) const;
 
+    Strategy & getStrategy(std::size_t idx) {
+        assert(idx < strategies.size());
+        return *strategies[idx];
+    }
+    Strategy & getFirstStrategy() { return getStrategy(0); }
+    Strategy & getLastStrategy() { return getStrategy(strategies.size() - 1); }
+
     void initVerifier();
 
     void preprocessGroundModel(Network::Dataset const &);
@@ -84,6 +91,8 @@ protected:
 
     void assertClassification(Network::Classification const &);
     void resetClassification();
+
+    void postprocessExplanation(Explanations &, ExplanationIdx);
 
     void printHead(std::ostream &, Network::Dataset const &) const;
     void printProgress(std::ostream &, Network::Dataset const &, ExplanationIdx,

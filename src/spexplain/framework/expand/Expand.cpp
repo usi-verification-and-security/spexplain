@@ -255,6 +255,8 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
         assert(timeoutPerIsSet or not timeout);
 
         if (not timeout) {
+            postprocessExplanation(explanations, idx);
+
             auto & explanation = getExplanation(explanations, idx);
             cinfo << "done";
             //+ get rid of the conditionals
@@ -314,6 +316,17 @@ void Framework::Expand::preprocessSampleModel(Network::Output const & output) {
     auto & verifier = *verifierPtr;
     auto & network = framework.getNetwork();
 
+    using DefaultSampleNeuronActivations = Config::DefaultSampleNeuronActivations;
+    auto const & config = framework.getConfig();
+    DefaultSampleNeuronActivations const defaultFixingOfSampleNeuronActivations =
+        config.getDefaultFixingOfSampleNeuronActivations();
+    DefaultSampleNeuronActivations const defaultPreferenceOfSampleNeuronActivations =
+        config.getDefaultPreferenceOfSampleNeuronActivations();
+    if (defaultFixingOfSampleNeuronActivations == DefaultSampleNeuronActivations::none and
+        defaultPreferenceOfSampleNeuronActivations == DefaultSampleNeuronActivations::none) {
+        return;
+    }
+
     xai::verifiers::LayerIndex const nHiddenLayers = network.getNumHiddenLayers();
     assert(nHiddenLayers == network.getNumLayers() - 2);
     for (xai::verifiers::LayerIndex layer = 1; layer < nHiddenLayers + 1; ++layer) {
@@ -321,7 +334,13 @@ void Framework::Expand::preprocessSampleModel(Network::Output const & output) {
         for (xai::verifiers::NodeIndex node = 0; node < nNodes; ++node) {
             bool const activated = activatedHiddenNeuron(output, layer, node);
 
-            verifier.tryPreferNeuronActivation(layer, node, nHiddenLayers, nNodes, activated);
+            if (usingSampleNeuronActivations(defaultFixingOfSampleNeuronActivations, activated)) {
+                verifier.tryFixNeuronActivation(layer, node, nHiddenLayers, nNodes, activated);
+            }
+
+            if (usingSampleNeuronActivations(defaultPreferenceOfSampleNeuronActivations, activated)) {
+                verifier.tryPreferNeuronActivation(layer, node, nHiddenLayers, nNodes, activated);
+            }
         }
     }
 }
@@ -381,6 +400,15 @@ void Framework::Expand::assertClassification(Network::Classification const & cls
 void Framework::Expand::resetClassification() {
     verifierPtr->pop();
     verifierPtr->resetSample();
+}
+
+void Framework::Expand::postprocessExplanation(Explanations & explanations, ExplanationIdx idx) {
+    auto & lastStrategy = getLastStrategy();
+    auto & explanationPtr = getExplanationPtr(explanations, idx);
+
+    if (auto cexplanationPtr = verifierPtr->getSampleModelRestrictions(framework)) {
+        lastStrategy.intersectExplanation(explanationPtr, std::move(cexplanationPtr));
+    }
 }
 
 void Framework::Expand::printHead(std::ostream & os, Network::Dataset const & data) const {
