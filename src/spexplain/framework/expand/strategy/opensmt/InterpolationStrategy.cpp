@@ -133,8 +133,8 @@ void InterpolationStrategy::executeBody(Explanations & explanations, Network::Da
     bool const weakerArithItpAlg = config.arithInterpolationAlg == ArithInterpolationAlg::weaker;
     auto const isLit = [&logic](auto & phi) {
         assert(not logic.isFalse(phi));
-        assert(not logic.isTrue(phi));
         if (logic.isAtom(phi)) { return true; }
+        assert(not logic.isTrue(phi));
         if (not logic.isNot(phi)) { return false; }
         auto & phiTerm = logic.getPterm(phi);
         assert(phiTerm.size() == 1);

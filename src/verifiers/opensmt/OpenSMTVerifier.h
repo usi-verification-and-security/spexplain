@@ -46,6 +46,8 @@ public:
 
     void setTimeLimit(std::chrono::milliseconds) override;
 
+    std::unique_ptr<spexplain::Explanation> getSampleModelRestrictions(spexplain::Framework const &) override;
+
     void resetSampleQuery() override;
     void resetSample() override;
     void resetSampleModel() override;

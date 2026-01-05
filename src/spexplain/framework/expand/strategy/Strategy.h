@@ -25,6 +25,10 @@ public:
 
     virtual void execute(Explanations &, Network::Dataset const &, ExplanationIdx);
 
+    bool checkFormsExplanation();
+
+    void intersectExplanation(std::unique_ptr<Explanation> &, std::unique_ptr<Explanation> &&);
+
 protected:
     struct AssertExplanationConf {
         bool ignoreVarOrder = false;
@@ -74,9 +78,6 @@ protected:
     void assertUpperBound(VarIdx, UpperBound const &);
     void assertEquality(VarIdx, EqBound const &);
 
-    bool checkFormsExplanation();
-
-    void intersectExplanation(std::unique_ptr<Explanation> &, std::unique_ptr<Explanation> &&);
     virtual bool intersectExplanationImpl(std::unique_ptr<Explanation> &, std::unique_ptr<Explanation> &);
     virtual bool intersectIntervalExplanationImpl(std::unique_ptr<Explanation> &, std::unique_ptr<Explanation> &);
     virtual bool intersectNonIntervalExplanationImpl(std::unique_ptr<Explanation> &, std::unique_ptr<Explanation> &);
