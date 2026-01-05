@@ -3,6 +3,8 @@
 #include "Engine.h"
 #include "InputQuery.h"
 
+#include <spexplain/network/Network.h>
+
 #include <cassert>
 #include <numeric>
 
