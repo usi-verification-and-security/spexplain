@@ -29,7 +29,7 @@ def register_relu_hooks(model):
 import torch
 import torch.nn as nn
 
-def get_layer_activations_generic(model, x, activation_types=(nn.ReLU,)):
+def get_layer_activations_generic(model, x):
     """
     Run a forward pass and return a dict of activations after each
     non-linear layer of specified types (default: ReLU).
@@ -59,7 +59,7 @@ def get_layer_activations_generic(model, x, activation_types=(nn.ReLU,)):
     return activations
 
 
-def compare_activations_generic(model, x_orig, x_cf, threshold=0.0, activation_types=(nn.ReLU,)):
+def compare_activations_generic(model, x_orig, x_cf, threshold=0.0):
     """
     Compare activation patterns (zero vs >threshold) between original
     and counterfactual inputs, for any feed-forward model.
@@ -68,7 +68,6 @@ def compare_activations_generic(model, x_orig, x_cf, threshold=0.0, activation_t
         model            : nn.Module
         x_orig, x_cf     : inputs (batch=1, features)
         threshold        : > threshold means "active"
-        activation_types : activation modules to inspect
 
     Returns:
         changes: dict[layer_name] = {
@@ -77,14 +76,17 @@ def compare_activations_generic(model, x_orig, x_cf, threshold=0.0, activation_t
                     'flipped_on_idx' : indices of 0 -> >0
                     'flipped_off_idx': indices of >0 -> 0
                     'any_change_idx' : indices where state differs
+                    'not_flipped_on_idx' : indices of >0 -> >0
+                    'not_flipped_off_idx': indices of 0 -> 0
+                    'fixed_idx'      : indices with no change
                 }
     """
     device = next(model.parameters()).device
     x_orig = x_orig.to(device)
     x_cf = x_cf.to(device)
 
-    act_orig = get_layer_activations_generic(model, x_orig, activation_types)
-    act_cf   = get_layer_activations_generic(model, x_cf,   activation_types)
+    act_orig = get_layer_activations_generic(model, x_orig)
+    act_cf   = get_layer_activations_generic(model, x_cf)
 
     changes = {}
 
@@ -98,6 +100,9 @@ def compare_activations_generic(model, x_orig, x_cf, threshold=0.0, activation_t
         flipped_on  = (~orig_active) & cf_active
         flipped_off = orig_active & (~cf_active)
         any_change  = orig_active ^ cf_active
+        not_flipped_on  = orig_active & cf_active
+        not_flipped_off = (~orig_active) & (~cf_active)
+
 
         changes[layer_name] = {
             'orig_active': orig_active,
@@ -105,6 +110,9 @@ def compare_activations_generic(model, x_orig, x_cf, threshold=0.0, activation_t
             'flipped_on_idx': torch.nonzero(flipped_on, as_tuple=False).flatten(),
             'flipped_off_idx': torch.nonzero(flipped_off, as_tuple=False).flatten(),
             'any_change_idx': torch.nonzero(any_change, as_tuple=False).flatten(),
+            'not_flipped_on_idx': torch.nonzero(not_flipped_on, as_tuple=False).flatten(),
+            'not_flipped_off_idx': torch.nonzero(not_flipped_off, as_tuple=False).flatten(),
+            'fixed_idx': torch.nonzero(~any_change, as_tuple=False).flatten(),
         }
 
     return changes
@@ -125,7 +133,7 @@ model.load_state_dict(state_dict)
 model.to(device)
 model.eval()
 
-idx = -1 # sample index
+idx = 0 # sample index
 for row in df.itertuples(index=False):
     idx += 1
     pixels = np.array(row[:-1], dtype=np.float32)
@@ -172,18 +180,14 @@ for row in df.itertuples(index=False):
     # Append sample and per-layer any_change masks to `activation_changes.txt`
     # Place this inside the loop after `changes = compare_activations_generic(...)`
     with open(activations_changes_file, 'a') as out_f:
-        # write a sample header (index and true label) and pixel values
-        out_f.write(f"Sample_index:{idx}, Output:{orig_pred.item()}, Counterfactual: {cf_pred.item()}\n")
-        sample_pixels = ','.join(str(int(p)) for p in row[:-1])
-        out_f.write(sample_pixels + "\n")
+        out_f.write(f"Sample_index:{idx}\n")
+        # sample_pixels = ','.join(str(int(p)) for p in row[:-1])
+        # out_f.write(sample_pixels + "\n")
 
-        # write one line per layer: 0/1 for each neuron (0 = no change, 1 = changed)
         for layer_idx, (layer_name, info) in enumerate(list(changes.items())[:-1]):
-            # compute boolean mask (orig_active XOR cf_active) -> convert to 0/1 ints
-            any_mask = (info['orig_active'] ^ info['cf_active']).to('cpu').numpy().astype(int)
-            # join as space-separated 0/1 values (change to '' or ',' if you prefer)
-            line = ', '.join(str(x) for x in any_mask.tolist())
-            out_f.write(line + "\n")
+            # any_mask = (info['orig_active'] ^ info['cf_active']).to('cpu').numpy().astype(int)
+            line = ' '.join(str(x+1) for x in info['fixed_idx'].tolist())
+            out_f.write(line + " 0" + "\n")
 
         # separate samples
         out_f.write("\n")
