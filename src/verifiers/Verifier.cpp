@@ -1,6 +1,7 @@
 #include "Verifier.h"
 
 #include <spexplain/common/Macro.h>
+#include <spexplain/framework/explanation/Explanation.h>
 
 #include <cassert>
 
@@ -67,6 +68,10 @@ std::optional<bool> Verifier::getFixedNeuronActivation(LayerIndex layer, NodeInd
 
 std::optional<bool> Verifier::getPreferredNeuronActivation(LayerIndex layer, NodeIndex node) const {
     return getArgFromMaps(preferredNeuronActivations, layer, node);
+}
+
+std::unique_ptr<spexplain::Explanation> Verifier::getSampleModelRestrictions(spexplain::Framework const &) {
+    return {};
 }
 
 void Verifier::resetSample() {

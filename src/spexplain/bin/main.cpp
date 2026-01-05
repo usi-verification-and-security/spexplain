@@ -117,6 +117,10 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     printUsageOptRow(os, 'q', "", "Run in quiet mode");
     printUsageLongOptRow(os, "reverse-var");
     printUsageOptRow(os, 'R', "", "Reverse the order of variables");
+    printUsageLongOptRow(os, "fix-default-sample-neuron-activations", "all|none|[in]active",
+                         "Set default fixing of given neuron activations according to samples");
+    printUsageLongOptRow(os, "prefer-default-sample-neuron-activations", "all|none|[in]active",
+                         "Set default preference of given neuron activations according to samples");
     printUsageOptRow(os, 'S', "", "Print the resulting explanations in the SMT-LIB2 format");
     printUsageOptRow(os, 'I', "", "Print the resulting explanations in the form of intervals");
     printUsageLongOptRow(os, "format", "smtlib2|intervals|bounds", "Use one of the output explanation formats");
@@ -151,6 +155,8 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     constexpr int formatLongOpt = 2;
     constexpr int filterLongOpt = 3;
     constexpr int outputTimesLongOpt = 4;
+    constexpr int fixDefaultSampleNeuronActivationsLongOpt = 5;
+    constexpr int preferDefaultSampleNeuronActivationsLongOpt = 6;
 
     struct ::option longOptions[] = {{"help", no_argument, nullptr, 'h'},
                                      {"verifier", required_argument, nullptr, 'V'},
@@ -162,6 +168,10 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                                      {"quiet", no_argument, nullptr, 'q'},
                                      // {"version", no_argument, &selectedLongOpt, versionLongOpt},
                                      {"reverse-var", no_argument, nullptr, 'R'},
+                                     {"fix-default-sample-neuron-activations", required_argument, &selectedLongOpt,
+                                      fixDefaultSampleNeuronActivationsLongOpt},
+                                     {"prefer-default-sample-neuron-activations", required_argument, &selectedLongOpt,
+                                      preferDefaultSampleNeuronActivationsLongOpt},
                                      {"format", required_argument, &selectedLongOpt, formatLongOpt},
                                      {"shuffle-samples", no_argument, nullptr, 'r'},
                                      {"max-samples", required_argument, nullptr, 'n'},
@@ -226,6 +236,14 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                         assert(false);
                         break;
                     }
+                    case fixDefaultSampleNeuronActivationsLongOpt:
+                        config.fixDefaultSampleNeuronActivations(
+                            spexplain::makeDefaultSampleNeuronActivations(optargStr));
+                        break;
+                    case preferDefaultSampleNeuronActivationsLongOpt:
+                        config.preferDefaultSampleNeuronActivations(
+                            spexplain::makeDefaultSampleNeuronActivations(optargStr));
+                        break;
                 }
                 break;
             }
