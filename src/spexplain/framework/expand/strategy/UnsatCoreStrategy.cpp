@@ -24,7 +24,7 @@ xai::verifiers::UnsatCoreVerifier & Framework::Expand::UnsatCoreStrategy::getVer
 }
 
 void Framework::Expand::UnsatCoreStrategy::executeInit(Explanations & explanations, Network::Dataset const & data,
-                                                       ExplanationIdx idx) {
+                                                       Sample::Idx idx) {
     Strategy::executeInit(explanations, data, idx);
 
     auto const & varIndicesFilter = config.varIndicesFilter;
@@ -36,7 +36,7 @@ void Framework::Expand::UnsatCoreStrategy::executeInit(Explanations & explanatio
 }
 
 void Framework::Expand::UnsatCoreStrategy::executeBody(Explanations & explanations, Network::Dataset const &,
-                                                       ExplanationIdx idx) {
+                                                       Sample::Idx idx) {
     assert(storeNamedTerms());
 
     auto & explanation = getExplanation(explanations, idx);
