@@ -8,7 +8,6 @@
 #include <spexplain/common/Macro.h>
 #include <spexplain/framework/explanation/ConjunctExplanation.h>
 #include <spexplain/framework/explanation/opensmt/FormulaExplanation.h>
-#include <spexplain/network/Network.h>
 
 #include <algorithm>
 #include <ranges>
@@ -31,7 +30,7 @@ public:
 
     std::size_t termSizeOf(PTRef const &) const;
 
-    void assertSampleModel(spexplain::Network const &);
+    void assertSampleModel();
 
     void setUnsatCoreFilter(std::vector<NodeIndex> const &);
 
@@ -112,7 +111,7 @@ private:
     NodeIndex nodeIndexOfInputEquality(PTRef term) const { return inputVarEqualityToIndex.at(term); }
     NodeIndex nodeIndexOfInputInterval(PTRef term) const { return inputVarIntervalToIndex.at(term); }
 
-    void addNeuronTerm(spexplain::Network const &, LayerIndex layer, NodeIndex node, PTRef input, PTRef neuronVar);
+    void addNeuronTerm(LayerIndex layer, NodeIndex node, PTRef input, PTRef neuronVar);
 
     OpenSMTVerifier & verifier;
 
@@ -150,8 +149,8 @@ std::size_t OpenSMTVerifier::termSizeOf(PTRef const & term) const {
     return pimpl->termSizeOf(term);
 }
 
-void OpenSMTVerifier::assertSampleModel(spexplain::Network const & network) {
-    pimpl->assertSampleModel(network);
+void OpenSMTVerifier::assertSampleModel() {
+    pimpl->assertSampleModel();
 }
 
 void OpenSMTVerifier::setUnsatCoreFilter(std::vector<NodeIndex> const & filter) {
@@ -194,7 +193,8 @@ void OpenSMTVerifier::addPreference(PTRef const & term) {
     pimpl->addPreference(term);
 }
 
-void OpenSMTVerifier::initImpl() {
+void OpenSMTVerifier::initImpl(spexplain::Network const & nw) {
+    UnsatCoreVerifier::initImpl(nw);
     pimpl->init();
 }
 
@@ -304,7 +304,9 @@ std::size_t OpenSMTVerifier::OpenSMTImpl::termSizeOf(PTRef const & term) const {
 }
 
 //+ move same common parts into assertGroundModel, but incremental assertions seem much slower
-void OpenSMTVerifier::OpenSMTImpl::assertSampleModel(spexplain::Network const & network) {
+void OpenSMTVerifier::OpenSMTImpl::assertSampleModel() {
+    auto const & network = verifier.getNetwork();
+
     // Store information about layer sizes
     layerSizes.clear();
     for (LayerIndex layer = 0u; layer < network.getNumLayers(); layer++) {
@@ -352,7 +354,7 @@ void OpenSMTVerifier::OpenSMTImpl::assertSampleModel(spexplain::Network const & 
             PTRef neuronVar = logic->mkRealVar(neuronName.c_str());
             currentLayerRefs.push_back(neuronVar);
 
-            addNeuronTerm(network, layer, node, input, neuronVar);
+            addNeuronTerm(layer, node, input, neuronVar);
         }
 
         neuronVars.push_back(currentLayerRefs);
@@ -388,9 +390,10 @@ void OpenSMTVerifier::OpenSMTImpl::assertSampleModel(spexplain::Network const & 
     }
 }
 
-void OpenSMTVerifier::OpenSMTImpl::addNeuronTerm(spexplain::Network const & network, LayerIndex layer, NodeIndex node,
-                                                 PTRef input, PTRef neuronVar) {
+void OpenSMTVerifier::OpenSMTImpl::addNeuronTerm(LayerIndex layer, NodeIndex node, PTRef input, PTRef neuronVar) {
     assert(layer > 0);
+
+    auto const & network = verifier.getNetwork();
 
     PTRef zero = logic->getTerm_RealZero();
 
