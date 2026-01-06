@@ -15,6 +15,7 @@
 ./src/spexplain/framework/Parse.h
 ./src/spexplain/framework/Print.h
 ./src/spexplain/framework/Utils.h
+./src/spexplain/framework/Config.h
 ./src/spexplain/framework/expand/Expand.h
 ./src/spexplain/framework/expand/strategy/Factory.h
 ./src/spexplain/framework/expand/strategy/SliceStrategy.h
