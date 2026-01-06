@@ -16,7 +16,7 @@ public:
     MarabouVerifier(MarabouVerifier &&) = default;
     MarabouVerifier & operator=(MarabouVerifier &&) = default;
 
-    void assertSampleModel(spexplain::Network const &) override;
+    void assertSampleModel() override;
 
     void addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) override;
 

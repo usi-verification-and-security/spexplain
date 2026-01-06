@@ -25,7 +25,7 @@ public:
 
     std::size_t termSizeOf(::opensmt::PTRef const &) const;
 
-    void assertSampleModel(spexplain::Network const &) override;
+    void assertSampleModel() override;
 
     void setUnsatCoreFilter(std::vector<NodeIndex> const &) override;
 
@@ -61,7 +61,7 @@ public:
     void printSmtLib2Query(std::ostream &) const override;
 
 protected:
-    void initImpl() override;
+    void initImpl(spexplain::Network const &) override;
 
     void pushImpl() override;
     void popImpl() override;

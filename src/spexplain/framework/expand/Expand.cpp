@@ -320,7 +320,8 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
 
 void Framework::Expand::initVerifier() {
     assert(verifierPtr);
-    verifierPtr->init();
+    auto & network = framework.getNetwork();
+    verifierPtr->init(network);
 }
 
 void Framework::Expand::preprocessGroundModel(Network::Dataset const &) {
@@ -351,11 +352,11 @@ void Framework::Expand::preprocessSampleModel(Network::Output const & output) {
             bool const activated = activatedHiddenNeuron(output, layer, node);
 
             if (usingSampleNeuronActivations(defaultFixingOfSampleNeuronActivations, activated)) {
-                verifier.tryFixNeuronActivation(layer, node, nHiddenLayers, nNodes, activated);
+                verifier.tryFixNeuronActivation(layer, node, activated);
             }
 
             if (usingSampleNeuronActivations(defaultPreferenceOfSampleNeuronActivations, activated)) {
-                verifier.tryPreferNeuronActivation(layer, node, nHiddenLayers, nNodes, activated);
+                verifier.tryPreferNeuronActivation(layer, node, activated);
             }
         }
     }
@@ -363,14 +364,12 @@ void Framework::Expand::preprocessSampleModel(Network::Output const & output) {
 
 void Framework::Expand::assertGroundModel() {
     assert(verifierPtr);
-    auto & network = framework.getNetwork();
-    verifierPtr->assertGroundModel(network);
+    verifierPtr->assertGroundModel();
 }
 
 void Framework::Expand::assertSampleModel() {
     assert(verifierPtr);
-    auto & network = framework.getNetwork();
-    verifierPtr->assertSampleModel(network);
+    verifierPtr->assertSampleModel();
 }
 
 void Framework::Expand::resetSampleModel() {
