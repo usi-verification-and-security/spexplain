@@ -85,6 +85,8 @@ printf "\n"
 
 (( $DRY_RUN )) && printf "DRY RUN - only printing what would be run\n\n"
 
+[[ -n $OPTIONS ]] && export OPTIONS
+
 function run1 {
     source "$DIRNAME/lib/run"
     read_experiments_spec "$EXPERIMENTS_SPEC"
@@ -123,7 +125,7 @@ function run1 {
     }
 
     for rev in "${reverse_args[@]}"; do
-        SRC_EXPERIMENT=$src_experiment "$DIRNAME/run1.sh" "$OUTPUT_DIR" "$experiment_strategies" $experiment $rev $MAX_SAMPLES &
+        SRC_EXPERIMENT=$src_experiment "$DIRNAME/run1.sh" "$OUTPUT_DIR" "$experiment_strategies" $experiment $rev $MAX_SAMPLES $OPTIONS &
     done
 
     wait -n
@@ -138,7 +140,7 @@ function run1 {
         ;;
     *)
         printf "%s failed!\nUsed command: %s\n" $experiment \
-            "SRC_EXPERIMENT=$src_experiment \"$DIRNAME/run1.sh\" \"$OUTPUT_DIR\" \"$experiment_strategies\" $experiment $rev $MAX_SAMPLES &" >&2
+            "SRC_EXPERIMENT=$src_experiment \"$DIRNAME/run1.sh\" \"$OUTPUT_DIR\" \"$experiment_strategies\" $experiment $rev $MAX_SAMPLES $OPTIONS &" >&2
         return 1
         ;;
     esac
