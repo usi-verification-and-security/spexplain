@@ -16,21 +16,20 @@ Framework::Expand::Strategy::Strategy(Expand & exp, VarOrdering order) : expand{
     assert((varOrdering.type == VarOrdering::Type::manual) xor varOrdering.order.empty());
 }
 
-void Framework::Expand::Strategy::execute(Explanations & explanations, Network::Dataset const & data,
-                                          ExplanationIdx idx) {
+void Framework::Expand::Strategy::execute(Explanations & explanations, Network::Dataset const & data, Sample::Idx idx) {
     executeInit(explanations, data, idx);
     executeBody(explanations, data, idx);
     executeFinish(explanations, data, idx);
 }
 
-void Framework::Expand::Strategy::executeInit(Explanations &, Network::Dataset const &, ExplanationIdx) {
+void Framework::Expand::Strategy::executeInit(Explanations &, Network::Dataset const &, Sample::Idx) {
     initVarOrdering();
 
     auto & verifier = getVerifier();
     verifier.push();
 }
 
-void Framework::Expand::Strategy::executeFinish(Explanations &, Network::Dataset const &, ExplanationIdx) {
+void Framework::Expand::Strategy::executeFinish(Explanations &, Network::Dataset const &, Sample::Idx) {
     auto & verifier = getVerifier();
     verifier.pop();
     verifier.resetSampleQuery();

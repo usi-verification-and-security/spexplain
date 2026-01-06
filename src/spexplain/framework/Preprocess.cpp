@@ -49,7 +49,7 @@ Explanations Framework::Preprocess::makeExplanationsFromSamples(Network::Dataset
     return explanations;
 }
 
-std::unique_ptr<Explanation> Framework::Preprocess::makeExplanationFromSample(Network::Sample const & sample) const {
+std::unique_ptr<Explanation> Framework::Preprocess::makeExplanationFromSample(Sample const & sample) const {
     std::size_t const vSize = framework.varSize();
 
     assert(sample.size() == vSize);

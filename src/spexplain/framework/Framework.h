@@ -14,13 +14,16 @@
 namespace spexplain {
 class Explanation;
 
-using Explanations = std::vector<std::unique_ptr<Explanation>>;
-using ExplanationIdx = Explanations::size_type;
+using Sample = Network::Sample;
 
-inline std::unique_ptr<Explanation> & getExplanationPtr(Explanations & explanations, ExplanationIdx idx) {
+using Explanations = std::vector<std::unique_ptr<Explanation>>;
+
+static_assert(std::is_same_v<Sample::Idx, Explanations::size_type>);
+
+inline std::unique_ptr<Explanation> & getExplanationPtr(Explanations & explanations, Sample::Idx idx) {
     return explanations[idx];
 }
-inline Explanation & getExplanation(Explanations & explanations, ExplanationIdx idx) {
+inline Explanation & getExplanation(Explanations & explanations, Sample::Idx idx) {
     return *getExplanationPtr(explanations, idx);
 }
 

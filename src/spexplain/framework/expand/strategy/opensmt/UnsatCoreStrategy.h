@@ -24,7 +24,7 @@ public:
 protected:
     using Strategy::getVerifier;
 
-    void executeInit(Explanations &, Network::Dataset const &, ExplanationIdx) override;
+    void executeInit(Explanations &, Network::Dataset const &, Sample::Idx) override;
 
     // using Strategy::assertFormulaExplanation allows to handle those explanations as well
 
