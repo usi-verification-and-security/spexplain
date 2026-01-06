@@ -79,7 +79,7 @@ protected:
     void initVerifier();
 
     void preprocessGroundModel(Network::Dataset const &);
-    void preprocessSampleModel(Network::Output const &);
+    void preprocessSampleModel(Sample::Idx, Network::Output const &);
     void assertGroundModel();
     void assertSampleModel();
     void resetSampleModel();
