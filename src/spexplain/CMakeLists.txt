@@ -56,6 +56,7 @@ endif()
 
 add_executable(SpEXplAIn-bin
     bin/main.cpp
+    ${SOURCE_DIR}/verifiers/Verifier.cpp
     ${SOURCE_DIR}/verifiers/opensmt/OpenSMTVerifier.cpp
 )
 
