@@ -4,12 +4,15 @@
 #include "Framework.h"
 #include "explanation/IntervalExplanation.h"
 
+#include <spexplain/network/Containers.h>
 #include <spexplain/network/Dataset.h>
 
+#include <cassert>
 #include <chrono>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 namespace spexplain {
 //+ move parsing cmdline options here
@@ -19,9 +22,17 @@ public:
 
     enum class DefaultSampleNeuronActivations { none, all, active, inactive };
 
+    struct HiddenNeuronPosition {
+        std::size_t layer;
+        std::size_t node;
+        bool negated{false};
+    };
+
     // Not always, it may use Marabou if suitable:
     // static inline std::string const defaultVerifierName = "opensmt";
     static inline std::string const defaultExplanationsFileName = "phi.txt";
+
+    void init(Network const &) noexcept;
 
     void setVerifierName(std::string_view name) { verifierName = name; }
 
@@ -43,6 +54,14 @@ public:
         DefaultSampleNeuronActivations sampleNeuronActivations = DefaultSampleNeuronActivations::all) {
         _preferDefaultSampleNeuronActivations = sampleNeuronActivations;
     }
+    void fixAllSampleNeuronActivationsAt(HiddenNeuronPosition const & pos) {
+        fixAllSampleNeuronActivationsMap.insertOrAssign(pos.layer, pos.node, not pos.negated);
+    }
+    void preferAllSampleNeuronActivationsAt(HiddenNeuronPosition const & pos) {
+        preferAllSampleNeuronActivationsMap.insertOrAssign(pos.layer, pos.node, not pos.negated);
+    }
+    void fixSampleNeuronActivationAt(Sample::Idx, HiddenNeuronPosition const &);
+    void preferSampleNeuronActivationAt(Sample::Idx, HiddenNeuronPosition const &);
 
     void setPrintIntervalExplanationsFormat(IntervalExplanation::PrintFormat tp) {
         intervalExplanationPrintFormat = tp;
@@ -132,6 +151,19 @@ public:
     DefaultSampleNeuronActivations getDefaultPreferenceOfSampleNeuronActivations() const {
         return _preferDefaultSampleNeuronActivations;
     }
+    [[nodiscard]]
+    std::optional<bool> tryGetFixingOfAllSampleNeuronActivationsAt(std::size_t layer, std::size_t node) const {
+        return fixAllSampleNeuronActivationsMap.tryGetAt(layer, node);
+    }
+    [[nodiscard]]
+    std::optional<bool> tryGetPreferenceOfAllSampleNeuronActivationsAt(std::size_t layer, std::size_t node) const {
+        return preferAllSampleNeuronActivationsMap.tryGetAt(layer, node);
+    }
+    [[nodiscard]]
+    std::optional<bool> tryGetFixingOfSampleNeuronActivationAt(Sample::Idx, std::size_t layer, std::size_t node) const;
+    [[nodiscard]]
+    std::optional<bool> tryGetPreferenceOfSampleNeuronActivationAt(Sample::Idx, std::size_t layer,
+                                                                   std::size_t node) const;
 
     [[nodiscard]]
     IntervalExplanation::PrintFormat const & getPrintingIntervalExplanationsFormat() const {
@@ -210,11 +242,17 @@ public:
     }
 
     [[nodiscard]]
-    std::chrono::milliseconds getTimeLimitPerExplanation() const { return timeLimitPerExplanation; }
+    std::chrono::milliseconds getTimeLimitPerExplanation() const {
+        return timeLimitPerExplanation;
+    }
     [[nodiscard]]
-    bool timeLimitPerExplanationIsSet() const { return getTimeLimitPerExplanation().count() > 0; }
+    bool timeLimitPerExplanationIsSet() const {
+        return getTimeLimitPerExplanation().count() > 0;
+    }
 
 protected:
+    Network const * networkPtr{};
+
     std::string_view verifierName{};
 
     std::string_view explanationsFileName{};
@@ -227,6 +265,10 @@ protected:
 
     DefaultSampleNeuronActivations _fixDefaultSampleNeuronActivations{DefaultSampleNeuronActivations::none};
     DefaultSampleNeuronActivations _preferDefaultSampleNeuronActivations{DefaultSampleNeuronActivations::all};
+    NetworkMap<bool> fixAllSampleNeuronActivationsMap{};
+    NetworkMap<bool> preferAllSampleNeuronActivationsMap{};
+    std::unordered_map<Sample::Idx, NetworkMap<bool>> fixSampleNeuronActivationMaps{};
+    std::unordered_map<Sample::Idx, NetworkMap<bool>> preferSampleNeuronActivationMaps{};
 
     IntervalExplanation::PrintFormat intervalExplanationPrintFormat{IntervalExplanation::PrintFormat::bounds};
 
@@ -243,6 +285,9 @@ protected:
 };
 
 Framework::Config::DefaultSampleNeuronActivations makeDefaultSampleNeuronActivations(std::string_view);
+
+Framework::Config::HiddenNeuronPosition makeHiddenNeuronPosition(std::string_view);
+std::pair<Sample::Idx, Framework::Config::HiddenNeuronPosition> makeHiddenNeuronPositionOfSample(std::string_view);
 
 bool usingSampleNeuronActivations(Framework::Config::DefaultSampleNeuronActivations, bool sampleActivated);
 } // namespace spexplain
