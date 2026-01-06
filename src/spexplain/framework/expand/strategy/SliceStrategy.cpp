@@ -7,7 +7,7 @@
 
 namespace spexplain {
 void Framework::Expand::SliceStrategy::executeBody(Explanations & explanations, Network::Dataset const & data,
-                                                   ExplanationIdx idx) {
+                                                   Sample::Idx idx) {
     auto & fw = expand.getFramework();
     auto & preprocess = fw.getPreprocess();
 

@@ -18,7 +18,7 @@ public:
     static char const * name() { return "slice"; }
 
 protected:
-    void executeBody(Explanations &, Network::Dataset const &, ExplanationIdx) override;
+    void executeBody(Explanations &, Network::Dataset const &, Sample::Idx) override;
 
     Config config{};
 };
