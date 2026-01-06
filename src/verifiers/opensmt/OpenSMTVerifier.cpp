@@ -20,6 +20,8 @@ FastRational floatToRational(float value);
 
 class OpenSMTVerifier::OpenSMTImpl {
 public:
+    OpenSMTImpl(OpenSMTVerifier & verifier_) : verifier{verifier_} {}
+
     bool contains(PTRef const &, NodeIndex) const;
 
     std::size_t termSizeOf(PTRef const &) const;
@@ -59,6 +61,8 @@ public:
     void addClassificationConstraint(NodeIndex node, float threshold);
 
     void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs);
+
+    void addPreference(PTRef const &);
 
     void init();
 
@@ -103,6 +107,8 @@ private:
 
     void addNeuronTerm(spexplain::Network const &, LayerIndex layer, NodeIndex node, PTRef input, PTRef neuronVar);
 
+    OpenSMTVerifier & verifier;
+
     std::unique_ptr<ArithLogic> logic;
     std::unique_ptr<MainSolver> solver;
     std::unique_ptr<SMTConfig> config;
@@ -123,7 +129,7 @@ private:
     std::unordered_map<PTRef, NodeIndex, PTRefHash> inputVarIntervalToIndex;
 };
 
-OpenSMTVerifier::OpenSMTVerifier() : pimpl{std::make_unique<OpenSMTImpl>()} {}
+OpenSMTVerifier::OpenSMTVerifier() : pimpl{std::make_unique<OpenSMTImpl>(*this)} {}
 
 OpenSMTVerifier::~OpenSMTVerifier() {}
 
@@ -173,6 +179,10 @@ void OpenSMTVerifier::addClassificationConstraint(NodeIndex node, float threshol
 
 void OpenSMTVerifier::addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs) {
     pimpl->addConstraint(layer, lhs, rhs);
+}
+
+void OpenSMTVerifier::addPreference(PTRef const & term) {
+    pimpl->addPreference(term);
 }
 
 void OpenSMTVerifier::initImpl() {
@@ -385,6 +395,17 @@ void OpenSMTVerifier::OpenSMTImpl::addNeuronTerm(spexplain::Network const & netw
         return logic_.mkEq(neuronVar_, zero_);
     };
 
+    if (auto optFixedActivation = verifier.getFixedNeuronActivation(layer, node)) {
+        //+ can be useful to do this incrementally
+        if (*optFixedActivation) {
+            addTerm(activeEqF(*logic, neuronVar, input));
+        } else {
+            addTerm(inactiveEqF(*logic, neuronVar, zero));
+        }
+
+        return;
+    }
+
     bool const isSingleHiddenLayer = network.getNumHiddenLayers() == 1;
 
     PTRef activeCond;
@@ -417,6 +438,14 @@ void OpenSMTVerifier::OpenSMTImpl::addNeuronTerm(spexplain::Network const & netw
 
         addTerm(activeImpl);
         addTerm(inactiveImpl);
+    }
+
+    if (auto optPreferredActivation = verifier.getPreferredNeuronActivation(layer, node)) {
+        if (*optPreferredActivation) {
+            addPreference(isSingleHiddenLayer ? activeLeq : activeCond);
+        } else {
+            addPreference(isSingleHiddenLayer ? inactiveLeq : inactiveCond);
+        }
     }
 }
 
@@ -552,6 +581,10 @@ void OpenSMTVerifier::OpenSMTImpl::addClassificationConstraint(NodeIndex node, f
 
 void
 OpenSMTVerifier::OpenSMTImpl::addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs) {
+    throw std::logic_error("Unimplemented!");
+}
+
+void OpenSMTVerifier::OpenSMTImpl::addPreference(PTRef const & term) {
     throw std::logic_error("Unimplemented!");
 }
 

@@ -3,7 +3,9 @@
 
 #include <spexplain/network/Network.h>
 
+#include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 //++ move into spexplain namespace
@@ -22,6 +24,12 @@ public:
     Verifier & operator=(Verifier const &) = delete;
     Verifier(Verifier &&) = default;
     Verifier & operator=(Verifier &&) = default;
+
+    void fixNeuronActivation(LayerIndex, NodeIndex, size_t nHiddenLayers, size_t layerSize, bool activation);
+    void preferNeuronActivation(LayerIndex, NodeIndex, size_t nHiddenLayers, size_t layerSize, bool activation);
+
+    std::optional<bool> getFixedNeuronActivation(LayerIndex, NodeIndex) const;
+    std::optional<bool> getPreferredNeuronActivation(LayerIndex, NodeIndex) const;
 
     virtual void loadModel(spexplain::Network const &) = 0;
 
@@ -55,10 +63,7 @@ public:
     std::size_t getChecksCount() const { return checksCount; }
 
     virtual void resetSampleQuery() {}
-    virtual void resetSample() {
-        resetSampleQuery();
-        checksCount = 0;
-    }
+    virtual void resetSample();
     virtual void reset() { resetSample(); }
 
     virtual void printSmtLib2Query(std::ostream &) const = 0;
@@ -73,6 +78,9 @@ private:
     virtual void popImpl() = 0;
 
     virtual Answer checkImpl() = 0;
+
+    std::vector<std::unordered_map<NodeIndex, bool>> fixedNeuronActivations;
+    std::vector<std::unordered_map<NodeIndex, bool>> preferredNeuronActivations;
 };
 } // namespace xai::verifiers
 
