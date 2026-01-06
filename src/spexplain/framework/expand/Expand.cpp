@@ -256,7 +256,7 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
 
         auto const & output = data.getComputedOutput(idx);
 
-        preprocessSampleModel(output);
+        preprocessSampleModel(idx, output);
         assertSampleModel();
 
         auto const & cls = output.classification;
@@ -328,7 +328,7 @@ void Framework::Expand::preprocessGroundModel(Network::Dataset const &) {
     assert(verifierPtr);
 }
 
-void Framework::Expand::preprocessSampleModel(Network::Output const & output) {
+void Framework::Expand::preprocessSampleModel(Sample::Idx idx, Network::Output const & output) {
     assert(verifierPtr);
     auto & verifier = *verifierPtr;
     auto & network = framework.getNetwork();
@@ -339,10 +339,6 @@ void Framework::Expand::preprocessSampleModel(Network::Output const & output) {
         config.getDefaultFixingOfSampleNeuronActivations();
     DefaultSampleNeuronActivations const defaultPreferenceOfSampleNeuronActivations =
         config.getDefaultPreferenceOfSampleNeuronActivations();
-    if (defaultFixingOfSampleNeuronActivations == DefaultSampleNeuronActivations::none and
-        defaultPreferenceOfSampleNeuronActivations == DefaultSampleNeuronActivations::none) {
-        return;
-    }
 
     xai::verifiers::LayerIndex const nHiddenLayers = network.getNumHiddenLayers();
     assert(nHiddenLayers == network.getNumLayers() - 2);
@@ -351,11 +347,19 @@ void Framework::Expand::preprocessSampleModel(Network::Output const & output) {
         for (xai::verifiers::NodeIndex node = 0; node < nNodes; ++node) {
             bool const activated = activatedHiddenNeuron(output, layer, node);
 
-            if (usingSampleNeuronActivations(defaultFixingOfSampleNeuronActivations, activated)) {
+            if (auto optFixOne = config.tryGetFixingOfSampleNeuronActivationAt(idx, layer, node)) {
+                if (*optFixOne) { verifier.fixNeuronActivation(layer, node, activated); }
+            } else if (auto optFixAll = config.tryGetFixingOfAllSampleNeuronActivationsAt(layer, node)) {
+                if (*optFixAll) { verifier.fixNeuronActivation(layer, node, activated); }
+            } else if (usingSampleNeuronActivations(defaultFixingOfSampleNeuronActivations, activated)) {
                 verifier.tryFixNeuronActivation(layer, node, activated);
             }
 
-            if (usingSampleNeuronActivations(defaultPreferenceOfSampleNeuronActivations, activated)) {
+            if (auto optPreferOne = config.tryGetPreferenceOfSampleNeuronActivationAt(idx, layer, node)) {
+                if (*optPreferOne) { verifier.preferNeuronActivation(layer, node, activated); }
+            } else if (auto optPreferAll = config.tryGetPreferenceOfAllSampleNeuronActivationsAt(layer, node)) {
+                if (*optPreferAll) { verifier.preferNeuronActivation(layer, node, activated); }
+            } else if (usingSampleNeuronActivations(defaultPreferenceOfSampleNeuronActivations, activated)) {
                 verifier.tryPreferNeuronActivation(layer, node, activated);
             }
         }

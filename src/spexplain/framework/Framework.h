@@ -1,6 +1,7 @@
 #ifndef SPEXPLAIN_FRAMEWORK_H
 #define SPEXPLAIN_FRAMEWORK_H
 
+#include <spexplain/common/Core.h>
 #include <spexplain/common/Interval.h>
 #include <spexplain/common/Var.h>
 #include <spexplain/network/Network.h>
