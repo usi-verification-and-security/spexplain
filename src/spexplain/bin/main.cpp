@@ -102,7 +102,7 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
 }
 
 std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config & config,
-                           std::string * explanationsFnPtr = nullptr) {
+                           spexplain::Network const & network, std::string * explanationsFnPtr = nullptr) {
 
     int selectedLongOpt = 0;
     // constexpr int versionLongOpt = 1;
@@ -111,29 +111,43 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     constexpr int outputTimesLongOpt = 4;
     constexpr int fixDefaultSampleNeuronActivationsLongOpt = 5;
     constexpr int preferDefaultSampleNeuronActivationsLongOpt = 6;
+    constexpr int fixAllSampleNeuronActivationsLongOpt = 7;
+    constexpr int preferAllSampleNeuronActivationsLongOpt = 8;
+    constexpr int fixSampleNeuronActivationLongOpt = 9;
+    constexpr int preferSampleNeuronActivationLongOpt = 10;
 
     //+ not documented
-    struct ::option longOptions[] = {{"help", no_argument, nullptr, 'h'},
-                                     {"verifier", required_argument, nullptr, 'V'},
-                                     {"input-explanations", required_argument, nullptr, 'E'},
-                                     {"output-explanations", required_argument, nullptr, 'e'},
-                                     {"output-stats", required_argument, nullptr, 's'},
-                                     {"output-times", required_argument, &selectedLongOpt, outputTimesLongOpt},
-                                     {"verbose", no_argument, nullptr, 'v'},
-                                     {"quiet", no_argument, nullptr, 'q'},
-                                     // {"version", no_argument, &selectedLongOpt, versionLongOpt},
-                                     {"reverse-var", no_argument, nullptr, 'R'},
-                                     {"fix-default-sample-neuron-activations", required_argument, &selectedLongOpt,
-                                      fixDefaultSampleNeuronActivationsLongOpt},
-                                     {"prefer-default-sample-neuron-activations", required_argument, &selectedLongOpt,
-                                      preferDefaultSampleNeuronActivationsLongOpt},
-                                     {"format", required_argument, &selectedLongOpt, formatLongOpt},
-                                     {"shuffle-samples", no_argument, nullptr, 'r'},
-                                     {"max-samples", required_argument, nullptr, 'n'},
-                                     {"filter-samples", required_argument, &selectedLongOpt, filterLongOpt},
-                                     {0, 0, 0, 0}};
+    struct ::option longOptions[] = {
+        {"help", no_argument, nullptr, 'h'},
+        {"verifier", required_argument, nullptr, 'V'},
+        {"input-explanations", required_argument, nullptr, 'E'},
+        {"output-explanations", required_argument, nullptr, 'e'},
+        {"output-stats", required_argument, nullptr, 's'},
+        {"output-times", required_argument, &selectedLongOpt, outputTimesLongOpt},
+        {"verbose", no_argument, nullptr, 'v'},
+        {"quiet", no_argument, nullptr, 'q'},
+        // {"version", no_argument, &selectedLongOpt, versionLongOpt},
+        {"reverse-var", no_argument, nullptr, 'R'},
+        {"fix-default-sample-neuron-activations", required_argument, &selectedLongOpt,
+         fixDefaultSampleNeuronActivationsLongOpt},
+        {"prefer-default-sample-neuron-activations", required_argument, &selectedLongOpt,
+         preferDefaultSampleNeuronActivationsLongOpt},
+        {"fix-all-sample-neuron-activations-at", required_argument, &selectedLongOpt,
+         fixAllSampleNeuronActivationsLongOpt},
+        {"prefer-all-sample-neuron-activations-at", required_argument, &selectedLongOpt,
+         preferAllSampleNeuronActivationsLongOpt},
+        {"fix-sample-neuron-activation-at", required_argument, &selectedLongOpt, fixSampleNeuronActivationLongOpt},
+        {"prefer-sample-neuron-activation-at", required_argument, &selectedLongOpt,
+         preferSampleNeuronActivationLongOpt},
+        {"format", required_argument, &selectedLongOpt, formatLongOpt},
+        {"shuffle-samples", no_argument, nullptr, 'r'},
+        {"max-samples", required_argument, nullptr, 'n'},
+        {"filter-samples", required_argument, &selectedLongOpt, filterLongOpt},
+        {0, 0, 0, 0}};
 
     std::string optString = ":hV:E:e:s:vqRSIrn:";
+
+    config.init(network);
 
     while (true) {
         int optIndex = 0;
@@ -197,6 +211,26 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                         config.preferDefaultSampleNeuronActivations(
                             spexplain::makeDefaultSampleNeuronActivations(optargStr));
                         break;
+                    case fixAllSampleNeuronActivationsLongOpt: {
+                        auto pos = spexplain::makeHiddenNeuronPosition(optargStr);
+                        config.fixAllSampleNeuronActivationsAt(pos);
+                        break;
+                    }
+                    case preferAllSampleNeuronActivationsLongOpt: {
+                        auto pos = spexplain::makeHiddenNeuronPosition(optargStr);
+                        config.preferAllSampleNeuronActivationsAt(pos);
+                        break;
+                    }
+                    case fixSampleNeuronActivationLongOpt: {
+                        auto [idx, pos] = spexplain::makeHiddenNeuronPositionOfSample(optargStr);
+                        config.fixSampleNeuronActivationAt(idx, pos);
+                        break;
+                    }
+                    case preferSampleNeuronActivationLongOpt: {
+                        auto [idx, pos] = spexplain::makeHiddenNeuronPositionOfSample(optargStr);
+                        config.preferSampleNeuronActivationAt(idx, pos);
+                        break;
+                    }
                 }
                 break;
             }
@@ -280,7 +314,7 @@ int mainExplain(int argc, char * argv[], int i, int nArgs) {
 
     spexplain::Framework::Config config;
 
-    if (auto optRet = getOpts(argc, argv, config, &explanationsFn)) { return *optRet; }
+    if (auto optRet = getOpts(argc, argv, config, *networkPtr, &explanationsFn)) { return *optRet; }
 
     std::istringstream strategiesSpecIss{std::string{strategiesSpec}};
     spexplain::Framework framework{config, std::move(networkPtr), strategiesSpecIss};
@@ -304,7 +338,7 @@ int mainDumpPsi(int argc, char * argv[], int i, [[maybe_unused]] int nArgs) {
 
     spexplain::Framework::Config config;
 
-    if (auto optRet = getOpts(argc, argv, config)) { return *optRet; }
+    if (auto optRet = getOpts(argc, argv, config, *networkPtr)) { return *optRet; }
 
     //++ should not be necessary
     std::istringstream strategiesSpecIss{spexplain::Framework::Expand::NopStrategy::name()};
