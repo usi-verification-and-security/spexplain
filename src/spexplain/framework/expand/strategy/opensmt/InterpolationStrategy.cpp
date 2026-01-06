@@ -16,8 +16,7 @@
 #include <cassert>
 
 namespace spexplain::expand::opensmt {
-void InterpolationStrategy::executeInit(Explanations & explanations, Network::Dataset const & data,
-                                        ExplanationIdx idx) {
+void InterpolationStrategy::executeInit(Explanations & explanations, Network::Dataset const & data, Sample::Idx idx) {
     Strategy::executeInit(explanations, data, idx);
 
     auto & verifier = getVerifier();
@@ -62,7 +61,7 @@ void InterpolationStrategy::executeInit(Explanations & explanations, Network::Da
     }
 }
 
-void InterpolationStrategy::executeBody(Explanations & explanations, Network::Dataset const &, ExplanationIdx idx) {
+void InterpolationStrategy::executeBody(Explanations & explanations, Network::Dataset const &, Sample::Idx idx) {
     auto & explanationPtr = getExplanationPtr(explanations, idx);
     if (auto * optIntExp = dynamic_cast<IntervalExplanation *>(explanationPtr.get())) {
         explanationPtr = std::move(*optIntExp).toConjunctExplanation(varOrdering.order);
