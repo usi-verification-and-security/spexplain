@@ -13,7 +13,7 @@ public:
     void operator()(Network::Dataset &) const;
 
     Explanations makeExplanationsFromSamples(Network::Dataset const &) const;
-    std::unique_ptr<Explanation> makeExplanationFromSample(Network::Sample const &) const;
+    std::unique_ptr<Explanation> makeExplanationFromSample(Sample const &) const;
 
 protected:
     Framework & framework;

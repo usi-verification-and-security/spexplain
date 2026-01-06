@@ -10,7 +10,7 @@
 
 namespace spexplain {
 void Framework::Expand::TrialAndErrorStrategy::executeBody(Explanations & explanations, Network::Dataset const &,
-                                                           ExplanationIdx idx) {
+                                                           Sample::Idx idx) {
     auto & explanation = getExplanation(explanations, idx);
     assert(dynamic_cast<IntervalExplanation *>(&explanation));
     auto & iexplanation = static_cast<IntervalExplanation &>(explanation);
