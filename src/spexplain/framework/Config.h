@@ -72,9 +72,13 @@ public:
     }
 
     [[nodiscard]]
-    std::string_view getVerifierName() const { return verifierName; }
+    std::string_view getVerifierName() const {
+        return verifierName;
+    }
     [[nodiscard]]
-    bool verifierNameIsSet() const { return not getVerifierName().empty(); }
+    bool verifierNameIsSet() const {
+        return not getVerifierName().empty();
+    }
 
     [[nodiscard]]
     std::string_view getExplanationsFileName() const {
@@ -82,25 +86,43 @@ public:
         return explanationsFileName;
     }
     [[nodiscard]]
-    bool explanationsFileNameIsSet() const { return not explanationsFileName.empty(); }
+    bool explanationsFileNameIsSet() const {
+        return not explanationsFileName.empty();
+    }
     [[nodiscard]]
-    std::string_view getStatsFileName() const { return statsFileName; }
+    std::string_view getStatsFileName() const {
+        return statsFileName;
+    }
     [[nodiscard]]
-    bool statsFileNameIsSet() const { return not getStatsFileName().empty(); }
+    bool statsFileNameIsSet() const {
+        return not getStatsFileName().empty();
+    }
     [[nodiscard]]
-    std::string_view getTimesFileName() const { return timesFileName; }
+    std::string_view getTimesFileName() const {
+        return timesFileName;
+    }
     [[nodiscard]]
-    bool timesFileNameIsSet() const { return not getTimesFileName().empty(); }
+    bool timesFileNameIsSet() const {
+        return not getTimesFileName().empty();
+    }
 
     [[nodiscard]]
-    Verbosity getVerbosity() const { return verbosity; }
+    Verbosity getVerbosity() const {
+        return verbosity;
+    }
     [[nodiscard]]
-    bool isVerbose() const { return getVerbosity() > 0; }
+    bool isVerbose() const {
+        return getVerbosity() > 0;
+    }
     [[nodiscard]]
-    bool isQuiet() const { return getVerbosity() < 0; }
+    bool isQuiet() const {
+        return getVerbosity() < 0;
+    }
 
     [[nodiscard]]
-    bool isReverseVarOrdering() const { return reverseVarOrder; }
+    bool isReverseVarOrdering() const {
+        return reverseVarOrder;
+    }
 
     [[nodiscard]]
     DefaultSampleNeuronActivations getDefaultFixingOfSampleNeuronActivations() const {
@@ -140,12 +162,18 @@ public:
     }
 
     [[nodiscard]]
-    bool shufflingSamples() const { return _shuffleSamples; }
+    bool shufflingSamples() const {
+        return _shuffleSamples;
+    }
 
     [[nodiscard]]
-    std::size_t getMaxSamples() const { return maxSamples; }
+    std::size_t getMaxSamples() const {
+        return maxSamples;
+    }
     [[nodiscard]]
-    bool limitingMaxSamples() const { return getMaxSamples() > 0; }
+    bool limitingMaxSamples() const {
+        return getMaxSamples() > 0;
+    }
     [[nodiscard]]
     std::size_t getFirstSampleIdx() const {
         return firstSample;
@@ -164,13 +192,17 @@ public:
     }
 
     [[nodiscard]]
-    bool filteringCorrectSamples() const { return optFilterCorrectSamples.has_value() and *optFilterCorrectSamples; }
+    bool filteringCorrectSamples() const {
+        return optFilterCorrectSamples.has_value() and *optFilterCorrectSamples;
+    }
     [[nodiscard]]
     bool filteringIncorrectSamples() const {
         return optFilterCorrectSamples.has_value() and not *optFilterCorrectSamples;
     }
     [[nodiscard]]
-    bool filteringSamplesOfExpectedClass() const { return optFilterSamplesOfExpectedClass.has_value(); }
+    bool filteringSamplesOfExpectedClass() const {
+        return optFilterSamplesOfExpectedClass.has_value();
+    }
     [[nodiscard]]
     Network::Classification::Label const & getSamplesExpectedClassFilter() const {
         assert(filteringSamplesOfExpectedClass());
