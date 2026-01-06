@@ -3,8 +3,6 @@
 #include "Engine.h"
 #include "InputQuery.h"
 
-#include <spexplain/network/Network.h>
-
 #include <cassert>
 #include <numeric>
 
@@ -88,8 +86,8 @@ MarabouVerifier::MarabouVerifier() : pimpl{std::make_unique<MarabouImpl>()} {}
 
 MarabouVerifier::~MarabouVerifier() {}
 
-void MarabouVerifier::assertSampleModel(spexplain::Network const & network) {
-    pimpl->assertSampleModel(network);
+void MarabouVerifier::assertSampleModel() {
+    pimpl->assertSampleModel(getNetwork());
 }
 
 void MarabouVerifier::addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool /*explanationTerm*/) {
