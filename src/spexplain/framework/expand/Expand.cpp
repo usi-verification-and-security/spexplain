@@ -401,7 +401,7 @@ void Framework::Expand::resetClassification() {
     verifierPtr->resetSample();
 }
 
-void Framework::Expand::postprocessExplanation(Explanations & explanations, ExplanationIdx idx) {
+void Framework::Expand::postprocessExplanation(Explanations & explanations, Sample::Idx idx) {
     auto & lastStrategy = getLastStrategy();
     auto & explanationPtr = getExplanationPtr(explanations, idx);
 
@@ -429,20 +429,20 @@ void Framework::Expand::printHead(std::ostream & os, Network::Dataset const & da
     os << std::string(60, '-') << std::endl;
 }
 
-void Framework::Expand::printProgress(std::ostream & os, Network::Dataset const & data, ExplanationIdx idx,
+void Framework::Expand::printProgress(std::ostream & os, Network::Dataset const & data, Sample::Idx idx,
                                       std::string_view caption) const {
     std::size_t const dataSize = data.size();
     os << caption << " [" << idx + 1 << '/' << dataSize << ']';
 }
 
 void Framework::Expand::printStatsOf(Explanation const & explanation, Network::Dataset const & data,
-                                     ExplanationIdx idx) const {
+                                     Sample::Idx idx) const {
 
     printStatsHeadOf(data, idx);
     printStatsBodyOf(explanation);
 }
 
-void Framework::Expand::printStatsHeadOf(Network::Dataset const & data, ExplanationIdx idx) const {
+void Framework::Expand::printStatsHeadOf(Network::Dataset const & data, Sample::Idx idx) const {
     auto & print = framework.getPrint();
     assert(not print.ignoringStats());
     auto & cstats = print.stats();

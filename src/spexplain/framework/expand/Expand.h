@@ -16,8 +16,6 @@ class Verifier;
 namespace spexplain {
 class Explanation;
 
-static_assert(std::is_same_v<ExplanationIdx, Network::Sample::Idx>);
-
 //! rename to `Explain`?
 class Framework::Expand {
 public:
@@ -92,14 +90,14 @@ protected:
     void assertClassification(Network::Classification const &);
     void resetClassification();
 
-    void postprocessExplanation(Explanations &, ExplanationIdx);
+    void postprocessExplanation(Explanations &, Sample::Idx);
 
     void printHead(std::ostream &, Network::Dataset const &) const;
-    void printProgress(std::ostream &, Network::Dataset const &, ExplanationIdx,
+    void printProgress(std::ostream &, Network::Dataset const &, Sample::Idx,
                        std::string_view caption = "sample") const;
 
-    void printStatsOf(Explanation const &, Network::Dataset const &, ExplanationIdx) const;
-    void printStatsHeadOf(Network::Dataset const &, ExplanationIdx) const;
+    void printStatsOf(Explanation const &, Network::Dataset const &, Sample::Idx) const;
+    void printStatsHeadOf(Network::Dataset const &, Sample::Idx) const;
     void printStatsBodyOf(Explanation const &) const;
 
     Framework & framework;
