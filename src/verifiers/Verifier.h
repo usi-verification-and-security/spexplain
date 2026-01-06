@@ -1,17 +1,17 @@
 #ifndef XAI_SMT_VERIFIER_H
 #define XAI_SMT_VERIFIER_H
 
+#include <spexplain/network/Containers.h>
+#include <spexplain/network/Network.h>
+
 #include <chrono>
 #include <memory>
 #include <optional>
-#include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace spexplain {
 class Explanation;
 class Framework;
-class Network;
 } // namespace spexplain
 
 //++ move into spexplain namespace
@@ -33,17 +33,17 @@ public:
     Verifier(Verifier &&) = default;
     Verifier & operator=(Verifier &&) = default;
 
-    void fixNeuronActivation(LayerIndex, NodeIndex, size_t nHiddenLayers, size_t layerSize, bool activation);
-    void preferNeuronActivation(LayerIndex, NodeIndex, size_t nHiddenLayers, size_t layerSize, bool activation);
+    void fixNeuronActivation(LayerIndex, NodeIndex, bool activation);
+    void preferNeuronActivation(LayerIndex, NodeIndex, bool activation);
     // Do not insert neuron activation if one already exists
-    bool tryFixNeuronActivation(LayerIndex, NodeIndex, size_t nHiddenLayers, size_t layerSize, bool activation);
-    bool tryPreferNeuronActivation(LayerIndex, NodeIndex, size_t nHiddenLayers, size_t layerSize, bool activation);
+    bool tryFixNeuronActivation(LayerIndex, NodeIndex, bool activation);
+    bool tryPreferNeuronActivation(LayerIndex, NodeIndex, bool activation);
 
     std::optional<bool> getFixedNeuronActivation(LayerIndex, NodeIndex) const;
     std::optional<bool> getPreferredNeuronActivation(LayerIndex, NodeIndex) const;
 
-    virtual void assertGroundModel(spexplain::Network const &) {}
-    virtual void assertSampleModel(spexplain::Network const &) = 0;
+    virtual void assertGroundModel() {}
+    virtual void assertSampleModel() = 0;
 
     virtual void addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) = 0;
     virtual void addLowerBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) = 0;
@@ -59,10 +59,7 @@ public:
 
     virtual void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, Float rhs) = 0;
 
-    virtual void init() {
-        initImpl();
-        reset();
-    }
+    virtual void init(spexplain::Network const &);
 
     virtual void push() { pushImpl(); }
     virtual void pop() { popImpl(); }
@@ -91,7 +88,9 @@ public:
     virtual void printSmtLib2Query(std::ostream &) const = 0;
 
 protected:
-    virtual void initImpl() {}
+    spexplain::Network const & getNetwork() const;
+
+    virtual void initImpl(spexplain::Network const &);
 
     std::size_t checksCount{};
 
@@ -101,8 +100,10 @@ private:
 
     virtual Answer checkImpl() = 0;
 
-    std::vector<std::unordered_map<NodeIndex, bool>> fixedNeuronActivations;
-    std::vector<std::unordered_map<NodeIndex, bool>> preferredNeuronActivations;
+    spexplain::Network const * networkPtr;
+
+    spexplain::NetworkMap<bool> fixedNeuronActivations;
+    spexplain::NetworkMap<bool> preferredNeuronActivations;
 };
 } // namespace xai::verifiers
 
