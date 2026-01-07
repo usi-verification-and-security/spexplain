@@ -130,6 +130,10 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
                          "Fix (or not with '-') sample neuron activation for given sample, layer and neuron");
     printUsageLongOptRow(os, "prefer-sample-neuron-activation-at", "<idx>,<l>,[-]<n>",
                          "Prefer (or not with '-') sample neuron activation for given sample, layer and neuron");
+    printUsageLongOptRow(os, "input-fix-sample-neuron-activations", "<file>",
+                         "Fix sample neuron activations as specified in the file");
+    printUsageLongOptRow(os, "input-prefer-sample-neuron-activations", "<file>",
+                         "Prefer sample neuron activations as specified in the file");
     printUsageOptRow(os, 'S', "", "Print the resulting explanations in the SMT-LIB2 format");
     printUsageOptRow(os, 'I', "", "Print the resulting explanations in the form of intervals");
     printUsageLongOptRow(os, "format", "smtlib2|intervals|bounds", "Use one of the output explanation formats");
@@ -170,6 +174,8 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     constexpr int preferAllSampleNeuronActivationsLongOpt = 8;
     constexpr int fixSampleNeuronActivationLongOpt = 9;
     constexpr int preferSampleNeuronActivationLongOpt = 10;
+    constexpr int inputFixSampleNeuronActivationsLongOpt = 11;
+    constexpr int inputPreferSampleNeuronActivationsLongOpt = 12;
 
     struct ::option longOptions[] = {
         {"help", no_argument, nullptr, 'h'},
@@ -193,6 +199,10 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
         {"fix-sample-neuron-activation-at", required_argument, &selectedLongOpt, fixSampleNeuronActivationLongOpt},
         {"prefer-sample-neuron-activation-at", required_argument, &selectedLongOpt,
          preferSampleNeuronActivationLongOpt},
+        {"input-fix-sample-neuron-activations", required_argument, &selectedLongOpt,
+         inputFixSampleNeuronActivationsLongOpt},
+        {"input-prefer-sample-neuron-activations", required_argument, &selectedLongOpt,
+         inputPreferSampleNeuronActivationsLongOpt},
         {"format", required_argument, &selectedLongOpt, formatLongOpt},
         {"shuffle-samples", no_argument, nullptr, 'r'},
         {"max-samples", required_argument, nullptr, 'n'},
@@ -216,7 +226,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                 if (optarg) { optargStr = optarg; }
                 switch (selectedLongOpt) {
                     case outputTimesLongOpt:
-                        config.setTimesFileName(optarg);
+                        config.setTimesFileName(optargStr);
                         break;
                     case formatLongOpt:
                         if (optargStr == "smtlib2") {
@@ -287,6 +297,12 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                         config.preferSampleNeuronActivationAt(idx, pos);
                         break;
                     }
+                    case inputFixSampleNeuronActivationsLongOpt:
+                        spexplain::parseFixSampleNeuronActivations(config, optargStr);
+                        break;
+                    case inputPreferSampleNeuronActivationsLongOpt:
+                        spexplain::parsePreferSampleNeuronActivations(config, optargStr);
+                        break;
                 }
                 break;
             }

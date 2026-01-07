@@ -1,5 +1,6 @@
 #include "Config.h"
 
+#include <fstream>
 #include <sstream>
 #include <stdexcept>
 
@@ -14,16 +15,14 @@ void Framework::Config::init(Network const & network) noexcept {
 }
 
 void Framework::Config::fixSampleNeuronActivationAt(Sample::Idx idx, HiddenNeuronPosition const & pos) {
-    assert(networkPtr);
     auto & map = fixSampleNeuronActivationMaps[idx];
-    map.setNetwork(*networkPtr);
+    map.setNetwork(getNetwork());
     map.insertOrAssign(pos.layer, pos.node, not pos.negated);
 }
 
 void Framework::Config::preferSampleNeuronActivationAt(Sample::Idx idx, HiddenNeuronPosition const & pos) {
-    assert(networkPtr);
     auto & map = preferSampleNeuronActivationMaps[idx];
-    map.setNetwork(*networkPtr);
+    map.setNetwork(getNetwork());
     map.insertOrAssign(pos.layer, pos.node, not pos.negated);
 }
 
@@ -58,6 +57,30 @@ Framework::Config::DefaultSampleNeuronActivations makeDefaultSampleNeuronActivat
 }
 
 namespace {
+    std::size_t parsedSampleToIdx(long sampleIdx) {
+        if (sampleIdx <= 0) {
+            throw std::invalid_argument{"Sample index "s + std::to_string(sampleIdx) + " must be >= 1"};
+        }
+
+        return static_cast<std::size_t>(sampleIdx - 1);
+    }
+
+    std::size_t parsedHiddenLayerToIdx(long layer) {
+        if (layer <= 0) { throw std::invalid_argument{"Hidden layer "s + std::to_string(layer) + " must be >= 1"}; }
+
+        return static_cast<std::size_t>(layer);
+    }
+
+    Framework::Config::HiddenNeuronPosition parsedNodeToIdx(long node, std::size_t layerIdx) {
+        if (node == 0) { throw std::invalid_argument{"Node must not be equal to 0"}; }
+
+        return {.layer = layerIdx, .node = static_cast<std::size_t>(std::abs(node) - 1), .negated = node < 0};
+    }
+
+    Framework::Config::HiddenNeuronPosition parsedHiddenLayerAndNodeToIdx(long layer, long node) {
+        return parsedNodeToIdx(node, parsedHiddenLayerToIdx(layer));
+    }
+
     template<bool includeSampleV>
     std::conditional_t<includeSampleV, std::pair<Sample::Idx, Framework::Config::HiddenNeuronPosition>,
                        Framework::Config::HiddenNeuronPosition>
@@ -78,21 +101,13 @@ namespace {
                 return "hidden layer and node";
             }
         }();
-        if (not iss) { throw std::invalid_argument{"Unrecognized string of "s + msg + ": " + str}; }
+        if (iss.fail()) { throw std::invalid_argument{"Unrecognized string of "s + msg + ": " + str}; }
         if (not iss.eof()) { throw std::invalid_argument{"Additional arguments after reading "s + msg + ": " + str}; }
-        if constexpr (includeSampleV) {
-            if (sampleIdx <= 0) { throw std::invalid_argument{"Sample index must be >= 1: "s + str}; }
-        }
-        if (layer <= 0) { throw std::invalid_argument{"Hidden layer must be >= 1: "s + str}; }
-        if (node == 0) { throw std::invalid_argument{"Node must not be equal to 0: "s + str}; }
 
-        Framework::Config::HiddenNeuronPosition pos{.layer = static_cast<std::size_t>(layer),
-                                                    .node = static_cast<std::size_t>(std::abs(node) - 1),
-                                                    .negated = node < 0};
         if constexpr (includeSampleV) {
-            return {static_cast<std::size_t>(sampleIdx - 1), std::move(pos)};
+            return {parsedSampleToIdx(sampleIdx), parsedHiddenLayerAndNodeToIdx(layer, node)};
         } else {
-            return pos;
+            return parsedHiddenLayerAndNodeToIdx(layer, node);
         }
     }
 } // namespace
@@ -119,5 +134,58 @@ bool usingSampleNeuronActivations(Framework::Config::DefaultSampleNeuronActivati
         case inactive:
             return not sampleActivated;
     }
+}
+
+namespace {
+    template<bool fixV>
+    void parseSampleNeuronActivationsImpl(Framework::Config & config, std::string_view fileName) {
+        std::ifstream ifs{std::string{fileName}};
+        if (not ifs.good()) {
+            throw std::ifstream::failure{"Could not open sample neuron activations file: "s + std::string{fileName}};
+        }
+
+        auto const & network = config.getNetwork();
+        std::size_t const nHiddenLayers = network.getNumHiddenLayers();
+
+        long parsedSampleIdx;
+        long lastParsedSampleIdx = -1;
+        long parsedNode;
+        while (ifs >> parsedSampleIdx) {
+            std::size_t const sampleIdx = parsedSampleToIdx(parsedSampleIdx);
+            lastParsedSampleIdx = parsedSampleIdx;
+
+            for (std::size_t layerIdx = 1; layerIdx < nHiddenLayers + 1; ++layerIdx) {
+                for (;;) {
+                    ifs >> parsedNode;
+                    if (not ifs.good()) {
+                        throw std::logic_error{"At sample "s + std::to_string(parsedSampleIdx) + ", layer " +
+                                               std::to_string(layerIdx) + ": Expected number"};
+                    }
+                    if (parsedNode == 0) { break; }
+
+                    Framework::Config::HiddenNeuronPosition pos = parsedNodeToIdx(parsedNode, layerIdx);
+                    if constexpr (fixV) {
+                        config.fixSampleNeuronActivationAt(sampleIdx, pos);
+                    } else {
+                        config.preferSampleNeuronActivationAt(sampleIdx, pos);
+                    }
+                }
+            }
+        }
+
+        if (ifs.eof()) { return; }
+
+        throw std::logic_error{
+            (lastParsedSampleIdx == -1 ? ""s : "After sample "s + std::to_string(lastParsedSampleIdx) + ": ") +
+            "Expected sample index"};
+    }
+} // namespace
+
+void parseFixSampleNeuronActivations(Framework::Config & config, std::string_view fileName) {
+    parseSampleNeuronActivationsImpl<true>(config, fileName);
+}
+
+void parsePreferSampleNeuronActivations(Framework::Config & config, std::string_view fileName) {
+    parseSampleNeuronActivationsImpl<false>(config, fileName);
 }
 } // namespace spexplain
