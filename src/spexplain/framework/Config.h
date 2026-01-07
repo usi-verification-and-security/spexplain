@@ -34,6 +34,11 @@ public:
 
     void init(Network const &) noexcept;
 
+    Network const & getNetwork() const {
+        assert(networkPtr);
+        return *networkPtr;
+    }
+
     void setVerifierName(std::string_view name) { verifierName = name; }
 
     void setExplanationsFileName(std::string_view fileName) { explanationsFileName = fileName; }
@@ -290,6 +295,9 @@ Framework::Config::HiddenNeuronPosition makeHiddenNeuronPosition(std::string_vie
 std::pair<Sample::Idx, Framework::Config::HiddenNeuronPosition> makeHiddenNeuronPositionOfSample(std::string_view);
 
 bool usingSampleNeuronActivations(Framework::Config::DefaultSampleNeuronActivations, bool sampleActivated);
+
+void parseFixSampleNeuronActivations(Framework::Config &, std::string_view fileName);
+void parsePreferSampleNeuronActivations(Framework::Config &, std::string_view fileName);
 } // namespace spexplain
 
 #endif // SPEXPLAIN_CONFIG_H
