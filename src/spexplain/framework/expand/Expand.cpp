@@ -206,9 +206,9 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
     assert(printingExplanations);
 
     if (printingInfo) {
-        cinfo << "Writing explanations to: " << config.getExplanationsFileName() << "\n";
-        if (printingStats) { cinfo << "Writing statistics to: " << config.getStatsFileName() << "\n"; }
-        if (printingTimes) { cinfo << "Writing runtimes per explanation to: " << config.getTimesFileName() << "\n"; }
+        cinfo << "Writing explanations to: " << config.getExplanationsFileName() << '\n';
+        if (printingStats) { cinfo << "Writing statistics to: " << config.getStatsFileName() << '\n'; }
+        if (printingTimes) { cinfo << "Writing runtimes per explanation to: " << config.getTimesFileName() << '\n'; }
         cinfo << '\n';
         printHead(cinfo, data);
     }
