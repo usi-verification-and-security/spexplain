@@ -28,7 +28,7 @@ void printUsageStrategyRow(std::ostream & os, std::string_view name, std::vector
     os << '\n';
 }
 
-void printUsageOptRow(std::ostream & os, char opt, std::string_view arg, std::string_view desc) {
+void printUsageOptRow(std::ostream & os, char opt, std::string_view arg = "", std::string_view desc = "") {
     os << "    -" << opt << ' ';
     os << std::left << std::setw(7);
     if (arg.empty()) {
@@ -37,6 +37,14 @@ void printUsageOptRow(std::ostream & os, char opt, std::string_view arg, std::st
         os << arg;
     }
     os << desc << '\n';
+}
+
+void printUsageLongOptRow(std::ostream & os, std::string_view longOpt, std::string_view arg = "",
+                          std::string_view desc = "") {
+    os << "    --" << longOpt << " " << arg << '\n';
+    if (desc.empty()) { return; }
+
+    os << std::left << std::setw(14) << ' ' << desc << '\n';
 }
 
 void printUsage(char * const argv[], std::ostream & os = std::cout) {
@@ -76,20 +84,34 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     os << '\n';
 
     os << "OPTIONS:\n";
+    printUsageLongOptRow(os, "help");
     printUsageOptRow(os, 'h', "", "Prints this help message and exits");
+    printUsageLongOptRow(os, "verifier");
     printUsageOptRow(os, 'V', "<name>", "Set the verifier");
+    printUsageLongOptRow(os, "input-explanations");
     printUsageOptRow(os, 'E', "<file>", "Use explanations from the file as starting points");
+    printUsageLongOptRow(os, "output-explanations");
     printUsageOptRow(os, 'e', "<file>",
                      "Output explanations into the file (default: "s + Framework::Config::defaultExplanationsFileName +
                          ")");
+    printUsageLongOptRow(os, "output-stats");
     printUsageOptRow(os, 's', "<file>", "Output statistics into the file");
+    printUsageLongOptRow(os, "output-times", "<file>", "Output runtime splits into the file");
+    printUsageLongOptRow(os, "verbose");
     printUsageOptRow(os, 'v', "", "Run in verbose mode");
+    printUsageLongOptRow(os, "quiet");
     printUsageOptRow(os, 'q', "", "Run in quiet mode");
+    printUsageLongOptRow(os, "reverse-var");
     printUsageOptRow(os, 'R', "", "Reverse the order of variables");
     printUsageOptRow(os, 'S', "", "Print the resulting explanations in the SMT-LIB2 format");
     printUsageOptRow(os, 'I', "", "Print the resulting explanations in the form of intervals");
+    printUsageLongOptRow(os, "format", "smtlib2|intervals|bounds", "Use one of the output explanation formats");
+    printUsageLongOptRow(os, "shuffle-samples");
     printUsageOptRow(os, 'r', "", "Shuffle (randomize) samples");
+    printUsageLongOptRow(os, "max-samples");
     printUsageOptRow(os, 'n', "<int>", "Maximum no. samples to be processed");
+    printUsageLongOptRow(os, "filter-samples", "[in]correct|class<c>",
+                         "Only process sample points that match the given filter");
 
     os << "\nEXAMPLES:\n";
     os << cmd << " explain data/models/toy.nnet data/datasets/toy.csv abductive -e data/explanations/toy.phi.txt\n";
@@ -110,7 +132,6 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     constexpr int filterLongOpt = 3;
     constexpr int outputTimesLongOpt = 4;
 
-    //+ not documented
     struct ::option longOptions[] = {{"help", no_argument, nullptr, 'h'},
                                      {"verifier", required_argument, nullptr, 'V'},
                                      {"input-explanations", required_argument, nullptr, 'E'},
