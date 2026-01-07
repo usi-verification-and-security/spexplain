@@ -2,6 +2,7 @@
 
 This folder contains several scripts to automate and simplify experimentation with SpEXplAIn.
 
+
 ## `run1.sh`
 
 ```
@@ -74,6 +75,7 @@ will use the executable `../build-marabou/spexplain`
 and compute explanations into `explanations/heart_attack/quick/trial_n_4__abductive.phi.txt`
 using `explanations/heart_attack/quick/abductive.phi.txt` as starting points (which must already exist) instead of sample points.
 The resulting explanations are the same as what would compute the strategy `abductive; trial n 4` if starting from sample points, but it does not re-compute `abductive` that has already been computed.
+
 
 ## `run-experiments.sh`
 
@@ -152,8 +154,37 @@ and will run experiments specified in `spec/experiments/itp` (e.g. `itp_astrong_
 using the model `models/obesity/obesity-10-20-10.nnet` and dataset `datasets/obesity/obesity_short.csv`.
 Additionally, it passes the arguments `--filter-samples incorrect` to the underlying script `run1.sh` (i.e., consequently, to `spexplain`).
 
-## `analyze.sh`
 
+## `collect_stats.sh`
+
+```
+USAGE: ./collect_stats.sh <explanations_dir> <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>] [<OPTIONS>]
+OPTIONS:
+   --exclude-column <name>    Exclude given column
+   --average [<regex>]     Average columns for all rows [matching the regex] (can be repeated)
+```
+
+### Examples
+
+In directory `data/`:
+
+```
+./scripts/collect_stats.sh explanations/heart_attack/full base '^itp_a' --exclude-column '%features' --exclude-column '%fixed' --exclude-column '#checks'
+```
+
+```
+./scripts/collect_stats.sh explanations/heart_attack/full base +consecutive '(abductive|^itp_aweak_bstrong)' --exclude-column '%features' --exclude-column '%fixed'
+```
+
+```
+./scripts/collect_stats.sh explanations/heart_attack/full itp '(slice_|itp_vars_)' \
+   --exclude-column '%features' --exclude-column '%fixed' --exclude-column '%dimension' --exclude-column '#checks' \
+   --average '^itp_vars' --average '^ucore_itp_vars' --average 'ucore_min_itp_vars' \
+   --average 'slice_.*[0-9]_itp_aweak_bstrong' --average 'slice_.*_ucore_itp_aweak_bstrong' --average 'slice_.*_ucore_min_itp_aweak_bstrong'
+```
+
+
+## `analyze.sh`
 
 ```
 USAGE: ./analyze.sh <action> <psi> <f> [<f2>] [<max_rows>]
