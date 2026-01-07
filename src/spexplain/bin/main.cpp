@@ -115,6 +115,8 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     constexpr int preferAllSampleNeuronActivationsLongOpt = 8;
     constexpr int fixSampleNeuronActivationLongOpt = 9;
     constexpr int preferSampleNeuronActivationLongOpt = 10;
+    constexpr int inputFixSampleNeuronActivationsLongOpt = 11;
+    constexpr int inputPreferSampleNeuronActivationsLongOpt = 12;
 
     //+ not documented
     struct ::option longOptions[] = {
@@ -139,6 +141,10 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
         {"fix-sample-neuron-activation-at", required_argument, &selectedLongOpt, fixSampleNeuronActivationLongOpt},
         {"prefer-sample-neuron-activation-at", required_argument, &selectedLongOpt,
          preferSampleNeuronActivationLongOpt},
+        {"input-fix-sample-neuron-activations", required_argument, &selectedLongOpt,
+         inputFixSampleNeuronActivationsLongOpt},
+        {"input-prefer-sample-neuron-activations", required_argument, &selectedLongOpt,
+         inputPreferSampleNeuronActivationsLongOpt},
         {"format", required_argument, &selectedLongOpt, formatLongOpt},
         {"shuffle-samples", no_argument, nullptr, 'r'},
         {"max-samples", required_argument, nullptr, 'n'},
@@ -160,7 +166,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                 if (optarg) { optargStr = optarg; }
                 switch (selectedLongOpt) {
                     case outputTimesLongOpt:
-                        config.setTimesFileName(optarg);
+                        config.setTimesFileName(optargStr);
                         break;
                     case formatLongOpt:
                         if (optargStr == "smtlib2") {
@@ -231,6 +237,12 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                         config.preferSampleNeuronActivationAt(idx, pos);
                         break;
                     }
+                    case inputFixSampleNeuronActivationsLongOpt:
+                        spexplain::parseFixSampleNeuronActivations(config, optargStr);
+                        break;
+                    case inputPreferSampleNeuronActivationsLongOpt:
+                        spexplain::parsePreferSampleNeuronActivations(config, optargStr);
+                        break;
                 }
                 break;
             }
