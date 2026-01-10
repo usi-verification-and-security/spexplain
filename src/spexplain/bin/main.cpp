@@ -103,10 +103,15 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     printUsageOptRow(os, 'q', "", "Run in quiet mode");
     printUsageLongOptRow(os, "reverse-var");
     printUsageOptRow(os, 'R', "", "Reverse the order of variables");
-    printUsageLongOptRow(os, "fix-default-sample-neuron-activations", "all|none|[in]active",
-                         "Set default fixing of given neuron activations according to samples");
-    printUsageLongOptRow(os, "prefer-default-sample-neuron-activations", "all|none|[in]active",
-                         "Set default preference of given neuron activations according to samples");
+    printUsageLongOptRow(
+        os, "fix-default-sample-neuron-activations", "all|none|[in]active",
+        "Set default fixing of given sample-based neuron activations (default: "s +
+            defaultSampleNeuronActivationsToString(Framework::Config::defaultFixingOfSampleNeuronActivations) + ")");
+    printUsageLongOptRow(
+        os, "prefer-default-sample-neuron-activations", "all|none|[in]active",
+        "Set default preference of given sample-based neuron activations (default: "s +
+            defaultSampleNeuronActivationsToString(Framework::Config::defaultPreferenceOfSampleNeuronActivations) +
+            ")");
     printUsageLongOptRow(os, "fix-all-sample-neuron-activations-at", "<l>,[-]<n>",
                          "Fix (or not with '-') sample neuron activation for given layer and neuron but all samples");
     printUsageLongOptRow(
