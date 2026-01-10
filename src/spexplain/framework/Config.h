@@ -32,6 +32,11 @@ public:
     // static inline std::string const defaultVerifierName = "opensmt";
     static inline std::string const defaultExplanationsFileName = "phi.txt";
 
+    static constexpr DefaultSampleNeuronActivations defaultFixingOfSampleNeuronActivations{
+        DefaultSampleNeuronActivations::none};
+    static constexpr DefaultSampleNeuronActivations defaultPreferenceOfSampleNeuronActivations{
+        DefaultSampleNeuronActivations::all};
+
     void init(Network const &) noexcept;
 
     Network const & getNetwork() const {
@@ -268,8 +273,8 @@ protected:
 
     bool reverseVarOrder{};
 
-    DefaultSampleNeuronActivations _fixDefaultSampleNeuronActivations{DefaultSampleNeuronActivations::none};
-    DefaultSampleNeuronActivations _preferDefaultSampleNeuronActivations{DefaultSampleNeuronActivations::all};
+    DefaultSampleNeuronActivations _fixDefaultSampleNeuronActivations{defaultFixingOfSampleNeuronActivations};
+    DefaultSampleNeuronActivations _preferDefaultSampleNeuronActivations{defaultPreferenceOfSampleNeuronActivations};
     NetworkMap<bool> fixAllSampleNeuronActivationsMap{};
     NetworkMap<bool> preferAllSampleNeuronActivationsMap{};
     std::unordered_map<Sample::Idx, NetworkMap<bool>> fixSampleNeuronActivationMaps{};
@@ -290,6 +295,7 @@ protected:
 };
 
 Framework::Config::DefaultSampleNeuronActivations makeDefaultSampleNeuronActivations(std::string_view);
+std::string defaultSampleNeuronActivationsToString(Framework::Config::DefaultSampleNeuronActivations);
 
 Framework::Config::HiddenNeuronPosition makeHiddenNeuronPosition(std::string_view);
 std::pair<Sample::Idx, Framework::Config::HiddenNeuronPosition> makeHiddenNeuronPositionOfSample(std::string_view);
