@@ -33,6 +33,17 @@ public:
     Verifier(Verifier &&) = default;
     Verifier & operator=(Verifier &&) = default;
 
+    // Whether the verifier should encode hidden/output neurons, resp., using auxiliary variables
+    void setEncodingNeuronVars(bool val = true) { _encodingNeuronVars = val; }
+    void setEncodingOutputVars(bool val = true) { _encodingOutputVars = val; }
+
+    bool encodingNeuronVars() const { return _encodingNeuronVars.value_or(defaultEncodingNeuronVars()); }
+    bool encodingOutputVars() const { return _encodingOutputVars.value_or(defaultEncodingOutputVars()); }
+
+    void allowNeuronVarsInExplanations(bool val = true) { _allowNeuronVarsInExplanations = val; }
+
+    bool allowedNeuronVarsInExplanations() const { return _allowNeuronVarsInExplanations; }
+
     void fixNeuronActivation(LayerIndex, NodeIndex, bool activation);
     void preferNeuronActivation(LayerIndex, NodeIndex, bool activation);
     // Do not insert neuron activation if one already exists
@@ -90,7 +101,13 @@ public:
 protected:
     spexplain::Network const & getNetwork() const;
 
+    virtual bool defaultEncodingNeuronVars() const;
+    virtual bool defaultEncodingOutputVars() const;
+
     virtual void initImpl(spexplain::Network const &);
+
+    spexplain::NetworkMap<bool> fixedNeuronActivations;
+    spexplain::NetworkMap<bool> preferredNeuronActivations;
 
     std::size_t checksCount{};
 
@@ -102,8 +119,10 @@ private:
 
     spexplain::Network const * networkPtr;
 
-    spexplain::NetworkMap<bool> fixedNeuronActivations;
-    spexplain::NetworkMap<bool> preferredNeuronActivations;
+    std::optional<bool> _encodingNeuronVars;
+    std::optional<bool> _encodingOutputVars;
+
+    bool _allowNeuronVarsInExplanations{true};
 };
 } // namespace xai::verifiers
 

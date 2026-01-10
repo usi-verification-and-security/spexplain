@@ -31,6 +31,8 @@ public:
 
     inline void clear() noexcept;
 
+    inline bool empty() const noexcept;
+
     inline bool tryEmplace(std::size_t layer, std::size_t node, auto &&... args);
     inline bool insertOrAssign(std::size_t layer, std::size_t node, auto &&... args);
 
@@ -72,6 +74,11 @@ void NetworkMap<T>::clear() noexcept {
 }
 
 template<typename T>
+bool NetworkMap<T>::empty() const noexcept {
+    return vectorOfMaps.empty();
+}
+
+template<typename T>
 bool NetworkMap<T>::tryEmplace(std::size_t layer, std::size_t node, auto &&... args) {
     return insertImpl<false>(layer, node, FORWARD(args)...);
 }
@@ -87,7 +94,7 @@ bool NetworkMap<T>::insertImpl(std::size_t layer, std::size_t node, auto &&... a
     using namespace std::string_literals;
 
     assert(networkPtr);
-    auto const nHiddenLayers = networkPtr->getNumHiddenLayers();
+    auto const nHiddenLayers = networkPtr->nHiddenLayers();
     auto const layerSize = networkPtr->getLayerSize(layer);
 
     if (layer > nHiddenLayers) {
