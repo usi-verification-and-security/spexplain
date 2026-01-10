@@ -186,6 +186,8 @@ else
     }
 fi
 
+WAIT_SUPPORTS_P=$(bc -l <<<"${BASH_VERSION%.*} >= 5.2")
+
 IFILES=()
 OFILES=()
 
@@ -199,10 +201,21 @@ OFILES_SUPSET=()
 
 function cleanup {
     local code=$1
+    local pid=$2
 
     [[ -n $code && $code != 0 ]] && {
-        kill 0
+        pkill -P $$
         wait
+    }
+
+    [[ -n $pid ]] && {
+        for pidx in ${!PIDS[@]}; do
+            local p=${PIDS[$pidx]}
+            [[ $p == $pid ]] || continue
+            local ofile=${OFILES[$pidx]}
+            cat $ofile >&2
+            break
+        done
     }
 
     for idx in ${!IFILES[@]}; do
@@ -361,12 +374,17 @@ while true; do
         esac
 
         while (( $N_PROC >= $MAX_PROC )); do
-            # wait -n -p pid || {
-            #     printf "Process %d exited with error.\n" $pid >&2
-            wait -n || {
-                printf "Process exited with error.\n" >&2
-                cleanup 4
-            }
+            if (( $WAIT_SUPPORTS_P )); then
+                wait -n -p pid || {
+                    printf "Process %d exited with error.\n" $pid >&2
+                    cleanup 4 $pid
+                }
+            else
+                wait -n || {
+                    printf "Process exited with error.\n" >&2
+                    cleanup 4
+                }
+            fi
             (( --N_PROC ))
         done
 
