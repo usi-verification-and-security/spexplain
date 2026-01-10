@@ -193,7 +193,7 @@ void OpenSMTVerifier::addInterval(LayerIndex layer, NodeIndex var, Float lo, Flo
     pimpl->addInterval(layer, var, lo, hi, explanationTerm);
 }
 
-void OpenSMTVerifier::addClassificationConstraint(NodeIndex node, Float threshold=0) {
+void OpenSMTVerifier::addClassificationConstraint(NodeIndex node, Float threshold = 0) {
     pimpl->addClassificationConstraint(node, threshold);
 }
 
@@ -266,52 +266,43 @@ void OpenSMTVerifier::printSmtLib2Query(std::ostream & os) const {
  */
 
 namespace { // Helper methods
-FastRational floatToRational(Float value) {
-    auto s = std::to_string(value);
-    char* rationalString;
-    opensmt::stringToRational(rationalString, s.c_str());
-    auto res = FastRational(rationalString);
-    free(rationalString);
-    return res;
-}
+    FastRational floatToRational(Float value) {
+        auto s = std::to_string(value);
+        char * rationalString;
+        opensmt::stringToRational(rationalString, s.c_str());
+        auto res = FastRational(rationalString);
+        free(rationalString);
+        return res;
+    }
 
-Verifier::Answer toAnswer(sstat res) {
-    if (res == s_False)
-        return Verifier::Answer::UNSAT;
-    if (res == s_True)
-        return Verifier::Answer::SAT;
-    if (res == s_Error)
-        return Verifier::Answer::ERROR;
-    if (res == s_Undef)
+    Verifier::Answer toAnswer(sstat res) {
+        if (res == s_False) { return Verifier::Answer::UNSAT; }
+        if (res == s_True) { return Verifier::Answer::SAT; }
+        if (res == s_Error) { return Verifier::Answer::ERROR; }
+        if (res == s_Undef) { return Verifier::Answer::UNKNOWN; }
         return Verifier::Answer::UNKNOWN;
-    return Verifier::Answer::UNKNOWN;
-}
-}
+    }
+} // namespace
 
 bool OpenSMTVerifier::OpenSMTImpl::contains(PTRef const & term, NodeIndex node) const {
-    auto & solver = getSolver();
-    auto & logic = solver.getLogic();
-
     auto & inputVar = inputVars.at(node);
-    return logic.contains(term, inputVar);
+    return logic->contains(term, inputVar);
 }
 
 std::size_t OpenSMTVerifier::OpenSMTImpl::termSizeOf(PTRef const & term) const {
-    auto & solver = getSolver();
-    auto & logic = solver.getLogic();
-    Pterm const & pterm = logic.getPterm(term);
+    Pterm const & pterm = logic->getPterm(term);
 
-    if (logic.isAtom(term)) { return 1; }
+    if (logic->isAtom(term)) { return 1; }
 
-    if (logic.isNot(term)) {
+    if (logic->isNot(term)) {
         assert(pterm.size() == 1);
         auto & negTerm = *pterm.begin();
-        assert(not logic.isNot(negTerm));
+        assert(not logic->isNot(negTerm));
         // just care about no. literals, so ignore the negations themselves
         return termSizeOf(negTerm);
     }
 
-    assert(logic.isAnd(term) or logic.isOr(term));
+    assert(logic->isAnd(term) or logic->isOr(term));
     std::size_t totalSize{};
     for (PTRef const & argTerm : pterm) {
         totalSize += termSizeOf(argTerm);
@@ -467,7 +458,6 @@ void OpenSMTVerifier::OpenSMTImpl::assertSampleModel() {
         } else {
             outputVarsOrTerms.push_back(input);
         }
-
     }
 }
 
@@ -598,20 +588,19 @@ void OpenSMTVerifier::OpenSMTImpl::addExplanationTerm(PTRef const & term, std::s
     }
     unsatCoreNonFilteredTermsToIndex[term] = termIdx;
 
-    [[maybe_unused]] bool const success = solver->tryAddTermNameFor(term, makeExplanationTermName(std::move(termNamePrefix)));
+    [[maybe_unused]] bool const success =
+        solver->tryAddTermNameFor(term, makeExplanationTermName(std::move(termNamePrefix)));
     assert(success);
 }
 
 PTRef OpenSMTVerifier::OpenSMTImpl::makeUpperBound(LayerIndex layer, NodeIndex node, FastRational value) {
-    if (layer != 0 and layer != layerSizes.size() - 1)
-        throw std::logic_error("Unimplemented!");
+    if (layer != 0 and layer != layerSizes.size() - 1) { throw std::logic_error("Unimplemented!"); }
     PTRef var = layer == 0 ? inputVars.at(node) : outputVarsOrTerms.at(node);
     return logic->mkLeq(var, logic->mkRealConst(value));
 }
 
 PTRef OpenSMTVerifier::OpenSMTImpl::makeLowerBound(LayerIndex layer, NodeIndex node, FastRational value) {
-    if (layer != 0 and layer != layerSizes.size() - 1)
-        throw std::logic_error("Unimplemented!");
+    if (layer != 0 and layer != layerSizes.size() - 1) { throw std::logic_error("Unimplemented!"); }
     PTRef var = layer == 0 ? inputVars.at(node) : outputVarsOrTerms.at(node);
     return logic->mkGeq(var, logic->mkRealConst(value));
 }
@@ -667,7 +656,8 @@ PTRef OpenSMTVerifier::OpenSMTImpl::addEquality(LayerIndex layer, NodeIndex node
     return term;
 }
 
-PTRef OpenSMTVerifier::OpenSMTImpl::addInterval(LayerIndex layer, NodeIndex node, Float lo, Float hi, bool explanationTerm) {
+PTRef OpenSMTVerifier::OpenSMTImpl::addInterval(LayerIndex layer, NodeIndex node, Float lo, Float hi,
+                                                bool explanationTerm) {
     PTRef term = makeInterval(layer, node, lo, hi);
     if (not explanationTerm) {
         addTerm(term);
@@ -682,7 +672,7 @@ PTRef OpenSMTVerifier::OpenSMTImpl::addInterval(LayerIndex layer, NodeIndex node
     return term;
 }
 
-void OpenSMTVerifier::OpenSMTImpl::addClassificationConstraint(NodeIndex node, Float threshold=0.0){
+void OpenSMTVerifier::OpenSMTImpl::addClassificationConstraint(NodeIndex node, Float threshold = 0.0) {
     // Ensure the node index is within the range of outputVarsOrTerms
     if (node >= outputVarsOrTerms.size()) {
         throw std::out_of_range("Node index is out of range for outputVarsOrTerms.");
@@ -707,8 +697,8 @@ void OpenSMTVerifier::OpenSMTImpl::addClassificationConstraint(NodeIndex node, F
     }
 }
 
-void
-OpenSMTVerifier::OpenSMTImpl::addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, Float rhs) {
+void OpenSMTVerifier::OpenSMTImpl::addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs,
+                                                 Float rhs) {
     throw std::logic_error("Unimplemented!");
 }
 
@@ -801,7 +791,7 @@ UnsatCore OpenSMTVerifier::OpenSMTImpl::getUnsatCore() const {
     auto & [includedIndices, excludedIndices, lowerBounds, upperBounds, equalities, intervals] = unsatCoreRes;
     includedIndices.reserve(termsSize);
 
-    auto const includeTerm = [&](PTRef term, std::size_t termIdx){
+    auto const includeTerm = [&](PTRef term, std::size_t termIdx) {
         includedIndices.push_back(termIdx);
 
         bool const containsLower = containsInputLowerBound(term);
@@ -867,17 +857,15 @@ UnsatCore OpenSMTVerifier::OpenSMTImpl::getUnsatCore() const {
 }
 
 void OpenSMTVerifier::OpenSMTImpl::printSmtLib2Query(std::ostream & os) const {
-    auto & solver = getSolver();
-    auto & logic = solver.getLogic();
-    logic.dumpHeaderToFile(os);
+    logic->dumpHeaderToFile(os);
 
-    for (PTRef phi : solver.getCurrentAssertionsView()) {
+    for (PTRef phi : solver->getCurrentAssertionsView()) {
         // necessary for removing auxiliary ITE terms but yields redundant constraints
-        // phi = logic.removeAuxVars(phi);
-        os << "(assert " << logic.termToSMT2String(phi) << " )\n";
+        // phi = logic->removeAuxVars(phi);
+        os << "(assert " << logic->termToSMT2String(phi) << " )\n";
     }
 
-    logic.dumpChecksatToFile(os);
+    logic->dumpChecksatToFile(os);
 }
 
 } // namespace xai::verifiers
