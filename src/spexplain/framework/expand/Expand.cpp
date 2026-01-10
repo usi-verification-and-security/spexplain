@@ -340,8 +340,8 @@ void Framework::Expand::preprocessSampleModel(Sample::Idx idx, Network::Output c
     DefaultSampleNeuronActivations const defaultPreferenceOfSampleNeuronActivations =
         config.getDefaultPreferenceOfSampleNeuronActivations();
 
-    xai::verifiers::LayerIndex const nHiddenLayers = network.getNumHiddenLayers();
-    assert(nHiddenLayers == network.getNumLayers() - 2);
+    xai::verifiers::LayerIndex const nHiddenLayers = network.nHiddenLayers();
+    assert(nHiddenLayers == network.nLayers() - 2);
     for (xai::verifiers::LayerIndex layer = 1; layer < nHiddenLayers + 1; ++layer) {
         xai::verifiers::NodeIndex const nNodes = network.getLayerSize(layer);
         for (xai::verifiers::NodeIndex node = 0; node < nNodes; ++node) {

@@ -161,7 +161,7 @@ namespace {
         }
 
         auto const & network = config.getNetwork();
-        std::size_t const nHiddenLayers = network.getNumHiddenLayers();
+        std::size_t const nHiddenLayers = network.nHiddenLayers();
 
         long parsedSampleIdx;
         long lastParsedSampleIdx = -1;
