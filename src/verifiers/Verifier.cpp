@@ -11,6 +11,20 @@ spexplain::Network const & Verifier::getNetwork() const {
     return *networkPtr;
 }
 
+bool Verifier::defaultEncodingNeuronVars() const {
+    if (not fixedNeuronActivations.empty()) { return true; }
+    if (not preferredNeuronActivations.empty()) { return true; }
+
+    return false;
+}
+
+bool Verifier::defaultEncodingOutputVars() const {
+    if (not encodingNeuronVars()) { return false; }
+    if (fixedNeuronActivations.empty()) { return false; }
+
+    return true;
+}
+
 void Verifier::fixNeuronActivation(LayerIndex layer, NodeIndex node, bool activation) {
     fixedNeuronActivations.insertOrAssign(layer, node, activation);
 }

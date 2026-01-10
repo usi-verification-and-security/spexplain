@@ -92,9 +92,7 @@ public:
 
 private:
     //! sync with the framework
-    static std::string inputVarName(NodeIndex node) {
-        return "x" + std::to_string(node + 1);
-    }
+    static std::string inputVarName(NodeIndex node) { return "x" + std::to_string(node + 1); }
 
     static std::string neuronVarName(LayerIndex layer, NodeIndex node, std::string basename = "n") {
         return "l" + std::to_string(layer) + "_" + std::move(basename) + std::to_string(node + 1);
@@ -102,6 +100,12 @@ private:
 
     std::string makeExplanationTermName(std::string prefix = "") {
         return prefix + "t" + std::to_string(explanationTerms.size() - 1);
+    }
+
+    bool storingNeuronTerms() const {
+        if (not verifier.encodingNeuronVars()) { return true; }
+        if (verifier.fixedNeuronActivations.empty()) { return false; }
+        return not verifier.allowedNeuronVarsInExplanations();
     }
 
     bool containsInputLowerBound(PTRef term) const { return inputVarLowerBoundToIndex.contains(term); }
@@ -113,17 +117,23 @@ private:
     NodeIndex nodeIndexOfInputEquality(PTRef term) const { return inputVarEqualityToIndex.at(term); }
     NodeIndex nodeIndexOfInputInterval(PTRef term) const { return inputVarIntervalToIndex.at(term); }
 
-    void addNeuronTerm(LayerIndex layer, NodeIndex node, PTRef input, PTRef neuronVar);
+    PTRef encodeNeuron(LayerIndex layer, NodeIndex node, PTRef neuronVar, PTRef varInput, PTRef termInput);
 
     OpenSMTVerifier & verifier;
 
     std::unique_ptr<ArithLogic> logic;
     std::unique_ptr<MainSolver> solver;
     std::unique_ptr<SMTConfig> config;
+
     std::vector<PTRef> inputVars;
     std::vector<std::vector<PTRef>> neuronVars;
-    std::vector<PTRef> outputVars;
+    std::vector<std::vector<PTRef>> neuronTerms;
+    std::vector<PTRef> outputVarsOrTerms;
     std::vector<std::size_t> layerSizes;
+
+    std::unordered_map<PTRef, NodeIndex, PTRefHash> inputVarsMap;
+    std::unordered_map<PTRef, std::pair<LayerIndex, NodeIndex>, PTRefHash> neuronVarsMap;
+    std::unordered_map<PTRef, NodeIndex, PTRefHash> outputVarsMap;
 
     std::vector<PTRef> sampleModelRestrictions;
 
@@ -309,13 +319,18 @@ std::size_t OpenSMTVerifier::OpenSMTImpl::termSizeOf(PTRef const & term) const {
     return totalSize;
 }
 
-//+ move same common parts into assertGroundModel, but incremental assertions seem much slower
+//+ move some common parts into assertGroundModel, but incremental assertions seem much slower
 void OpenSMTVerifier::OpenSMTImpl::assertSampleModel() {
     auto const & network = verifier.getNetwork();
+    std::size_t const nLayers = network.nLayers();
+
+    bool const encodeNeuronVars = verifier.encodingNeuronVars();
+    bool const encodeOutputVars = verifier.encodingOutputVars();
+    bool const storeNeuronTerms = storingNeuronTerms();
 
     // Store information about layer sizes
     layerSizes.clear();
-    for (LayerIndex layer = 0u; layer < network.nLayers(); ++layer) {
+    for (LayerIndex layer = 0u; layer < nLayers; ++layer) {
         layerSizes.push_back(network.getLayerSize(layer));
     }
 
@@ -324,6 +339,8 @@ void OpenSMTVerifier::OpenSMTImpl::assertSampleModel() {
         auto name = inputVarName(i);
         PTRef var = logic->mkRealVar(name.c_str());
         inputVars.push_back(var);
+        auto [it, inserted] = inputVarsMap.emplace(var, i);
+        assert(inserted);
     }
 
     // Collect hard bounds on inputs
@@ -337,147 +354,227 @@ void OpenSMTVerifier::OpenSMTImpl::assertSampleModel() {
     }
     addTerm(logic->mkAnd(bounds));
 
-    // Create representation for each neuron in hidden layers, from input to output layers
-    std::vector<PTRef> previousLayerRefs = inputVars;
-    for (LayerIndex layer = 1u; layer < network.nLayers() - 1; layer++) {
-        std::vector<PTRef> currentLayerRefs;
-        for (NodeIndex node = 0u; node < network.getLayerSize(layer); ++node) {
-            std::vector<PTRef> addends;
-            Float bias = network.getBias(layer, node);
-            auto const & weights = network.getWeights(layer, node);
-            PTRef biasTerm = logic->mkRealConst(floatToRational(bias));
-            addends.push_back(biasTerm);
-
-            assert(previousLayerRefs.size() == weights.size());
-            for (int j = 0; j < weights.size(); j++) {
-                PTRef weightTerm = logic->mkRealConst(floatToRational(weights[j]));
-                PTRef addend = logic->mkTimes(weightTerm, previousLayerRefs[j]);
-                addends.push_back(addend);
-            }
-            PTRef input = logic->mkPlus(addends);
-
-            auto neuronName = neuronVarName(layer, node);
-            PTRef neuronVar = logic->mkRealVar(neuronName.c_str());
-            currentLayerRefs.push_back(neuronVar);
-
-            addNeuronTerm(layer, node, input, neuronVar);
-        }
-
-        neuronVars.push_back(currentLayerRefs);
-        previousLayerRefs = std::move(currentLayerRefs);
-    }
-
-    // Create representation of the outputs (without RELU!)
-    // TODO: Remove code duplication!
-    auto lastLayerIndex = network.nLayers() - 1;
-    auto lastLayerSize = network.getLayerSize(lastLayerIndex);
-    outputVars.clear();
-    for (NodeIndex node = 0u; node < lastLayerSize; ++node) {
+    auto makeInputF = [this](std::vector<PTRef> const & previousLayerRefs, auto const & weights, PTRef biasTerm) {
         std::vector<PTRef> addends;
-        Float bias = network.getBias(lastLayerIndex, node);
-        auto const & weights = network.getWeights(lastLayerIndex, node);
-        PTRef biasTerm = logic->mkRealConst(floatToRational(bias));
+        addends.reserve(weights.size() + 1);
         addends.push_back(biasTerm);
 
         assert(previousLayerRefs.size() == weights.size());
-        for (int j = 0; j < weights.size(); j++) {
+        for (int j = 0; j < weights.size(); ++j) {
             PTRef weightTerm = logic->mkRealConst(floatToRational(weights[j]));
             PTRef addend = logic->mkTimes(weightTerm, previousLayerRefs[j]);
             addends.push_back(addend);
         }
 
-        PTRef input = logic->mkPlus(addends);
+        return logic->mkPlus(addends);
+    };
 
-        auto name = "o" + std::to_string(node + 1);
-        PTRef var = logic->mkRealVar(name.c_str());
-        outputVars.push_back(var);
+    // Create representation for each neuron in hidden layers, from input to output layers
+    [[maybe_unused]]
+    std::vector<PTRef> previousLayerVars;
+    [[maybe_unused]]
+    std::vector<PTRef> previousLayerTerms;
+    std::size_t const nHiddenLayers = network.nHiddenLayers();
+    if (encodeNeuronVars) {
+        neuronVars.reserve(nHiddenLayers + 1);
+        neuronVars.emplace_back();
+    }
+    if (storeNeuronTerms) {
+        neuronTerms.reserve(nHiddenLayers + 1);
+        neuronTerms.emplace_back();
+    }
+    for (LayerIndex layer = 1u; layer < nLayers - 1; ++layer) {
+        bool const isFirstHiddenLayer = layer == 1;
+        std::size_t const layerSize = network.getLayerSize(layer);
+        [[maybe_unused]]
+        std::vector<PTRef> currentLayerVars;
+        [[maybe_unused]]
+        std::vector<PTRef> currentLayerTerms;
+        if (encodeNeuronVars) { currentLayerVars.reserve(layerSize); }
+        if (storeNeuronTerms) { currentLayerTerms.reserve(layerSize); }
+        for (NodeIndex node = 0u; node < layerSize; ++node) {
+            auto const & weights = network.getWeights(layer, node);
+            Float bias = network.getBias(layer, node);
+            PTRef biasTerm = logic->mkRealConst(floatToRational(bias));
 
-        addTerm(logic->mkEq(var, input));
+            PTRef neuronVarsInput;
+            PTRef neuronTermsInput;
+            if (isFirstHiddenLayer) {
+                PTRef input = makeInputF(inputVars, weights, biasTerm);
+                neuronVarsInput = encodeNeuronVars ? input : PTRef_Undef;
+                neuronTermsInput = storeNeuronTerms ? input : PTRef_Undef;
+            } else {
+                neuronVarsInput = encodeNeuronVars ? makeInputF(previousLayerVars, weights, biasTerm) : PTRef_Undef;
+                neuronTermsInput = storeNeuronTerms ? makeInputF(previousLayerTerms, weights, biasTerm) : PTRef_Undef;
+            }
+
+            PTRef neuronVar = PTRef_Undef;
+            if (encodeNeuronVars) {
+                auto neuronName = neuronVarName(layer, node);
+                neuronVar = logic->mkRealVar(neuronName.c_str());
+                currentLayerVars.push_back(neuronVar);
+                auto [it, inserted] = neuronVarsMap.emplace(neuronVar, std::make_pair(layer, node));
+                assert(inserted);
+            }
+
+            [[maybe_unused]]
+            PTRef neuronTerm = encodeNeuron(layer, node, neuronVar, neuronVarsInput, neuronTermsInput);
+            assert(storeNeuronTerms == (neuronTerm != PTRef_Undef));
+            if (not storeNeuronTerms) { continue; }
+            assert(not logic->isVar(neuronTerm));
+            assert(logic->getSortRef(neuronTerm) != logic->getSort_bool());
+            currentLayerTerms.push_back(neuronTerm);
+        }
+
+        assert(encodeNeuronVars or currentLayerVars.empty());
+        if (encodeNeuronVars) {
+            neuronVars.push_back(currentLayerVars);
+            previousLayerVars = std::move(currentLayerVars);
+        }
+        assert(storeNeuronTerms or currentLayerTerms.empty());
+        if (storeNeuronTerms) {
+            neuronTerms.push_back(currentLayerTerms);
+            previousLayerTerms = std::move(currentLayerTerms);
+        }
+    }
+
+    // Create representation of the outputs (without RELU!)
+    auto lastLayerIndex = nLayers - 1;
+    auto lastLayerSize = network.getLayerSize(lastLayerIndex);
+    outputVarsOrTerms.clear();
+    for (NodeIndex node = 0u; node < lastLayerSize; ++node) {
+        Float bias = network.getBias(lastLayerIndex, node);
+        auto const & weights = network.getWeights(lastLayerIndex, node);
+        PTRef biasTerm = logic->mkRealConst(floatToRational(bias));
+
+        PTRef input = [&] {
+            if (encodeNeuronVars) {
+                return makeInputF(previousLayerVars, weights, biasTerm);
+            } else {
+                assert(storeNeuronTerms);
+                return makeInputF(previousLayerTerms, weights, biasTerm);
+            }
+        }();
+
+        if (encodeOutputVars) {
+            auto name = "o" + std::to_string(node + 1);
+            PTRef var = logic->mkRealVar(name.c_str());
+            outputVarsOrTerms.push_back(var);
+            auto [it, inserted] = outputVarsMap.emplace(var, node);
+            assert(inserted);
+
+            addTerm(logic->mkEq(var, input));
+        } else {
+            outputVarsOrTerms.push_back(input);
+        }
+
     }
 }
 
-void OpenSMTVerifier::OpenSMTImpl::addNeuronTerm(LayerIndex layer, NodeIndex node, PTRef input, PTRef neuronVar) {
+PTRef OpenSMTVerifier::OpenSMTImpl::encodeNeuron(LayerIndex layer, NodeIndex node, PTRef neuronVar, PTRef varInput,
+                                                 PTRef termInput) {
     assert(layer > 0);
+
+    // Construct lazily on demand, input may be large
+    static auto const activeCondF = [](ArithLogic & logic_, PTRef input, PTRef zero) {
+        return logic_.mkGeq(input, zero);
+    };
+    static auto const inactiveCondF = [](ArithLogic & logic_, PTRef input, PTRef zero) {
+        return logic_.mkNot(activeCondF(logic_, input, zero));
+    };
+
+    static auto const activeEqF = [](ArithLogic & logic_, PTRef neuronVar_, PTRef varInput) {
+        return logic_.mkEq(neuronVar_, varInput);
+    };
+    static auto const inactiveEqF = [](ArithLogic & logic_, PTRef neuronVar_, PTRef zero) {
+        return logic_.mkEq(neuronVar_, zero);
+    };
+
+    static auto const iteF = [](ArithLogic & logic_, PTRef activeCond, PTRef input, PTRef zero) {
+        return logic_.mkIte(activeCond, input, zero);
+    };
+
+    bool const encodeNeuronVars = verifier.encodingNeuronVars();
+    bool const storeNeuronTerms = storingNeuronTerms();
+    assert(encodeNeuronVars or storeNeuronTerms);
+
+    assert(encodeNeuronVars == (neuronVar != PTRef_Undef));
+    assert(encodeNeuronVars == (varInput != PTRef_Undef));
+    assert(storeNeuronTerms == (termInput != PTRef_Undef));
 
     auto const & network = verifier.getNetwork();
 
     PTRef zero = logic->getTerm_RealZero();
 
-    // Construct lazily on demand, input may be large
-    static auto const activeCondF = [](ArithLogic & logic_, PTRef input_, PTRef zero_) {
-        return logic_.mkGeq(input_, zero_);
-    };
-    static auto const inactiveCondF = [](ArithLogic & logic_, PTRef input_, PTRef zero_) {
-        return logic_.mkNot(activeCondF(logic_, input_, zero_));
-    };
-
-    static auto const activeEqF = [](ArithLogic & logic_, PTRef neuronVar_, PTRef input_) {
-        return logic_.mkEq(neuronVar_, input_);
-    };
-    static auto const inactiveEqF = [](ArithLogic & logic_, PTRef neuronVar_, PTRef zero_) {
-        return logic_.mkEq(neuronVar_, zero_);
-    };
+    PTRef condInput = storeNeuronTerms ? termInput : varInput;
 
     if (auto optFixedActivation = verifier.getFixedNeuronActivation(layer, node)) {
-        //+ can be useful to do this incrementally
+        PTRef cond;
+        PTRef neuronTerm;
         if (*optFixedActivation) {
-            PTRef activeEq = activeEqF(*logic, neuronVar, input);
-            PTRef activeCond = activeCondF(*logic, input, zero);
-
-            addTerm(activeEq);
-            sampleModelRestrictions.push_back(activeCond);
+            if (encodeNeuronVars) { addTerm(activeEqF(*logic, neuronVar, varInput)); }
+            cond = activeCondF(*logic, condInput, zero);
+            assert(not storeNeuronTerms or condInput == termInput);
+            neuronTerm = storeNeuronTerms ? termInput : PTRef_Undef;
         } else {
-            PTRef inactiveEq = inactiveEqF(*logic, neuronVar, zero);
-            PTRef inactiveCond = inactiveCondF(*logic, input, zero);
-
-            addTerm(inactiveEq);
-            sampleModelRestrictions.push_back(inactiveCond);
+            if (encodeNeuronVars) { addTerm(inactiveEqF(*logic, neuronVar, zero)); }
+            cond = inactiveCondF(*logic, condInput, zero);
+            neuronTerm = storeNeuronTerms ? zero : PTRef_Undef;
         }
 
-        return;
+        sampleModelRestrictions.push_back(cond);
+        return neuronTerm;
     }
 
     bool const isSingleHiddenLayer = network.nHiddenLayers() == 1;
 
     PTRef activeCond;
     PTRef inactiveCond;
+    if (not(isSingleHiddenLayer and encodeNeuronVars)) {
+        activeCond = activeCondF(*logic, condInput, zero);
+        inactiveCond = inactiveCondF(*logic, condInput, zero);
+    }
+
     PTRef activeLeq;
     PTRef inactiveLeq;
-    if (isSingleHiddenLayer) {
-        // Hard constraints
-        PTRef activeGeq = logic->mkGeq(neuronVar, input);
-        PTRef inactiveGeq = logic->mkGeq(neuronVar, zero);
+    if (encodeNeuronVars) {
+        if (isSingleHiddenLayer) {
+            // Hard constraints
+            PTRef activeGeq = logic->mkGeq(neuronVar, varInput);
+            PTRef inactiveGeq = logic->mkGeq(neuronVar, zero);
 
-        // Constraints that depend on activation
-        activeLeq = logic->mkLeq(neuronVar, input);
-        inactiveLeq = logic->mkLeq(neuronVar, zero);
+            // Constraints that depend on activation
+            activeLeq = logic->mkLeq(neuronVar, varInput);
+            inactiveLeq = logic->mkLeq(neuronVar, zero);
 
-        addTerm(activeGeq);
-        addTerm(inactiveGeq);
+            addTerm(activeGeq);
+            addTerm(inactiveGeq);
 
-        addTerm(logic->mkOr(activeLeq, inactiveLeq));
-    } else {
-        activeCond = activeCondF(*logic, input, zero);
-        inactiveCond = inactiveCondF(*logic, input, zero);
+            addTerm(logic->mkOr(activeLeq, inactiveLeq));
+        } else {
+            // Constraints that depend on activation
+            PTRef activeEq = activeEqF(*logic, neuronVar, varInput);
+            PTRef inactiveEq = inactiveEqF(*logic, neuronVar, zero);
 
-        // Constraints that depend on activation
-        PTRef activeEq = activeEqF(*logic, neuronVar, input);
-        PTRef inactiveEq = inactiveEqF(*logic, neuronVar, zero);
+            PTRef activeImpl = logic->mkImpl(activeCond, activeEq);
+            PTRef inactiveImpl = logic->mkImpl(inactiveCond, inactiveEq);
 
-        PTRef activeImpl = logic->mkImpl(activeCond, activeEq);
-        PTRef inactiveImpl = logic->mkImpl(inactiveCond, inactiveEq);
-
-        addTerm(activeImpl);
-        addTerm(inactiveImpl);
+            addTerm(activeImpl);
+            addTerm(inactiveImpl);
+        }
     }
 
     if (auto optPreferredActivation = verifier.getPreferredNeuronActivation(layer, node)) {
         if (*optPreferredActivation) {
-            addPreference(isSingleHiddenLayer ? activeLeq : activeCond);
+            addPreference(isSingleHiddenLayer and encodeNeuronVars ? activeLeq : activeCond);
         } else {
-            addPreference(isSingleHiddenLayer ? inactiveLeq : inactiveCond);
+            addPreference(isSingleHiddenLayer and encodeNeuronVars ? inactiveLeq : inactiveCond);
         }
     }
+
+    if (not storeNeuronTerms) { return PTRef_Undef; }
+
+    return iteF(*logic, activeCond, termInput, zero);
 }
 
 void OpenSMTVerifier::OpenSMTImpl::setUnsatCoreFilter(std::vector<NodeIndex> const & filter) {
@@ -508,14 +605,14 @@ void OpenSMTVerifier::OpenSMTImpl::addExplanationTerm(PTRef const & term, std::s
 PTRef OpenSMTVerifier::OpenSMTImpl::makeUpperBound(LayerIndex layer, NodeIndex node, FastRational value) {
     if (layer != 0 and layer != layerSizes.size() - 1)
         throw std::logic_error("Unimplemented!");
-    PTRef var = layer == 0 ? inputVars.at(node) : outputVars.at(node);
+    PTRef var = layer == 0 ? inputVars.at(node) : outputVarsOrTerms.at(node);
     return logic->mkLeq(var, logic->mkRealConst(value));
 }
 
 PTRef OpenSMTVerifier::OpenSMTImpl::makeLowerBound(LayerIndex layer, NodeIndex node, FastRational value) {
     if (layer != 0 and layer != layerSizes.size() - 1)
         throw std::logic_error("Unimplemented!");
-    PTRef var = layer == 0 ? inputVars.at(node) : outputVars.at(node);
+    PTRef var = layer == 0 ? inputVars.at(node) : outputVarsOrTerms.at(node);
     return logic->mkGeq(var, logic->mkRealConst(value));
 }
 
@@ -586,18 +683,18 @@ PTRef OpenSMTVerifier::OpenSMTImpl::addInterval(LayerIndex layer, NodeIndex node
 }
 
 void OpenSMTVerifier::OpenSMTImpl::addClassificationConstraint(NodeIndex node, Float threshold=0.0){
-    // Ensure the node index is within the range of outputVars
-    if (node >= outputVars.size()) {
-        throw std::out_of_range("Node index is out of range for outputVars.");
+    // Ensure the node index is within the range of outputVarsOrTerms
+    if (node >= outputVarsOrTerms.size()) {
+        throw std::out_of_range("Node index is out of range for outputVarsOrTerms.");
     }
 
-    PTRef targetNodeVar = outputVars[node];
+    PTRef targetNodeVar = outputVarsOrTerms[node];
     std::vector<PTRef> constraints;
 
-    for (size_t i = 0; i < outputVars.size(); ++i) {
+    for (size_t i = 0; i < outputVarsOrTerms.size(); ++i) {
         if (i != node) {
-            // Create a constraint: (targetNodeVar - outputVars[i]) > threshold
-            PTRef diff = logic->mkMinus(outputVars[i], targetNodeVar);
+            // Create a constraint: (targetNodeVar - outputVarsOrTerms[i]) > threshold
+            PTRef diff = logic->mkMinus(outputVarsOrTerms[i], targetNodeVar);
             PTRef thresholdConst = logic->mkRealConst(floatToRational(threshold));
             PTRef constraint = logic->mkGt(diff, thresholdConst);
             constraints.push_back(constraint);
@@ -668,7 +765,11 @@ void OpenSMTVerifier::OpenSMTImpl::resetSampleModel() {
     solver = std::make_unique<MainSolver>(*logic, *config, "verifier");
     inputVars.clear();
     neuronVars.clear();
-    outputVars.clear();
+    outputVarsOrTerms.clear();
+    inputVarsMap.clear();
+    neuronVarsMap.clear();
+    outputVarsMap.clear();
+    neuronTerms.clear();
 
     sampleModelRestrictions.clear();
 
