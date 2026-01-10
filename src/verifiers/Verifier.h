@@ -30,6 +30,15 @@ public:
     Verifier(Verifier &&) = default;
     Verifier & operator=(Verifier &&) = default;
 
+    // Whether the verifier should encode hidden/output neurons, resp., using auxiliary variables
+    void setEncodingWithNeuronVars() { _encodingNeuronVars = true; }
+    void setEncodingWithoutNeuronVars() { _encodingNeuronVars = false; }
+    void setEncodingWithOutputVars() { _encodingOutputVars = true; }
+    void setEncodingWithoutOutputVars() { _encodingOutputVars = false; }
+
+    bool encodingNeuronVars() const { return _encodingNeuronVars.value_or(defaultEncodingNeuronVars()); }
+    bool encodingOutputVars() const { return _encodingOutputVars.value_or(defaultEncodingOutputVars()); }
+
     void fixNeuronActivation(LayerIndex, NodeIndex, bool activation);
     void preferNeuronActivation(LayerIndex, NodeIndex, bool activation);
     // Do not insert neuron activation if one already exists
@@ -38,6 +47,11 @@ public:
 
     std::optional<bool> getFixedNeuronActivation(LayerIndex, NodeIndex) const;
     std::optional<bool> getPreferredNeuronActivation(LayerIndex, NodeIndex) const;
+
+    void allowNeuronVarsInSampleModelRestrictions() { _allowNeuronVarsInSampleModelRestrictions = true; }
+    void forbidNeuronVarsInSampleModelRestrictions() { _allowNeuronVarsInSampleModelRestrictions = false; }
+
+    bool allowedNeuronVarsInSampleModelRestrictions() const { return _allowNeuronVarsInSampleModelRestrictions; }
 
     virtual void assertGroundModel() {}
     virtual void assertSampleModel() = 0;
@@ -85,7 +99,13 @@ public:
 protected:
     spexplain::Network const & getNetwork() const;
 
+    virtual bool defaultEncodingNeuronVars() const;
+    virtual bool defaultEncodingOutputVars() const;
+
     virtual void initImpl(spexplain::Network const &);
+
+    spexplain::NetworkMap<bool> fixedNeuronActivations;
+    spexplain::NetworkMap<bool> preferredNeuronActivations;
 
     std::size_t checksCount{};
 
@@ -97,8 +117,10 @@ private:
 
     spexplain::Network const * networkPtr;
 
-    spexplain::NetworkMap<bool> fixedNeuronActivations;
-    spexplain::NetworkMap<bool> preferredNeuronActivations;
+    std::optional<bool> _encodingNeuronVars;
+    std::optional<bool> _encodingOutputVars;
+
+    bool _allowNeuronVarsInSampleModelRestrictions{true};
 };
 } // namespace xai::verifiers
 

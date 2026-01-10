@@ -31,6 +31,8 @@ public:
 
     inline void clear() noexcept;
 
+    inline bool empty() const noexcept;
+
     inline bool tryEmplace(std::size_t layer, std::size_t node, auto &&... args);
     inline bool insertOrAssign(std::size_t layer, std::size_t node, auto &&... args);
 
@@ -69,6 +71,11 @@ void NetworkMap<T>::setNetwork(Network const & nw) noexcept {
 template<typename T>
 void NetworkMap<T>::clear() noexcept {
     vectorOfMaps.clear();
+}
+
+template<typename T>
+bool NetworkMap<T>::empty() const noexcept {
+    return vectorOfMaps.empty();
 }
 
 template<typename T>
