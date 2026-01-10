@@ -56,6 +56,22 @@ Framework::Config::DefaultSampleNeuronActivations makeDefaultSampleNeuronActivat
     throw std::invalid_argument{"Unrecognized sample neuron activations mode: "s + std::string{str}};
 }
 
+std::string
+defaultSampleNeuronActivationsToString(Framework::Config::DefaultSampleNeuronActivations sampleNeuronActivations) {
+    using enum Framework::Config::DefaultSampleNeuronActivations;
+    switch (sampleNeuronActivations) {
+        case all:
+            return "all";
+        default:
+        case none:
+            return "none";
+        case active:
+            return "active";
+        case inactive:
+            return "inactive";
+    }
+}
+
 namespace {
     std::size_t parsedSampleToIdx(long sampleIdx) {
         if (sampleIdx <= 0) {
