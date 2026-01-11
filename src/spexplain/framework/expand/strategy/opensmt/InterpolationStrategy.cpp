@@ -152,6 +152,7 @@ void InterpolationStrategy::executeBody(Explanations & explanations, Network::Da
     auto const insertItp = [&](Formula const & phi) {
         assert(not logic.isAnd(phi));
         assert(logic.isOr(phi) or isLit(phi) or (logic.isNot(phi) and logic.isAnd(logic.getPterm(phi)[0])));
+        if (logic.isTrue(phi)) { return; }
         auto phiexplanationPtr = std::make_unique<FormulaExplanation>(fw, phi);
         newConjExplanation.insertExplanation(std::move(phiexplanationPtr));
     };
@@ -166,6 +167,7 @@ void InterpolationStrategy::executeBody(Explanations & explanations, Network::Da
 
     if (filteringVars) { newConjExplanation.intersect(std::move(cexplanation)); }
 
+    assert(newConjExplanation.size() > 0);
     assignNew<ConjunctExplanation>(explanationPtr, std::move(newConjExplanation));
 }
 } // namespace spexplain::expand::opensmt
