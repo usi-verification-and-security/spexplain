@@ -126,7 +126,7 @@ function compute_term_size {
     local phi_file="$1"
     local n_lines=$2
 
-    tr ' ' '\n' <"$phi_file" | grep -c '=' | { tr -d '\n'; printf "/$n_lines\n"; } | bc -l | xargs -i printf '%.1f' {}
+    grep -o '=' "$phi_file" | wc -l | { tr -d '\n'; printf "/$n_lines\n"; } | bc -l | xargs -i printf '%.1f' {}
 }
 
 PRINTED_HEADER=0
