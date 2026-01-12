@@ -59,6 +59,15 @@ void printUsageLongOptRow(std::ostream & os, std::string_view longOpt, std::stri
     os << std::left << std::setw(optMaxWidth + optArgMaxWidth) << ' ' << desc << '\n';
 }
 
+bool stringViewToBool(std::string_view sw) {
+    bool val;
+    std::string str{sw};
+    std::istringstream iss{str};
+    iss >> std::boolalpha >> val;
+    if (not iss) { throw std::invalid_argument{"Expected a boolean, got: "s + str}; }
+    return val;
+}
+
 void printUsage(char * const argv[], std::ostream & os = std::cout) {
     using spexplain::Framework;
     using spexplain::expand::opensmt::InterpolationStrategy;
@@ -117,6 +126,12 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     printUsageOptRow(os, 'q', "", "Run in quiet mode");
     printUsageLongOptRow(os, "reverse-var");
     printUsageOptRow(os, 'R', "", "Reverse the order of variables");
+    printUsageLongOptRow(os, "encoding-neuron-vars", "true|false",
+                         "Encode the internal neurons using (or not) auxiliary variables");
+    printUsageLongOptRow(os, "encoding-output-vars", "true|false",
+                         "Encode the output neurons using (or not) auxiliary variables");
+    printUsageLongOptRow(os, "allow-neuron-vars-in-explanations", "true|false",
+                         "Allow (or not) variables of internal neurons in explanations (regardless of used encoding)");
     printUsageLongOptRow(
         os, "fix-default-sample-neuron-activations", "all|none|[in]active",
         "Set default fixing of given sample-based neuron activations (default: "s +
@@ -181,6 +196,9 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     constexpr int preferSampleNeuronActivationLongOpt = 10;
     constexpr int inputFixSampleNeuronActivationsLongOpt = 11;
     constexpr int inputPreferSampleNeuronActivationsLongOpt = 12;
+    constexpr int encodingNeuronVarsLongOpt = 13;
+    constexpr int encodingOutputVarsLongOpt = 14;
+    constexpr int allowNeuronVarsInExplanationsLongOpt = 15;
 
     struct ::option longOptions[] = {
         {"help", no_argument, nullptr, 'h'},
@@ -193,6 +211,10 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
         {"quiet", no_argument, nullptr, 'q'},
         // {"version", no_argument, &selectedLongOpt, versionLongOpt},
         {"reverse-var", no_argument, nullptr, 'R'},
+        {"encoding-neuron-vars", required_argument, &selectedLongOpt, encodingNeuronVarsLongOpt},
+        {"encoding-output-vars", required_argument, &selectedLongOpt, encodingOutputVarsLongOpt},
+        {"allow-neuron-vars-in-explanations", required_argument, &selectedLongOpt,
+         allowNeuronVarsInExplanationsLongOpt},
         {"fix-default-sample-neuron-activations", required_argument, &selectedLongOpt,
          fixDefaultSampleNeuronActivationsLongOpt},
         {"prefer-default-sample-neuron-activations", required_argument, &selectedLongOpt,
@@ -227,8 +249,9 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
 
         switch (c) {
             case 0: {
+                bool const hasArgument = optarg;
                 std::string_view optargStr;
-                if (optarg) { optargStr = optarg; }
+                if (hasArgument) { optargStr = optarg; }
                 switch (selectedLongOpt) {
                     case outputTimesLongOpt:
                         config.setTimesFileName(optargStr);
@@ -274,6 +297,18 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                         assert(false);
                         break;
                     }
+                    case encodingNeuronVarsLongOpt:
+                        assert(hasArgument);
+                        config.setEncodingNeuronVars(stringViewToBool(optargStr));
+                        break;
+                    case encodingOutputVarsLongOpt:
+                        assert(hasArgument);
+                        config.setEncodingOutputVars(stringViewToBool(optargStr));
+                        break;
+                    case allowNeuronVarsInExplanationsLongOpt:
+                        assert(hasArgument);
+                        config.allowNeuronVarsInExplanations(stringViewToBool(optargStr));
+                        break;
                     case fixDefaultSampleNeuronActivationsLongOpt:
                         config.fixDefaultSampleNeuronActivations(
                             spexplain::makeDefaultSampleNeuronActivations(optargStr));
