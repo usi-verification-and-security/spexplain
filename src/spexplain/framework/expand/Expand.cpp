@@ -322,6 +322,18 @@ void Framework::Expand::initVerifier() {
     assert(verifierPtr);
     auto & network = framework.getNetwork();
     verifierPtr->init(network);
+
+    auto const & config = framework.getConfig();
+    if (auto optEncodingNeuronVars = config.encodingNeuronVars()) {
+        verifierPtr->setEncodingNeuronVars(*optEncodingNeuronVars);
+    }
+    if (auto optEncodingOutputVars = config.encodingOutputVars()) {
+        verifierPtr->setEncodingOutputVars(*optEncodingOutputVars);
+    }
+
+    if (auto optAllowedNeuronVars = config.allowedNeuronVarsInExplanations()) {
+        verifierPtr->allowNeuronVarsInExplanations(*optAllowedNeuronVars);
+    }
 }
 
 void Framework::Expand::preprocessGroundModel(Network::Dataset const &) {
