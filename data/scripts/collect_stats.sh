@@ -335,7 +335,7 @@ for do_reverse in ${do_reverse_args[@]}; do
             continue 2
         done
 
-        experiment_array+=($experiment)
+        experiment_array+=("$experiment")
 
         store_var_into_str_array perc_features
         store_var_into_str_array perc_fixed_features
@@ -362,13 +362,13 @@ for do_reverse in ${do_reverse_args[@]}; do
         postprocess_str_var nchecks_str "$experiment" || continue
         postprocess_str_var avg_time_s_str "$experiment" || continue
 
-        printf "%${EXPERIMENT_MAX_WIDTH}s" $experiment
-        [[ -z ${EXCLUDE_COLUMNS[$FEATURES_CAPTION]} ]] && printf " | %${FEATURES_MAX_WIDTH}s" $perc_features_str
-        [[ -z ${EXCLUDE_COLUMNS[$FIXED_CAPTION]} ]] && printf " | %${FIXED_MAX_WIDTH}s" $perc_fixed_features_str
-        [[ -z ${EXCLUDE_COLUMNS[$DIMENSION_CAPTION]} ]] && printf " | %${DIMENSION_MAX_WIDTH}s" $perc_dimension_str
-        [[ -z ${EXCLUDE_COLUMNS[$TERMS_CAPTION]} ]] && printf " | %${TERMS_MAX_WIDTH}s" $nterms_str
-        [[ -z ${EXCLUDE_COLUMNS[$CHECKS_CAPTION]} ]] && printf " | %${CHECKS_MAX_WIDTH}s" $nchecks_str
-        printf " | %s" $avg_time_s_str
+        printf "%${EXPERIMENT_MAX_WIDTH}s" "$experiment"
+        [[ -z ${EXCLUDE_COLUMNS[$FEATURES_CAPTION]} ]] && printf " | %${FEATURES_MAX_WIDTH}s" "$perc_features_str"
+        [[ -z ${EXCLUDE_COLUMNS[$FIXED_CAPTION]} ]] && printf " | %${FIXED_MAX_WIDTH}s" "$perc_fixed_features_str"
+        [[ -z ${EXCLUDE_COLUMNS[$DIMENSION_CAPTION]} ]] && printf " | %${DIMENSION_MAX_WIDTH}s" "$perc_dimension_str"
+        [[ -z ${EXCLUDE_COLUMNS[$TERMS_CAPTION]} ]] && printf " | %${TERMS_MAX_WIDTH}s" "$nterms_str"
+        [[ -z ${EXCLUDE_COLUMNS[$CHECKS_CAPTION]} ]] && printf " | %${CHECKS_MAX_WIDTH}s" "$nchecks_str"
+        printf " | %s" "$avg_time_s_str"
         printf "\n"
     done
 done
