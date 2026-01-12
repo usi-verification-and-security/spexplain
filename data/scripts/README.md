@@ -46,6 +46,7 @@ Any other arguments that will be forwarded to `spexplain`.
 
 * `CMD`: sets the `spexplain` executable (default: `../../build/spexplain`)
 * `TIMEOUT`: overall timeout for the execution (default: `30m`); the duration is a number with an optional suffix: `s` for seconds (default), `m` for minutes, `h` for hours or `d` for days
+* `TIMEOUT_PER`: solving timeout per explanation (refers to option `-t` of `spexplain`); the duration format is the same as in `TIMEOUT`
 * `SRC_EXPERIMENT`: sets already computed explanations with a given name (corresponding to `<name>` at that time) as the input, instead of using the original sample points (refers to option `-E` of `spexplain`)
 
 ### Examples
@@ -75,6 +76,13 @@ will use the executable `../build-marabou/spexplain`
 and compute explanations into `explanations/heart_attack/quick/trial_n_4__abductive.phi.txt`
 using `explanations/heart_attack/quick/abductive.phi.txt` as starting points (which must already exist) instead of sample points.
 The resulting explanations are the same as what would compute the strategy `abductive; trial n 4` if starting from sample points, but it does not re-compute `abductive` that has already been computed.
+
+```
+TIMEOUT=1h TIMEOUT_PER=30s ./scripts/run1.sh explanations/mnist/short 'itp'
+```
+will compute explanations into `explanations/mnist/short/itp.phi.txt`
+using the time limit of `30s` per each explanation
+and `1h` for the whole computation of all explanations.
 
 
 ## `run-experiments.sh`
@@ -147,9 +155,10 @@ will run all consecutive experiments specified in `spec/experiments/base`, given
 and using the executable `../build-marabou/spexplain`.
 
 ```
-TIMEOUT=2m OPTIONS='--filter-samples incorrect' ./scripts/run-experiments.sh explanations/obesity/short itp '^itp'
+TIMEOUT=2m TIMEOUT_PER=30s OPTIONS='--filter-samples incorrect' ./scripts/run-experiments.sh explanations/obesity/short itp '^itp'
 ```
 will use the timeout of `2m` per experiment (i.e., per a run of `run1.sh`)
+and of `30s` per explanation,
 and will run experiments specified in `spec/experiments/itp` (e.g. `itp_astrong_bstrong`),
 using the model `models/obesity/obesity-10-20-10.nnet` and dataset `datasets/obesity/obesity_short.csv`.
 Additionally, it passes the arguments `--filter-samples incorrect` to the underlying script `run1.sh` (i.e., consequently, to `spexplain`).
