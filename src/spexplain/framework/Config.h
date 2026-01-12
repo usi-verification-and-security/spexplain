@@ -56,6 +56,11 @@ public:
 
     void reverseVarOrdering() { reverseVarOrder = true; }
 
+    void setEncodingNeuronVars(bool val = true) { _encodingNeuronVars = val; }
+    void setEncodingOutputVars(bool val = true) { _encodingOutputVars = val; }
+
+    void allowNeuronVarsInExplanations(bool val = true) { _allowNeuronVarsInExplanations = val; }
+
     void fixDefaultSampleNeuronActivations(
         DefaultSampleNeuronActivations sampleNeuronActivations = DefaultSampleNeuronActivations::all) {
         _fixDefaultSampleNeuronActivations = sampleNeuronActivations;
@@ -149,6 +154,20 @@ public:
     [[nodiscard]]
     bool isReverseVarOrdering() const {
         return reverseVarOrder;
+    }
+
+    [[maybe_unused]]
+    std::optional<bool> encodingNeuronVars() const {
+        return _encodingNeuronVars;
+    }
+    [[maybe_unused]]
+    std::optional<bool> encodingOutputVars() const {
+        return _encodingOutputVars;
+    }
+
+    [[maybe_unused]]
+    std::optional<bool> allowedNeuronVarsInExplanations() const {
+        return _allowNeuronVarsInExplanations;
     }
 
     [[nodiscard]]
@@ -254,6 +273,11 @@ protected:
     Verbosity verbosity{};
 
     bool reverseVarOrder{};
+
+    std::optional<bool> _encodingNeuronVars{};
+    std::optional<bool> _encodingOutputVars{};
+
+    std::optional<bool> _allowNeuronVarsInExplanations{};
 
     DefaultSampleNeuronActivations _fixDefaultSampleNeuronActivations{defaultFixingOfSampleNeuronActivations};
     DefaultSampleNeuronActivations _preferDefaultSampleNeuronActivations{defaultPreferenceOfSampleNeuronActivations};
