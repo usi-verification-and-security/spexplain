@@ -48,6 +48,7 @@ declare -A {SUM_STR,COUNT}_nterms
 declare -A {SUM_STR,COUNT}_nchecks
 declare -A {SUM_STR,COUNT}_perc_completed
 declare -A {SUM_STR,COUNT}_avg_time_s
+declare -A {SUM_STR,COUNT}_avg_par2
 
 FORMAT_perc_features='%.1f%%'
 FORMAT_perc_fixed_features='%.1f%%'
@@ -56,6 +57,7 @@ FORMAT_nterms='%.1f'
 FORMAT_nchecks='%.1f'
 FORMAT_perc_completed='%.1f%%'
 FORMAT_avg_time_s='%.2f'
+FORMAT_avg_par2=$FORMAT_avg_time_s
 
 declare -A EXCLUDE_COLUMNS
 
@@ -117,6 +119,9 @@ COMPLETED_MAX_WIDTH=${#COMPLETED_CAPTION}
 AVG_TIME_CAPTION='time [s]'
 AVG_TIME_MAX_WIDTH=${#AVG_TIME_CAPTION}
 
+AVG_PAR2_CAPTION='PAR-2'
+AVG_PAR2_MAX_WIDTH=${#AVG_PAR2_CAPTION}
+
 function compute_term_size {
     local phi_file="$1"
     local n_lines=$2
@@ -150,6 +155,7 @@ function print_header {
         [[ -z ${EXCLUDE_COLUMNS[$CHECKS_CAPTION]} ]] && printf " | %s" "$CHECKS_CAPTION"
         printf " | %s" "$COMPLETED_CAPTION"
         printf " | %s" "$AVG_TIME_CAPTION"
+        [[ -z ${EXCLUDE_COLUMNS[$AVG_PAR2_CAPTION]} ]] && printf " | %s" "$AVG_PAR2_CAPTION"
         printf "\n"
 
         PRINTED_HEADER=1
@@ -242,6 +248,7 @@ for do_reverse in ${do_reverse_args[@]}; do
     nchecks_str_array=()
     perc_completed_str_array=()
     avg_time_s_str_array=()
+    avg_par2_str_array=()
 
     for experiment in ${lEXPERIMENT_NAMES[@]}; do
         experiment_stem=$experiment
@@ -293,6 +300,7 @@ for do_reverse in ${do_reverse_args[@]}; do
             nterms=X
             nchecks=X
             avg_time_s=X
+            avg_par2=X
         else
             [[ -s $ERR_FILE ]] && {
                 cat $ERR_FILE >&2
@@ -335,13 +343,19 @@ for do_reverse in ${do_reverse_args[@]}; do
                 total_time_s=$(bc -l <<<"${time_min}*60 + ${time_s}")
                 ## this would include timeouts
                 # avg_time_s=$(bc -l <<<"${total_time_s}/${size}")
-                avg_time_s=$(awk 'BEGIN{ sum=0; cnt=0; } /^[0-9.]/{ sum+=$1; cnt++; } END{ printf("%.2f\n", sum/cnt) }' <"$times_file")
+                avg_time_s=$(awk 'BEGIN{ sum=0; cnt=0; } /^[0-9.]/{ sum+=$1; cnt++; } END{ printf("'"$FORMAT_avg_time_s"'\n", sum/cnt) }' <"$times_file")
             else
                 perc_features=X
                 perc_fixed_features=X
                 perc_dimension=X
                 nterms=X
                 avg_time_s=X
+            fi
+
+            if [[ -n $timeout_per ]]; then
+                avg_par2=$(awk 'BEGIN{ sum=0; cnt=0; } /^[0-9.]/{ sum+=$1; cnt++; } /<null>/{ sum+=2*'$timeout_per'; cnt++; } END{ printf("'"$FORMAT_avg_par2"'\n", sum/cnt) }' <"$times_file")
+            else
+                avg_par2=X
             fi
         fi
 
@@ -355,6 +369,7 @@ for do_reverse in ${do_reverse_args[@]}; do
             SUM_STR_nchecks["$avg_filter"]+="$nchecks+"
             SUM_STR_perc_completed["$avg_filter"]+="$perc_completed+"
             SUM_STR_avg_time_s["$avg_filter"]+="$avg_time_s+"
+            SUM_STR_avg_par2["$avg_filter"]+="$avg_par2+"
             (( COUNT_perc_features["$avg_filter"] ++ ))
             (( COUNT_perc_fixed_features["$avg_filter"] ++ ))
             (( COUNT_perc_dimension["$avg_filter"] ++ ))
@@ -362,6 +377,7 @@ for do_reverse in ${do_reverse_args[@]}; do
             (( COUNT_nchecks["$avg_filter"] ++ ))
             (( COUNT_perc_completed["$avg_filter"] ++ ))
             (( COUNT_avg_time_s["$avg_filter"] ++ ))
+            (( COUNT_avg_par2["$avg_filter"] ++ ))
 
             if (( ${COUNT_perc_completed["$avg_filter"]} == 1 )); then
                 perc_features_str_array+=(@AVG)
@@ -371,6 +387,7 @@ for do_reverse in ${do_reverse_args[@]}; do
                 nchecks_str_array+=(@AVG)
                 perc_completed_str_array+=(@AVG)
                 avg_time_s_str_array+=(@AVG)
+                avg_par2_str_array+=(@AVG)
             else
                 perc_features_str_array+=(@SKIP)
                 perc_fixed_features_str_array+=(@SKIP)
@@ -379,6 +396,7 @@ for do_reverse in ${do_reverse_args[@]}; do
                 nchecks_str_array+=(@SKIP)
                 perc_completed_str_array+=(@SKIP)
                 avg_time_s_str_array+=(@SKIP)
+                avg_par2_str_array+=(@SKIP)
             fi
 
             experiment_array+=("$avg_filter")
@@ -395,6 +413,7 @@ for do_reverse in ${do_reverse_args[@]}; do
         store_var_into_str_array nchecks
         store_var_into_str_array perc_completed
         store_var_into_str_array avg_time_s
+        store_var_into_str_array avg_par2
     done
 
     for idx in ${!experiment_array[@]}; do
@@ -407,6 +426,7 @@ for do_reverse in ${do_reverse_args[@]}; do
         nchecks_str="${nchecks_str_array[$idx]}"
         perc_completed_str="${perc_completed_str_array[$idx]}"
         avg_time_s_str="${avg_time_s_str_array[$idx]}"
+        avg_par2_str="${avg_par2_str_array[$idx]}"
 
         postprocess_str_var perc_features_str "$experiment" || continue
         postprocess_str_var perc_fixed_features_str "$experiment" || continue
@@ -415,6 +435,7 @@ for do_reverse in ${do_reverse_args[@]}; do
         postprocess_str_var nchecks_str "$experiment" || continue
         postprocess_str_var perc_completed_str "$experiment" || continue
         postprocess_str_var avg_time_s_str "$experiment" || continue
+        postprocess_str_var avg_par2_str "$experiment" || continue
 
         printf "%${EXPERIMENT_MAX_WIDTH}s" "$experiment"
         [[ -z ${EXCLUDE_COLUMNS[$FEATURES_CAPTION]} ]] && printf " | %${FEATURES_MAX_WIDTH}s" "$perc_features_str"
@@ -424,6 +445,7 @@ for do_reverse in ${do_reverse_args[@]}; do
         [[ -z ${EXCLUDE_COLUMNS[$CHECKS_CAPTION]} ]] && printf " | %${CHECKS_MAX_WIDTH}s" "$nchecks_str"
         printf " | %${COMPLETED_MAX_WIDTH}s" "$perc_completed_str"
         printf " | %${AVG_TIME_MAX_WIDTH}s" "$avg_time_s_str"
+        [[ -z ${EXCLUDE_COLUMNS[$AVG_PAR2_CAPTION]} ]] && printf " | %${AVG_PAR2_MAX_WIDTH}s" "$avg_par2_str"
         printf "\n"
     done
 done
