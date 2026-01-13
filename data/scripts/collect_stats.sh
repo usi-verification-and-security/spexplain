@@ -132,10 +132,14 @@ function print_header {
     local reverse=$1
     local dataset_size=$2
     local n_features=$3
+    local timeout_per=$4
+    local n_correct=$5
 
     (( $PRINTED_HEADER )) || {
         printf 'Dataset size: %d\n' $dataset_size
         printf 'Number of features: %d\n' $n_features
+        [[ -n $timeout_per ]] && printf 'Timeout per sample [s]: %s\n' $timeout_per
+        printf 'Classification accuracy: %s%%\n' $n_correct
         printf '\n'
 
         printf "%${EXPERIMENT_MAX_WIDTH}s" experiments
@@ -273,8 +277,10 @@ for do_reverse in ${do_reverse_args[@]}; do
         stats=$($STATS_SCRIPT "$stats_file" 2>$ERR_FILE)
         size=$(sed -n 's/^Total:[^0-9]*\([0-9]*\)$/\1/p' <<<"$stats")
         features=$(sed -n 's/^Features:[^0-9]*\([0-9]*\)$/\1/p' <<<"$stats")
+        timeout_per=$(sed -n 's/^Timeout per[^0-9]*\([0-9].*\)$/\1/p' <<<"$stats")
+        n_correct=$(sed -n 's/^[^#]*#correct classifications[^0-9]*\([0-9][^%]*\)%$/\1/p' <<<"$stats")
 
-        print_header $do_reverse $size $features
+        print_header $do_reverse "$size" "$features" "$timeout_per" "$n_correct"
 
         time_str=$(sed -n 's/^user[^0-9]*\([0-9].*\)$/\1/p' <"$time_file")
         if [[ -z $time_str ]]; then

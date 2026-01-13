@@ -24,6 +24,11 @@ function assert(condition, string) {
    variables_cnt = $NF
 }
 
+/Timeout per sample/ {
+   assert(timeout_per == "", "Multiple occurencies of timeout per sample!")
+   timeout_per = $NF
+}
+
 /expected output:/ {
    expected = $NF
 }
@@ -93,6 +98,7 @@ END {
    if (variables_cnt > 0) {
       print("Features: " variables_cnt)
    }
+   if (timeout_per != "") print("Timeout per sample [s]: " timeout_per)
    if (total_cnt > 0) {
       print("Timeouts: " timeouts_cnt)
       # printf("avg #timeouts: %.1f%%\n", (timeouts_cnt/total_cnt)*100)

@@ -348,6 +348,12 @@ void Framework::Expand::printHead(std::ostream & os, Network::Dataset const & da
         if (maxSamples < size) { os << "Number of samples: " << maxSamples << '\n'; }
     }
     os << "Number of variables: " << framework.varSize() << '\n';
+    if (config.timeLimitPerExplanationIsSet()) {
+        auto const timeLimitPer_ms = config.getTimeLimitPerExplanation().count();
+        double const timeLimitPer_s = static_cast<double>(timeLimitPer_ms) / 1000;
+        os << "Timeout per sample [s]: " << timeLimitPer_s << '\n';
+    }
+
     os << std::string(60, '-') << std::endl;
 }
 
