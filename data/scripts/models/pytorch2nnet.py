@@ -14,6 +14,7 @@ import torch
 model_task = "heart_attack"  # options: "mnist", "cifar10", "gtsrb", "heart_attack"
 
 pytorchFile = "data/models/heart_attack/heart_attack_50x10.pth"
+nnetFile="data/models/heart_attack/heart_attack_50x10.nnet"
 checkpoint = torch.load(pytorchFile, map_location=torch.device('cpu'))
 
 # Extract hyperparameters from checkpoint
@@ -99,4 +100,4 @@ except:
 num_params = sum(p.numel() for p in model.parameters())
 print('number of parameters: ', num_params)
 model.eval()
-pytorch2nnet(model=model, nnetFile="data/models/mnist/mnist_model_3x50.nnet", input_min=input_min, input_max=input_max)
+pytorch2nnet(model=model, nnetFile=nnetFile, input_min=input_min, input_max=input_max)
