@@ -149,8 +149,7 @@ if __name__ == '__main__':
         "input_dim": input_dim,
         "hidden_size": hidden_size,
         "num_layers": num_layers,
-        "num_classes": num_classes,
-        "scaler": scaler,
+        "num_classes": num_classes
     }, save_path)
 
     print(f"\nModel saved to: {save_path}")
