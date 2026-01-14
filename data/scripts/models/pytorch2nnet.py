@@ -13,15 +13,23 @@ import torch
 ########################
 model_task = "heart_attack"  # options: "mnist", "cifar10", "gtsrb", "heart_attack"
 
-pytorchFile = "data/models/heart_attack/heart_attack_50x10.pth"
-nnetFile="data/models/heart_attack/heart_attack_50x10.nnet"
+pytorchFile = "data/models/heart_attack/heart_attack_50x1.pth"
+nnetFile= "data/models/heart_attack/heart_attack_50x1.nnet"
 checkpoint = torch.load(pytorchFile, map_location=torch.device('cpu'))
 
 # Extract hyperparameters from checkpoint
-input_dim = checkpoint["input_dim"]
-hidden_size = checkpoint["hidden_size"]
-num_layers = checkpoint["num_layers"]
-num_classes = checkpoint["num_classes"]
+try:
+    input_dim = checkpoint["input_dim"]
+    hidden_size = checkpoint["hidden_size"]
+    num_layers = checkpoint["num_layers"]
+    num_classes = checkpoint["num_classes"]
+except KeyError:
+    # Fallback to default values if keys are not found
+    print("Fail to load hyperparameters from checkpoint, using default values.")
+    input_dim = 13
+    hidden_size = 50
+    num_layers = 8
+    num_classes = 2
 
 print(f"\nModel saved to: {pytorchFile} with parameters:")
 print(f"Input Dimension: {input_dim}")
