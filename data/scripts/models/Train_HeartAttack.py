@@ -4,7 +4,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset, random_split
 import pandas as pd
 import os
-from CIFAR10_models import FCNet
+from models import FCNet
+from sklearn.preprocessing import MinMaxScaler
 
 ########################
 # Hyperparameters
@@ -84,6 +85,10 @@ if __name__ == '__main__':
     X = df.iloc[:, :-1].values  # all columns except last
     y = df.iloc[:, -1].values   # last column
 
+    # Normalize features to [0, 1]
+    scaler = MinMaxScaler()
+    X = scaler.fit_transform(X)
+
     # Convert to PyTorch tensors (no preprocessing)
     X_tensor = torch.FloatTensor(X)
     y_tensor = torch.LongTensor(y)
@@ -145,6 +150,7 @@ if __name__ == '__main__':
         "hidden_size": hidden_size,
         "num_layers": num_layers,
         "num_classes": num_classes,
+        "scaler": scaler,
     }, save_path)
 
     print(f"\nModel saved to: {save_path}")
