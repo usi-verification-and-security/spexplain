@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 import torchvision
 import torchvision.transforms as transforms
 import os
-from  CIFAR10_models import *
+from models import *
 
 ########################
 # Hyperparameters
