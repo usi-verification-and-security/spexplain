@@ -1,11 +1,56 @@
 import pandas as pd
 import numpy as np
 
-from data.models.models import *
+from data.scripts.models.models import *
 import torch
 from pgd_counterfactual import *
 
 import torch
+
+########################
+# Hyperparameters
+########################
+model_task = "heart_attack"  # options: "mnist", "cifar10", "gtsrb", "heart_attack"
+
+pytorchFile = "data/models/heart_attack/heart_attack_50x10.pth"
+samples_file = "data/datasets/heart_attack/heart_attack_s100_scaled.csv"
+activations_changes_file = 'data/activation_change/heart_attack/activation_HA_50x10.txt'
+
+checkpoint = torch.load(pytorchFile, map_location=torch.device('cpu'))
+scaled = True
+# Extract hyperparameters from checkpoint
+try:
+    input_dim = checkpoint["input_dim"]
+    hidden_size = checkpoint["hidden_size"]
+    num_layers = checkpoint["num_layers"]
+    num_classes = checkpoint["num_classes"]
+except KeyError:
+    # Fallback to default values if keys are not found
+    print("Fail to load hyperparameters from checkpoint, using default values.")
+    input_dim = 13
+    hidden_size = 50
+    num_layers = 2
+    num_classes = 2
+
+print(f"\nModel: {pytorchFile} with parameters:")
+print(f"Input Dimension: {input_dim}")
+print(f"Hidden Size: {hidden_size}")
+print(f"Number of Layers: {num_layers}")
+print(f"Number of Classes: {num_classes}")
+print("==============================\n")
+
+model = FCNet(input_dim, hidden_size=hidden_size,
+              num_layers=num_layers, num_classes=num_classes)
+
+if scaled:
+    norm_factor = 1
+else:
+    if model_task in ['mnist', 'cifar10', 'gtsrb']:
+        norm_factor = 255
+    else:
+        norm_factor = 1
+        print("Warning: no normalization factor for this dataset.")
+
 
 # ---- helper: register hooks to capture post-ReLU activations ----
 def get_activation_hook(activations_dict, name):
@@ -49,11 +94,17 @@ def get_layer_activations_generic(model, x):
 
     # go through all submodules in forward order
     idx = 0
-    for module in model.children():
+    # Check if model has a Sequential container
+    if hasattr(model, 'net') and isinstance(model.net, torch.nn.Sequential):
+        layers_to_iterate = model.net.children()
+    else:
+        layers_to_iterate = model.children()
+
+    for module in layers_to_iterate:
         curr = module(curr)
         if isinstance(module, nn.Linear):
             name = f"act_{idx}_{module.__class__.__name__}"
-            activations[name] = model.relu(curr.detach())
+            activations[name] = torch.relu(curr.detach())
             idx += 1
 
     return activations
@@ -117,19 +168,21 @@ def compare_activations_generic(model, x_orig, x_cf, threshold=0.0):
 
     return changes
 
-activations_changes_file = 'data/activation_change/mnist/activation_change-mnist-6x50.txt'
+########################
 # Load dataset
-df = pd.read_csv('data/datasets/mnist/mnist_short.csv')
+df = pd.read_csv(samples_file)
 # lables = df['target']
 # df.drop('target', axis=1, inplace=True)
 
-# Load model
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = Mnist6xS(input_size=784, hidden_size=50, output_size=10)
-pytorchFile = "data/models/mnist/pth_files/mnist_model_6x50.pth"
-state_dict = torch.load(pytorchFile, map_location=device)
-model.load_state_dict(state_dict)
 
+# Load the state_dict into the model
+try:
+    model.load_state_dict(checkpoint["model_state_dict"])
+except:
+    state_dict = torch.load(pytorchFile, map_location=torch.device('cpu'))
+    model.load_state_dict(state_dict)
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model.to(device)
 model.eval()
 
@@ -150,11 +203,11 @@ for row in df.itertuples(index=False):
             img_flat,
             true_label=orig_pred,
             # target_label=target,
-            epsilon=0.3 * 255.0,
-            step_size=0.01 * 255.0,
+            epsilon=0.3 * norm_factor,
+            step_size=0.01 * norm_factor,
             num_steps=40,
             clamp_min=0.0,
-            clamp_max=255.0,
+            clamp_max=norm_factor,
             targeted=False
     )
 
@@ -180,7 +233,7 @@ for row in df.itertuples(index=False):
     # Append sample and per-layer any_change masks to `activation_changes.txt`
     # Place this inside the loop after `changes = compare_activations_generic(...)`
     with open(activations_changes_file, 'a') as out_f:
-        out_f.write(f"Sample_index:{idx}\n")
+        out_f.write(f"{idx}\n")
         # sample_pixels = ','.join(str(int(p)) for p in row[:-1])
         # out_f.write(sample_pixels + "\n")
 
