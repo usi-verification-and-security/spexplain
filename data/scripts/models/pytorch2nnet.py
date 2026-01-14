@@ -2,7 +2,7 @@ import torch
 
 from python_scripts.nnet_utils.writeNNet import writeNNet
 # from Models import *
-from CIFAR10_models import *
+from models import *
 import torch
 
 
