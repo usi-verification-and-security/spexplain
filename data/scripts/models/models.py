@@ -40,6 +40,12 @@ class FCNetBinary(nn.Module):
 
         self.net = nn.Sequential(*layers)
 
+        # Initialize weights with larger variance to avoid dead neurons
+        for layer in self.net:
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight, gain=1.0)
+                nn.init.constant_(layer.bias, 0.01)  # Small positive bias
+
     def forward(self, x):
         x = x.view(x.size(0), -1)
         return self.net(x).squeeze()
