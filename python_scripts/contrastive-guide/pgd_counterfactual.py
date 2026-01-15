@@ -58,20 +58,23 @@ def pgd_counterfactual(
             y = true_label.view(1).to(device)
 
     for _ in range(num_steps):
-        x_adv.requires_grad_(True)
+        # x_adv.requires_grad_(True)
 
-        logits = model(x_adv)  # shape (1, 10)
+        # logits = model(x_adv)  # shape (1, 10)
 
         if targeted:
-            # For a targeted counterfactual, MINIMIZE loss towards target class
-            loss = F.cross_entropy(logits, y)
-            # PGD update: gradient descent on loss (move towards target)
-            grad = torch.autograd.grad(loss, x_adv)[0]
+            with torch.enable_grad():
+                x_adv.requires_grad_(True)
+                logits = model(x_adv)
+                loss = F.cross_entropy(logits, y)
+                grad = torch.autograd.grad(loss, x_adv)[0]
             x_adv = x_adv - step_size * torch.sign(grad)
         else:
-            # For untargeted, MAXIMIZE loss of current class (move away)
-            loss = F.cross_entropy(logits, y)
-            grad = torch.autograd.grad(loss, x_adv)[0]
+            with torch.enable_grad():
+                x_adv.requires_grad_(True)
+                logits = model(x_adv)
+                loss = F.cross_entropy(logits, y)
+                grad = torch.autograd.grad(loss, x_adv)[0]
             x_adv = x_adv + step_size * torch.sign(grad)
 
         # Project into L_inf ball around x_orig
