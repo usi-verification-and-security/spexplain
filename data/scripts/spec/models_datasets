@@ -6,6 +6,22 @@ OUTPUT_DIRS=(
     explanations/heart_attack/full
     explanations/heart_attack/short
     explanations/heart_attack/quick
+    explanations/heart_attack/50x1/naive
+    explanations/heart_attack/50x1/fix-all
+    explanations/heart_attack/50x1/fix-guided
+    explanations/heart_attack/50x1/prefer-guided
+    explanations/heart_attack/50x2/naive
+    explanations/heart_attack/50x2/fix-all
+    explanations/heart_attack/50x2/fix-guided
+    explanations/heart_attack/50x2/prefer-guided
+    explanations/heart_attack/50x4/naive
+    explanations/heart_attack/50x4/fix-all
+    explanations/heart_attack/50x4/fix-guided
+    explanations/heart_attack/50x4/prefer-guided
+    explanations/heart_attack/50x6/naive
+    explanations/heart_attack/50x6/fix-all
+    explanations/heart_attack/50x6/fix-guided
+    explanations/heart_attack/50x6/prefer-guided
 
     explanations/obesity/full
     explanations/obesity/short
@@ -13,12 +29,33 @@ OUTPUT_DIRS=(
 
     explanations/mnist/short
     explanations/mnist/quick
+    explanations/mnist/s100/naive
+    explanations/mnist/s100/fix-all
+    explanations/mnist/s100/fix-guided
+    explanations/mnist/s100/prefer-guided
 )
 
 MODELS=(
     models/heart_attack/heart_attack-50.nnet
     models/heart_attack/heart_attack-50.nnet
     models/heart_attack/heart_attack-50.nnet
+    models/heart_attack/heart_attack_50x1.nnet
+    models/heart_attack/heart_attack_50x1.nnet
+    models/heart_attack/heart_attack_50x1.nnet
+    models/heart_attack/heart_attack_50x1.nnet
+    models/heart_attack/heart_attack_50x2.nnet
+    models/heart_attack/heart_attack_50x2.nnet
+    models/heart_attack/heart_attack_50x2.nnet
+    models/heart_attack/heart_attack_50x2.nnet
+    models/heart_attack/heart_attack_50x4.nnet
+    models/heart_attack/heart_attack_50x4.nnet
+    models/heart_attack/heart_attack_50x4.nnet
+    models/heart_attack/heart_attack_50x4.nnet
+    models/heart_attack/heart_attack_50x6.nnet
+    models/heart_attack/heart_attack_50x6.nnet
+    models/heart_attack/heart_attack_50x6.nnet
+    models/heart_attack/heart_attack_50x6.nnet
+
 
     models/obesity/obesity-10-20-10.nnet
     models/obesity/obesity-10-20-10.nnet
@@ -32,6 +69,23 @@ DATASETS=(
     datasets/heart_attack/heart_attack_full.csv
     datasets/heart_attack/heart_attack_short.csv
     datasets/heart_attack/heart_attack_quick.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+
 
     datasets/obesity/obesity_full.csv
     #+ slight approximation of obesity_full (probably just floats printed differently)
