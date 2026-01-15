@@ -22,7 +22,10 @@ try:
     input_dim = checkpoint["input_dim"]
     hidden_size = checkpoint["hidden_size"]
     num_layers = checkpoint["num_layers"]
-    num_classes = checkpoint["num_classes"]
+    try:
+        num_classes = checkpoint["num_classes"]
+    except:
+        num_classes = checkpoint["output_dim"]
 except KeyError:
     # Fallback to default values if keys are not found
     print("Fail to load hyperparameters from checkpoint, using default values.")
@@ -37,9 +40,13 @@ print(f"Hidden Size: {hidden_size}")
 print(f"Number of Layers: {num_layers}")
 print(f"Number of Classes: {num_classes}")
 print("==============================\n")
+if model_task == "heart_attack" and num_classes == 1:
+    model = FCNetBinary(input_dim, hidden_size=hidden_size,
+                        num_layers=num_layers)
+else:
+    model = FCNet(input_dim, hidden_size=hidden_size,
+                        num_layers=num_layers, num_classes=num_classes)
 
-model = FCNet(input_dim, hidden_size=hidden_size,
-                    num_layers=num_layers, num_classes=num_classes)
 if model_task == "heart_attack":
     input_min = [29,0,0,94,126,0,0,71,0,0,0,0,0]
     input_max = [77,1,3,200,594,1,2,202,1,6.2,2,4,3]
