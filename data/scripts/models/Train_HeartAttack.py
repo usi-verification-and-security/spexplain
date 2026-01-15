@@ -148,21 +148,21 @@ if __name__ == '__main__':
         ########################
 
         # avoid extremely small weights
-        min_weight_threshold = 1e-30
-        num_weights_zeroed = 0
-        total_weights = 0
-
-        for param in model.parameters():
-            total_weights += param.numel()
-            num_weights_zeroed += (param.data.abs() < min_weight_threshold).sum().item()
-
-            param.data = torch.where(
-                param.data.abs() < min_weight_threshold,
-                torch.zeros_like(param.data),
-                param.data
-            )
-
-        print(f"\nZeroed {num_weights_zeroed} out of {total_weights} weights ({100.0 * num_weights_zeroed / total_weights:.2f}%)")
+        # min_weight_threshold = 1e-30
+        # num_weights_zeroed = 0
+        # total_weights = 0
+        #
+        # for param in model.parameters():
+        #     total_weights += param.numel()
+        #     num_weights_zeroed += (param.data.abs() < min_weight_threshold).sum().item()
+        #
+        #     param.data = torch.where(
+        #         param.data.abs() < min_weight_threshold,
+        #         torch.zeros_like(param.data),
+        #         param.data
+        #     )
+        #
+        # print(f"\nZeroed {num_weights_zeroed} out of {total_weights} weights ({100.0 * num_weights_zeroed / total_weights:.2f}%)")
 
 
         save_path = os.path.join(save_dir, saving_file_name)
