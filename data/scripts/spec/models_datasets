@@ -29,10 +29,6 @@ OUTPUT_DIRS=(
 
     explanations/mnist/short
     explanations/mnist/quick
-    explanations/mnist/s100/naive
-    explanations/mnist/s100/fix-all
-    explanations/mnist/s100/fix-guided
-    explanations/mnist/s100/prefer-guided
 )
 
 MODELS=(
@@ -85,7 +81,6 @@ DATASETS=(
     datasets/heart_attack/heart_attack_s100_scaled.csv
     datasets/heart_attack/heart_attack_s100_scaled.csv
     datasets/heart_attack/heart_attack_s100_scaled.csv
-
 
     datasets/obesity/obesity_full.csv
     #+ slight approximation of obesity_full (probably just floats printed differently)
