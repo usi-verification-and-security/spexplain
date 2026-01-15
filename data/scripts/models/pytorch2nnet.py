@@ -43,7 +43,7 @@ print(f"Number of Classes: {num_classes}")
 print("==============================\n")
 
 model = FCNet(input_dim, hidden_size=hidden_size,
-                    num_layers=num_layers, num_classes=num_classes)
+              num_layers=num_layers, num_classes=num_classes)
 if scaled:
     input_min= 0
     input_max =1
@@ -65,7 +65,7 @@ if model_task == "heart_attack" and num_classes == 1:
                         num_layers=num_layers)
 else:
     model = FCNet(input_dim, hidden_size=hidden_size,
-                        num_layers=num_layers, num_classes=num_classes)
+                  num_layers=num_layers, num_classes=num_classes)
 
 def pytorch2nnet(model, nnetFile, input_min=-1000000, input_max=1000000):
     # Extract weights and biases from the model
