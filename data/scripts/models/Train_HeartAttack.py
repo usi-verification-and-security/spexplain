@@ -15,7 +15,7 @@ epochs = 100
 # num_layers = 1
 hidden_size = 50
 learning_rate = 1e-3
-weight_decay = 1e-4
+weight_decay = 1e-6
 data_path = "./data/datasets/heart_attack/heart_attack_full.csv"
 save_dir = "./data/models/heart_attack"
 # saving_file_name = f"heart_attack_{hidden_size}x{num_layers}.pth"
@@ -86,8 +86,8 @@ if __name__ == '__main__':
         X = df.iloc[:, :-1].values
         y = df.iloc[:, -1].values
 
-        # scaler = MinMaxScaler()
-        # X = scaler.fit_transform(X)
+        scaler = MinMaxScaler()
+        X = scaler.fit_transform(X)
 
         X_tensor = torch.FloatTensor(X)
         y_tensor = torch.LongTensor(y)
@@ -137,9 +137,34 @@ if __name__ == '__main__':
                 f"| Test Loss: {test_loss:.4f} | Test Acc: {test_acc:.2f}%"
             )
 
+            with torch.no_grad():
+                for name, param in model.named_parameters():
+                    if 'weight' in name:
+                        print(f"{name}: min={param.min():.2e}, max={param.max():.2e}, mean={param.abs().mean():.2e}")
+
+
         ########################
         # Save model
         ########################
+
+        # avoid extremely small weights
+        min_weight_threshold = 1e-30
+        num_weights_zeroed = 0
+        total_weights = 0
+
+        for param in model.parameters():
+            total_weights += param.numel()
+            num_weights_zeroed += (param.data.abs() < min_weight_threshold).sum().item()
+
+            param.data = torch.where(
+                param.data.abs() < min_weight_threshold,
+                torch.zeros_like(param.data),
+                param.data
+            )
+
+        print(f"\nZeroed {num_weights_zeroed} out of {total_weights} weights ({100.0 * num_weights_zeroed / total_weights:.2f}%)")
+
+
         save_path = os.path.join(save_dir, saving_file_name)
         torch.save({
             "model_state_dict": model.state_dict(),
