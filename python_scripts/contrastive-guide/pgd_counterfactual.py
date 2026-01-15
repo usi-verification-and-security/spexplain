@@ -125,3 +125,60 @@ def pgd_counterfactual_multi_restart(
 
     return best_x_adv, best_success
 
+def pgd_counterfactual_binary(
+        model,
+        x,
+        true_label=None,
+        target_label=None,
+        epsilon=0.3,
+        step_size=0.01,
+        num_steps=40,
+        clamp_min=0.0,
+        clamp_max=1.0,
+        targeted=False,
+):
+    device = x.device
+    model.eval()
+
+    x_orig = x.detach()
+    x_adv = x_orig.clone()
+
+    # Determine labels
+    if targeted:
+        if target_label is None:
+            raise ValueError("target_label must be provided for targeted PGD.")
+        y = torch.as_tensor(target_label, device=device).view(-1).float()
+    else:
+        if true_label is None:
+            with torch.no_grad():
+                logits0 = model(x_orig)
+                y = (logits0 > 0).long().view(-1).float()
+        else:
+            y = torch.as_tensor(true_label, device=device).view(-1).float()
+
+    bce = torch.nn.BCEWithLogitsLoss(reduction="mean")
+
+    for _ in range(num_steps):
+        with torch.enable_grad():
+            x_adv.requires_grad_(True)
+            logits = model(x_adv)
+            loss = bce(logits.view(-1), y)
+            grad = torch.autograd.grad(loss, x_adv, retain_graph=False, create_graph=False)[0]
+
+        # PGD update
+        if targeted:
+            x_adv = x_adv - step_size * torch.sign(grad)
+        else:
+            x_adv = x_adv + step_size * torch.sign(grad)
+
+        # Project and clamp
+        delta = torch.clamp(x_adv - x_orig, -epsilon, epsilon)
+        x_adv = torch.clamp(x_orig + delta, clamp_min, clamp_max).detach()
+
+    with torch.no_grad():
+        logits_cf = model(x_adv)
+        y_pred = (logits_cf > 0).long().view(-1)
+
+    return x_adv, y_pred
+
+
