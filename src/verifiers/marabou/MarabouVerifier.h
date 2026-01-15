@@ -18,13 +18,13 @@ public:
 
     void loadModel(spexplain::Network const &) override;
 
-    void addUpperBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) override;
+    void addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) override;
 
-    void addLowerBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) override;
+    void addLowerBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) override;
 
-    void addClassificationConstraint(NodeIndex node, float threshold) override;
+    void addClassificationConstraint(NodeIndex node, Float threshold) override;
 
-    void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs) override;
+    void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, Float rhs) override;
 
     void printSmtLib2Query(std::ostream &) const override;
 

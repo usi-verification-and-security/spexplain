@@ -21,17 +21,17 @@ public:
     void push();
     void pop();
 
-    void setLowerBound(LayerIndex layerNum, NodeIndex nodeIndex, float);
-    void setUpperBound(LayerIndex layerNum, NodeIndex nodeIndex, float);
+    void setLowerBound(LayerIndex layerNum, NodeIndex nodeIndex, Float);
+    void setUpperBound(LayerIndex layerNum, NodeIndex nodeIndex, Float);
 
-    void addClassificationConstraint(NodeIndex node, float threshold);
+    void addClassificationConstraint(NodeIndex node, Float threshold);
 
 protected:
-    std::unordered_map<VarIndex, float> const & getLowerBounds() const { assert(not scopedLowerBounds.empty()); return scopedLowerBounds.back(); };
-    std::unordered_map<VarIndex, float> const & getUpperBounds() const { assert(not scopedUpperBounds.empty()); return scopedUpperBounds.back(); };
+    std::unordered_map<VarIndex, Float> const & getLowerBounds() const { assert(not scopedLowerBounds.empty()); return scopedLowerBounds.back(); };
+    std::unordered_map<VarIndex, Float> const & getUpperBounds() const { assert(not scopedUpperBounds.empty()); return scopedUpperBounds.back(); };
     std::vector<Equation> const & getExtraEquations() const { assert(not scopedExtraEquations.empty()); return scopedExtraEquations.back(); };
-    std::unordered_map<VarIndex, float> & getLowerBounds() { assert(not scopedLowerBounds.empty()); return scopedLowerBounds.back(); };
-    std::unordered_map<VarIndex, float> & getUpperBounds() { assert(not scopedUpperBounds.empty()); return scopedUpperBounds.back(); };
+    std::unordered_map<VarIndex, Float> & getLowerBounds() { assert(not scopedLowerBounds.empty()); return scopedLowerBounds.back(); };
+    std::unordered_map<VarIndex, Float> & getUpperBounds() { assert(not scopedUpperBounds.empty()); return scopedUpperBounds.back(); };
     std::vector<Equation> & getExtraEquations() { assert(not scopedExtraEquations.empty()); return scopedExtraEquations.back(); };
 
 private:
@@ -42,8 +42,8 @@ private:
     void markOutputVariable(VarIndex);
 
     void addStructuralEquation(Equation eq) { structuralEquations.push_back(std::move(eq)); }
-    void setHardInputLowerBound(VarIndex, float);
-    void setHardInputUpperBound(VarIndex, float);
+    void setHardInputLowerBound(VarIndex, Float);
+    void setHardInputUpperBound(VarIndex, Float);
 
     std::size_t numVars{0};
     std::vector<VarIndex> inputVariables;
@@ -51,11 +51,11 @@ private:
     std::vector<std::size_t> layerSizes;
     std::vector<std::pair<VarIndex, VarIndex>> reluList;
     std::vector<Equation> structuralEquations;
-    std::unordered_map<VarIndex, float> hardInputLowerBounds;
-    std::unordered_map<VarIndex, float> hardInputUpperBounds;
+    std::unordered_map<VarIndex, Float> hardInputLowerBounds;
+    std::unordered_map<VarIndex, Float> hardInputUpperBounds;
 
-    std::vector<std::unordered_map<VarIndex, float>> scopedLowerBounds;
-    std::vector<std::unordered_map<VarIndex, float>> scopedUpperBounds;
+    std::vector<std::unordered_map<VarIndex, Float>> scopedLowerBounds;
+    std::vector<std::unordered_map<VarIndex, Float>> scopedUpperBounds;
     std::vector<std::vector<Equation>> scopedExtraEquations;
 };
 }
@@ -66,12 +66,12 @@ public:
 
     void loadModel(spexplain::Network const &);
 
-    void addUpperBound(LayerIndex layer, NodeIndex var, float value);
-    void addLowerBound(LayerIndex layer, NodeIndex var, float value);
+    void addUpperBound(LayerIndex layer, NodeIndex var, Float value);
+    void addLowerBound(LayerIndex layer, NodeIndex var, Float value);
 
-    void addClassificationConstraint(NodeIndex node, float threshold);
+    void addClassificationConstraint(NodeIndex node, Float threshold);
 
-    void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs);
+    void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, Float rhs);
 
     void push();
     void pop();
@@ -90,19 +90,19 @@ void MarabouVerifier::loadModel(spexplain::Network const & network) {
     pimpl->loadModel(network);
 }
 
-void MarabouVerifier::addUpperBound(LayerIndex layer, NodeIndex var, float value, bool /*explanationTerm*/) {
+void MarabouVerifier::addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool /*explanationTerm*/) {
     pimpl->addUpperBound(layer, var, value);
 }
 
-void MarabouVerifier::addLowerBound(LayerIndex layer, NodeIndex var, float value, bool /*explanationTerm*/) {
+void MarabouVerifier::addLowerBound(LayerIndex layer, NodeIndex var, Float value, bool /*explanationTerm*/) {
     pimpl->addLowerBound(layer, var, value);
 }
 
-void MarabouVerifier::addClassificationConstraint(NodeIndex node, float threshold) {
+void MarabouVerifier::addClassificationConstraint(NodeIndex node, Float threshold) {
     pimpl->addClassificationConstraint(node, threshold);
 }
 
-void MarabouVerifier::addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs) {
+void MarabouVerifier::addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, Float rhs) {
     pimpl->addConstraint(layer, lhs, rhs);
 }
 
@@ -159,17 +159,17 @@ void QueryIncrementalWrapper::markOutputVariable(VarIndex var) {
     outputVariables.push_back(var);
 }
 
-void QueryIncrementalWrapper::setLowerBound(LayerIndex layer, NodeIndex node, float val) {
+void QueryIncrementalWrapper::setLowerBound(LayerIndex layer, NodeIndex node, Float val) {
     auto var = getVarIndex(layer, node, layer == 0 ? VariableType::FORWARD : VariableType::BACKWARD);
     getLowerBounds()[var] = val;
 }
 
-void QueryIncrementalWrapper::setUpperBound(LayerIndex layer, NodeIndex node, float val) {
+void QueryIncrementalWrapper::setUpperBound(LayerIndex layer, NodeIndex node, Float val) {
     auto var = getVarIndex(layer, node, layer == 0 ? VariableType::FORWARD : VariableType::BACKWARD);
     getUpperBounds()[var] = val;
 }
 
-void QueryIncrementalWrapper::addClassificationConstraint(NodeIndex node, float threshold) {
+void QueryIncrementalWrapper::addClassificationConstraint(NodeIndex node, Float threshold) {
     if (node >= outputVariables.size()) {
         throw std::out_of_range("Node index is out of range for outputVars.");
     }
@@ -197,11 +197,11 @@ void QueryIncrementalWrapper::addClassificationConstraint(NodeIndex node, float 
     throw std::logic_error("Unimplemented!");
 }
 
-void QueryIncrementalWrapper::setHardInputLowerBound(VarIndex var, float val) {
+void QueryIncrementalWrapper::setHardInputLowerBound(VarIndex var, Float val) {
     hardInputLowerBounds[var] = val;
 }
 
-void QueryIncrementalWrapper::setHardInputUpperBound(VarIndex var, float val) {
+void QueryIncrementalWrapper::setHardInputUpperBound(VarIndex var, Float val) {
     hardInputUpperBounds[var] = val;
 }
 
@@ -383,23 +383,20 @@ Verifier::Answer MarabouVerifier::MarabouImpl::check() {
 }
 
 void MarabouVerifier::MarabouImpl::addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs,
-                                         float rhs) {
+                                                 Float rhs) {}
 
-}
-
-void MarabouVerifier::MarabouImpl::addUpperBound(LayerIndex layer, NodeIndex node, float value) {
+void MarabouVerifier::MarabouImpl::addUpperBound(LayerIndex layer, NodeIndex node, Float value) {
     queryWrapper->setUpperBound(layer, node, value);
-
 }
 
-void MarabouVerifier::MarabouImpl::addLowerBound(LayerIndex layer, NodeIndex node, float value) {
+void MarabouVerifier::MarabouImpl::addLowerBound(LayerIndex layer, NodeIndex node, Float value) {
     queryWrapper->setLowerBound(layer, node, value);
 }
 
-//void  MarabouVerifier::MarabouImpl::addClassificationConstraint(NodeIndex node, float threshold){
+//void  MarabouVerifier::MarabouImpl::addClassificationConstraint(NodeIndex node, Float threshold){
 //    throw std::logic_error("Unimplemented!");
 //}
-void MarabouVerifier::MarabouImpl::addClassificationConstraint(NodeIndex node, float threshold) {
+void MarabouVerifier::MarabouImpl::addClassificationConstraint(NodeIndex node, Float threshold) {
     queryWrapper->addClassificationConstraint(node, threshold);
 }
 } // namespace xai::verifiers

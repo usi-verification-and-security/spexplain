@@ -15,7 +15,7 @@ namespace xai::verifiers {
 using namespace opensmt;
 
 namespace { // Helper methods
-FastRational floatToRational(float value);
+FastRational floatToRational(Float value);
 }
 
 class OpenSMTVerifier::OpenSMTImpl {
@@ -31,16 +31,16 @@ public:
     void addTerm(PTRef const &);
     void addExplanationTerm(PTRef const &, std::string termNamePrefix = "");
 
-    PTRef makeUpperBound(LayerIndex layer, NodeIndex node, float value) {
+    PTRef makeUpperBound(LayerIndex layer, NodeIndex node, Float value) {
         return makeUpperBound(layer, node, floatToRational(value));
     }
-    PTRef makeLowerBound(LayerIndex layer, NodeIndex node, float value) {
+    PTRef makeLowerBound(LayerIndex layer, NodeIndex node, Float value) {
         return makeLowerBound(layer, node, floatToRational(value));
     }
-    PTRef makeEquality(LayerIndex layer, NodeIndex node, float value) {
+    PTRef makeEquality(LayerIndex layer, NodeIndex node, Float value) {
         return makeEquality(layer, node, floatToRational(value));
     }
-    PTRef makeInterval(LayerIndex layer, NodeIndex node, float lo, float hi) {
+    PTRef makeInterval(LayerIndex layer, NodeIndex node, Float lo, Float hi) {
         return makeInterval(layer, node, floatToRational(lo), floatToRational(hi));
     }
     PTRef makeUpperBound(LayerIndex layer, NodeIndex node, FastRational value);
@@ -51,14 +51,14 @@ public:
     }
     PTRef makeInterval(LayerIndex layer, NodeIndex node, FastRational lo, FastRational hi);
 
-    PTRef addUpperBound(LayerIndex layer, NodeIndex node, float value, bool explanationTerm = false);
-    PTRef addLowerBound(LayerIndex layer, NodeIndex node, float value, bool explanationTerm = false);
-    PTRef addEquality(LayerIndex layer, NodeIndex node, float value, bool explanationTerm = false);
-    PTRef addInterval(LayerIndex layer, NodeIndex node, float lo, float hi, bool explanationTerm = false);
+    PTRef addUpperBound(LayerIndex layer, NodeIndex node, Float value, bool explanationTerm = false);
+    PTRef addLowerBound(LayerIndex layer, NodeIndex node, Float value, bool explanationTerm = false);
+    PTRef addEquality(LayerIndex layer, NodeIndex node, Float value, bool explanationTerm = false);
+    PTRef addInterval(LayerIndex layer, NodeIndex node, Float lo, Float hi, bool explanationTerm = false);
 
-    void addClassificationConstraint(NodeIndex node, float threshold);
+    void addClassificationConstraint(NodeIndex node, Float threshold);
 
-    void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs);
+    void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, Float rhs);
 
     void init();
 
@@ -144,27 +144,27 @@ void OpenSMTVerifier::addExplanationTerm(PTRef const & term, std::string termNam
     pimpl->addExplanationTerm(term, std::move(termNamePrefix));
 }
 
-void OpenSMTVerifier::addUpperBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm) {
+void OpenSMTVerifier::addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm) {
     pimpl->addUpperBound(layer, var, value, explanationTerm);
 }
 
-void OpenSMTVerifier::addLowerBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm) {
+void OpenSMTVerifier::addLowerBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm) {
     pimpl->addLowerBound(layer, var, value, explanationTerm);
 }
 
-void OpenSMTVerifier::addEquality(LayerIndex layer, NodeIndex var, float value, bool explanationTerm) {
+void OpenSMTVerifier::addEquality(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm) {
     pimpl->addEquality(layer, var, value, explanationTerm);
 }
 
-void OpenSMTVerifier::addInterval(LayerIndex layer, NodeIndex var, float lo, float hi, bool explanationTerm) {
+void OpenSMTVerifier::addInterval(LayerIndex layer, NodeIndex var, Float lo, Float hi, bool explanationTerm) {
     pimpl->addInterval(layer, var, lo, hi, explanationTerm);
 }
 
-void OpenSMTVerifier::addClassificationConstraint(NodeIndex node, float threshold=0) {
+void OpenSMTVerifier::addClassificationConstraint(NodeIndex node, Float threshold=0) {
     pimpl->addClassificationConstraint(node, threshold);
 }
 
-void OpenSMTVerifier::addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs) {
+void OpenSMTVerifier::addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, Float rhs) {
     pimpl->addConstraint(layer, lhs, rhs);
 }
 
@@ -220,7 +220,7 @@ void OpenSMTVerifier::printSmtLib2Query(std::ostream & os) const {
  */
 
 namespace { // Helper methods
-FastRational floatToRational(float value) {
+FastRational floatToRational(Float value) {
     auto s = std::to_string(value);
     char* rationalString;
     opensmt::stringToRational(rationalString, s.c_str());
@@ -287,7 +287,7 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
         std::vector<PTRef> currentLayerRefs;
         for (NodeIndex node = 0u; node < network.getLayerSize(layer); ++node) {
             std::vector<PTRef> addends;
-            float bias = network.getBias(layer, node);
+            Float bias = network.getBias(layer, node);
             auto const & weights = network.getWeights(layer, node);
             PTRef biasTerm = logic->mkRealConst(floatToRational(bias));
             addends.push_back(biasTerm);
@@ -312,7 +312,7 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
     outputVars.clear();
     for (NodeIndex node = 0u; node < lastLayerSize; ++node) {
         std::vector<PTRef> addends;
-        float bias = network.getBias(lastLayerIndex, node);
+        Float bias = network.getBias(lastLayerIndex, node);
         auto const & weights = network.getWeights(lastLayerIndex, node);
         PTRef biasTerm = logic->mkRealConst(floatToRational(bias));
         addends.push_back(biasTerm);
@@ -336,8 +336,8 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
     std::vector<PTRef> bounds;
     assert(network.getLayerSize(0) == inputVars.size());
     for (NodeIndex i = 0; i < inputVars.size(); ++i) {
-        float lb = network.getInputLowerBound(i);
-        float ub = network.getInputUpperBound(i);
+        Float lb = network.getInputLowerBound(i);
+        Float ub = network.getInputUpperBound(i);
         bounds.push_back(logic->mkGeq(inputVars[i], logic->mkRealConst(floatToRational(lb))));
         bounds.push_back(logic->mkLeq(inputVars[i], logic->mkRealConst(floatToRational(ub))));
     }
@@ -389,7 +389,7 @@ PTRef OpenSMTVerifier::OpenSMTImpl::makeInterval(LayerIndex layer, NodeIndex nod
     return logic->mkAnd(lterm, uterm);
 }
 
-PTRef OpenSMTVerifier::OpenSMTImpl::addUpperBound(LayerIndex layer, NodeIndex node, float value, bool explanationTerm) {
+PTRef OpenSMTVerifier::OpenSMTImpl::addUpperBound(LayerIndex layer, NodeIndex node, Float value, bool explanationTerm) {
     PTRef term = makeUpperBound(layer, node, value);
     if (not explanationTerm) {
         addTerm(term);
@@ -404,7 +404,7 @@ PTRef OpenSMTVerifier::OpenSMTImpl::addUpperBound(LayerIndex layer, NodeIndex no
     return term;
 }
 
-PTRef OpenSMTVerifier::OpenSMTImpl::addLowerBound(LayerIndex layer, NodeIndex node, float value, bool explanationTerm) {
+PTRef OpenSMTVerifier::OpenSMTImpl::addLowerBound(LayerIndex layer, NodeIndex node, Float value, bool explanationTerm) {
     PTRef term = makeLowerBound(layer, node, value);
     if (not explanationTerm) {
         addTerm(term);
@@ -419,7 +419,7 @@ PTRef OpenSMTVerifier::OpenSMTImpl::addLowerBound(LayerIndex layer, NodeIndex no
     return term;
 }
 
-PTRef OpenSMTVerifier::OpenSMTImpl::addEquality(LayerIndex layer, NodeIndex node, float value, bool explanationTerm) {
+PTRef OpenSMTVerifier::OpenSMTImpl::addEquality(LayerIndex layer, NodeIndex node, Float value, bool explanationTerm) {
     PTRef term = makeEquality(layer, node, value);
     if (not explanationTerm) {
         addTerm(term);
@@ -434,7 +434,7 @@ PTRef OpenSMTVerifier::OpenSMTImpl::addEquality(LayerIndex layer, NodeIndex node
     return term;
 }
 
-PTRef OpenSMTVerifier::OpenSMTImpl::addInterval(LayerIndex layer, NodeIndex node, float lo, float hi, bool explanationTerm) {
+PTRef OpenSMTVerifier::OpenSMTImpl::addInterval(LayerIndex layer, NodeIndex node, Float lo, Float hi, bool explanationTerm) {
     PTRef term = makeInterval(layer, node, lo, hi);
     if (not explanationTerm) {
         addTerm(term);
@@ -449,7 +449,7 @@ PTRef OpenSMTVerifier::OpenSMTImpl::addInterval(LayerIndex layer, NodeIndex node
     return term;
 }
 
-void OpenSMTVerifier::OpenSMTImpl::addClassificationConstraint(NodeIndex node, float threshold=0.0){
+void OpenSMTVerifier::OpenSMTImpl::addClassificationConstraint(NodeIndex node, Float threshold=0.0){
     // Ensure the node index is within the range of outputVars
     if (node >= outputVars.size()) {
         throw std::out_of_range("Node index is out of range for outputVars.");
@@ -475,7 +475,7 @@ void OpenSMTVerifier::OpenSMTImpl::addClassificationConstraint(NodeIndex node, f
 }
 
 void
-OpenSMTVerifier::OpenSMTImpl::addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs) {
+OpenSMTVerifier::OpenSMTImpl::addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, Float rhs) {
     throw std::logic_error("Unimplemented!");
 }
 

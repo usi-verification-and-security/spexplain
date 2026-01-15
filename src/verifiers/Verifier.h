@@ -12,6 +12,8 @@ namespace xai::verifiers {
 using NodeIndex = std::size_t;
 using LayerIndex = std::size_t;
 
+using spexplain::Float;
+
 class Verifier {
 public:
     enum class Answer { SAT, UNSAT, UNKNOWN, ERROR };
@@ -25,19 +27,19 @@ public:
 
     virtual void loadModel(spexplain::Network const &) = 0;
 
-    virtual void addUpperBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) = 0;
-    virtual void addLowerBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) = 0;
-    virtual void addEquality(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) {
+    virtual void addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) = 0;
+    virtual void addLowerBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) = 0;
+    virtual void addEquality(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) {
         addInterval(layer, var, value, value, explanationTerm);
     }
-    virtual void addInterval(LayerIndex layer, NodeIndex var, float lo, float hi, bool explanationTerm = false) {
+    virtual void addInterval(LayerIndex layer, NodeIndex var, Float lo, Float hi, bool explanationTerm = false) {
         addUpperBound(layer, var, hi, explanationTerm);
         addLowerBound(layer, var, lo, explanationTerm);
     }
 
-    virtual void addClassificationConstraint(NodeIndex node, float threshold) = 0;
+    virtual void addClassificationConstraint(NodeIndex node, Float threshold) = 0;
 
-    virtual void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs) = 0;
+    virtual void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, Float rhs) = 0;
 
     virtual void init() {
         initImpl();

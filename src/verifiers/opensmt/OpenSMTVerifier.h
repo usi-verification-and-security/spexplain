@@ -32,15 +32,15 @@ public:
     void addTerm(::opensmt::PTRef const &);
     void addExplanationTerm(::opensmt::PTRef const &, std::string termNamePrefix = "");
 
-    void addUpperBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) override;
-    void addLowerBound(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) override;
+    void addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) override;
+    void addLowerBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) override;
     // Ensure that equalities and intervals correspond to just one assertion
-    void addEquality(LayerIndex layer, NodeIndex var, float value, bool explanationTerm = false) override;
-    void addInterval(LayerIndex layer, NodeIndex var, float lo, float hi, bool explanationTerm = false) override;
+    void addEquality(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) override;
+    void addInterval(LayerIndex layer, NodeIndex var, Float lo, Float hi, bool explanationTerm = false) override;
 
-    void addClassificationConstraint(NodeIndex node, float threshold) override;
+    void addClassificationConstraint(NodeIndex node, Float threshold) override;
 
-    void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, float rhs) override;
+    void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, Float rhs) override;
 
     void resetSampleQuery() override;
     void resetSample() override;
