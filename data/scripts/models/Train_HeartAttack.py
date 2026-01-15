@@ -86,8 +86,8 @@ if __name__ == '__main__':
         X = df.iloc[:, :-1].values
         y = df.iloc[:, -1].values
 
-        scaler = MinMaxScaler()
-        X = scaler.fit_transform(X)
+        # scaler = MinMaxScaler()
+        # X = scaler.fit_transform(X)
 
         X_tensor = torch.FloatTensor(X)
         y_tensor = torch.LongTensor(y)
