@@ -12,9 +12,14 @@ import torch
 ########################
 model_task = "heart_attack"  # options: "mnist", "cifar10", "gtsrb", "heart_attack"
 
-pytorchFile = "data/models/heart_attack/heart_attack_50x10.pth"
+pytorchFile = "data/models/heart_attack/heart_attack_50x1.pth"
 samples_file = "data/datasets/heart_attack/heart_attack_s100_scaled.csv"
-activations_changes_file = 'data/activation_change/heart_attack/activation_HA_50x10.txt'
+activations_changes_file = 'data/activation_change/heart_attack/activation_HA_50x1.txt'
+
+if model_task in ["heart_attack"]:
+    binary_classifier = True
+else:
+    binary_classifier = False
 
 checkpoint = torch.load(pytorchFile, map_location=torch.device('cpu'))
 scaled = True
@@ -23,7 +28,10 @@ try:
     input_dim = checkpoint["input_dim"]
     hidden_size = checkpoint["hidden_size"]
     num_layers = checkpoint["num_layers"]
-    num_classes = checkpoint["num_classes"]
+    try:
+        num_classes = checkpoint["output_dim"]
+    except KeyError:
+        num_classes = checkpoint["num_classes"]
 except KeyError:
     # Fallback to default values if keys are not found
     print("Fail to load hyperparameters from checkpoint, using default values.")
@@ -193,23 +201,34 @@ for row in df.itertuples(index=False):
     img_flat = torch.from_numpy(pixels).to(device).view(1, -1)
 
     with torch.no_grad():
-        orig_pred = model(img_flat).argmax(dim=1)
-    if orig_pred.item() != row[-1]:
-        print("****** miss-classified example! Target: %s ******", row[-1] )
-
-    # target = torch.tensor(7, device=device)  # e.g., want class 7
-    x_cf, cf_pred = pgd_counterfactual(
-            model,
-            img_flat,
-            true_label=orig_pred,
-            # target_label=target,
-            epsilon=0.3 * norm_factor,
-            step_size=0.01 * norm_factor,
-            num_steps=40,
-            clamp_min=0.0,
-            clamp_max=norm_factor,
-            targeted=False
-    )
+        if binary_classifier:
+            output = model(img_flat)
+            orig_pred = (output > 0).long().squeeze(0)
+            x_cf, cf_pred = pgd_counterfactual_binary(model,
+                      img_flat,
+                      true_label=orig_pred,
+                      # target_label=target,
+                      epsilon=0.3 * norm_factor,
+                      step_size=0.01 * norm_factor,
+                      num_steps=40,
+                      clamp_min=0.0,
+                      clamp_max=norm_factor,
+                      targeted=False)
+        else:
+            orig_pred = model(img_flat).argmax(dim=1)
+            # target = torch.tensor(7, device=device)  # e.g., want class 7
+            x_cf, cf_pred = pgd_counterfactual(
+                    model,
+                    img_flat,
+                    true_label=orig_pred,
+                    # target_label=target,
+                    epsilon=0.3 * norm_factor,
+                    step_size=0.01 * norm_factor,
+                    num_steps=40,
+                    clamp_min=0.0,
+                    clamp_max=norm_factor,
+                    targeted=False
+            )
 
     print("Original:", orig_pred.item(), "Counterfactual:", cf_pred.item())
     if cf_pred.item() == orig_pred.item():
