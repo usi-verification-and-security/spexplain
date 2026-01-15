@@ -520,7 +520,7 @@ PTRef OpenSMTVerifier::OpenSMTImpl::encodeNeuron(LayerIndex layer, NodeIndex nod
 
     PTRef activeCond;
     PTRef inactiveCond;
-    if (not(isSingleHiddenLayer and encodeNeuronVars)) {
+    if (storeNeuronTerms or not(isSingleHiddenLayer and encodeNeuronVars)) {
         activeCond = activeCondF(*logic, condInput, zero);
         inactiveCond = inactiveCondF(*logic, condInput, zero);
     }
