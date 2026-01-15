@@ -13,8 +13,8 @@ import torch
 ########################
 model_task = "heart_attack"  # options: "mnist", "cifar10", "gtsrb", "heart_attack"
 
-pytorchFile = "data/models/heart_attack/heart_attack_50x10.pth"
-nnetFile= "data/models/heart_attack/heart_attack_50x10.nnet"
+pytorchFile = "data/models/heart_attack/heart_attack_50x1.pth"
+nnetFile= "data/models/heart_attack/heart_attack_50x1.nnet"
 scaled = True
 checkpoint = torch.load(pytorchFile, map_location=torch.device('cpu'))
 
@@ -67,18 +67,6 @@ else:
     model = FCNet(input_dim, hidden_size=hidden_size,
                         num_layers=num_layers, num_classes=num_classes)
 
-if model_task == "heart_attack":
-    input_min = [29,0,0,94,126,0,0,71,0,0,0,0,0]
-    input_max = [77,1,3,200,594,1,2,202,1,6.2,2,4,3]
-elif model_task in ['mnist', 'cifar10', 'gtsrb']:
-    input_min= 0
-    input_max =255
-elif model_task == "obesity":
-    input_min = [-1.0,-1.38,-2.62,-2.07,-2.54,-2.63,-2.19,-3.87,-0.14,-1.66,-0.24,-1.16,-1.08,-2.46,-1.98]
-    input_max = [1.0,4.16,2.45,0.49,0.4,1.12,1.71,2.39,7.6,1.63,4.31,2.27,2.15,1.46,1.31]
-else:
-    input_min = -1000000
-    input_max = 1000000
 def pytorch2nnet(model, nnetFile, input_min=-1000000, input_max=1000000):
     # Extract weights and biases from the model
     weights = []
