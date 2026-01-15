@@ -13,8 +13,8 @@ import torch
 ########################
 model_task = "heart_attack"  # options: "mnist", "cifar10", "gtsrb", "heart_attack"
 
-pytorchFile = "data/models/heart_attack/heart_attack_50x1.pth"
-nnetFile= "data/models/heart_attack/heart_attack_50x1.nnet"
+pytorchFile = "data/models/heart_attack/heart_attack_50x10.pth"
+nnetFile= "data/models/heart_attack/heart_attack_50x10.nnet"
 scaled = True
 checkpoint = torch.load(pytorchFile, map_location=torch.device('cpu'))
 
