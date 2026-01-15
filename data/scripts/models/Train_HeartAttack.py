@@ -71,7 +71,7 @@ def evaluate(model, loader, criterion, device):
 
 
 if __name__ == '__main__':
-    for num_layers in [4,6,8,10]:
+    for num_layers in [1,2,4,6,8,10]:
         saving_file_name = f"heart_attack_{hidden_size}x{num_layers}.pth"
 
         os.makedirs(save_dir, exist_ok=True)
