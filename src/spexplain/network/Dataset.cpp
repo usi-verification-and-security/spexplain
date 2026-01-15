@@ -28,7 +28,7 @@ Network::Dataset::Dataset(std::string_view fileName) {
         std::string field;
         Sample sample;
         while (std::getline(ss, field, ',')) {
-            sample.push_back(std::stof(field));
+            sample.push_back(std::stod(field));
         }
         assert(not sample.empty());
         Float expectedClassFloat = sample.back();

@@ -4,7 +4,7 @@
 #include <utility>
 
 namespace spexplain {
-using Float = float;
+using Float = double;
 } // namespace spexplain
 
 #endif // SPEXPLAIN_CORE_H

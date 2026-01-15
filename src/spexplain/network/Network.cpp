@@ -72,7 +72,7 @@ std::unique_ptr<Network> Network::fromNNetFile(std::string_view filename) {
     std::getline(file, line);
 
     // Min and max input values
-    auto transformation = [](auto const & val) { return std::stof(val); };
+    auto transformation = [](auto const & val) { return std::stod(val); };
     std::getline(file, line);
     auto inputMinValues = static_cast<Values &&>(parseValues(line, transformation));
     std::getline(file, line);
@@ -95,7 +95,7 @@ std::unique_ptr<Network> Network::fromNNetFile(std::string_view filename) {
             std::vector<std::string> weightStrings = split(line, ',');
             weights[layer].emplace_back();
             for (auto const & weightString : weightStrings) {
-                weights[layer][i].push_back(std::stof(weightString));
+                weights[layer][i].push_back(std::stod(weightString));
             }
         }
 
@@ -104,7 +104,7 @@ std::unique_ptr<Network> Network::fromNNetFile(std::string_view filename) {
             std::getline(file, line);
             std::vector<std::string> biasStrings = split(line, ',');
             std::string biasString = biasStrings[0];
-            biases[layer].push_back(std::stof(biasString));
+            biases[layer].push_back(std::stod(biasString));
         }
     }
     file.close();
