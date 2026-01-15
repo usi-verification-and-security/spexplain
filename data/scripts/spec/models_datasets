@@ -9,19 +9,45 @@ OUTPUT_DIRS=(
     explanations/heart_attack/50x1/naive
     explanations/heart_attack/50x1/fix-all
     explanations/heart_attack/50x1/fix-guided
-    explanations/heart_attack/50x1/prefer-guided
+    explanations/heart_attack/50x1/prefer-all
     explanations/heart_attack/50x2/naive
     explanations/heart_attack/50x2/fix-all
     explanations/heart_attack/50x2/fix-guided
-    explanations/heart_attack/50x2/prefer-guided
+    explanations/heart_attack/50x2/prefer-all
     explanations/heart_attack/50x4/naive
     explanations/heart_attack/50x4/fix-all
     explanations/heart_attack/50x4/fix-guided
-    explanations/heart_attack/50x4/prefer-guided
+    explanations/heart_attack/50x4/prefer-all
     explanations/heart_attack/50x6/naive
     explanations/heart_attack/50x6/fix-all
     explanations/heart_attack/50x6/fix-guided
-    explanations/heart_attack/50x6/prefer-guided
+    explanations/heart_attack/50x6/prefer-all
+
+    explanations/cifar/50x1/naive
+    explanations/cifar/50x1/fix-all
+    explanations/cifar/50x1/fix-guided
+    explanations/cifar/50x1/prefer-all
+    explanations/cifar/50x2/naive
+    explanations/cifar/50x2/fix-all
+    explanations/cifar/50x2/fix-guided
+    explanations/cifar/50x2/prefer-all
+    explanations/cifar/50x4/naive
+    explanations/cifar/50x4/fix-all
+    explanations/cifar/50x4/fix-guided
+    explanations/cifar/50x4/prefer-all
+    explanations/cifar/50x6/naive
+    explanations/cifar/50x6/fix-all
+    explanations/cifar/50x6/fix-guided
+    explanations/cifar/50x6/prefer-all
+    explanations/cifar/50x8/naive
+    explanations/cifar/50x8/fix-all
+    explanations/cifar/50x8/fix-guided
+    explanations/cifar/50x8/prefer-all
+    explanations/cifar/50x10/naive
+    explanations/cifar/50x10/fix-all
+    explanations/cifar/50x10/fix-guided
+    explanations/cifar/50x10/prefer-all
+
 
     explanations/obesity/full
     explanations/obesity/short
@@ -52,6 +78,31 @@ MODELS=(
     models/heart_attack/heart_attack_50x6.nnet
     models/heart_attack/heart_attack_50x6.nnet
 
+    models/cifar/cifar_50x1.nnet
+    models/cifar/cifar_50x1.nnet
+    models/cifar/cifar_50x1.nnet
+    models/cifar/cifar_50x1.nnet
+    models/cifar/cifar_50x2.nnet
+    models/cifar/cifar_50x2.nnet
+    models/cifar/cifar_50x2.nnet
+    models/cifar/cifar_50x2.nnet
+    models/cifar/cifar_50x4.nnet
+    models/cifar/cifar_50x4.nnet
+    models/cifar/cifar_50x4.nnet
+    models/cifar/cifar_50x4.nnet
+    models/cifar/cifar_50x6.nnet
+    models/cifar/cifar_50x6.nnet
+    models/cifar/cifar_50x6.nnet
+    models/cifar/cifar_50x6.nnet
+    models/cifar/cifar_50x8.nnet
+    models/cifar/cifar_50x8.nnet
+    models/cifar/cifar_50x8.nnet
+    models/cifar/cifar_50x8.nnet
+    models/cifar/cifar_50x10.nnet
+    models/cifar/cifar_50x10.nnet
+    models/cifar/cifar_50x10.nnet
+    models/cifar/cifar_50x10.nnet
+
 
     models/obesity/obesity-10-20-10.nnet
     models/obesity/obesity-10-20-10.nnet
@@ -81,6 +132,31 @@ DATASETS=(
     datasets/heart_attack/heart_attack_s100_scaled.csv
     datasets/heart_attack/heart_attack_s100_scaled.csv
     datasets/heart_attack/heart_attack_s100_scaled.csv
+
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
 
     datasets/obesity/obesity_full.csv
     #+ slight approximation of obesity_full (probably just floats printed differently)

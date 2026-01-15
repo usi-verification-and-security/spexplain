@@ -7,59 +7,6 @@ from pgd_counterfactual import *
 
 import torch
 
-########################
-# Hyperparameters
-########################
-model_task = "heart_attack"  # options: "mnist", "cifar10", "gtsrb", "heart_attack"
-
-pytorchFile = "data/models/heart_attack/heart_attack_50x1.pth"
-samples_file = "data/datasets/heart_attack/heart_attack_s100_scaled.csv"
-activations_changes_file = 'data/activation_change/heart_attack/activation_HA_50x1.txt'
-
-if model_task in ["heart_attack"]:
-    binary_classifier = True
-else:
-    binary_classifier = False
-
-checkpoint = torch.load(pytorchFile, map_location=torch.device('cpu'))
-scaled = True
-# Extract hyperparameters from checkpoint
-try:
-    input_dim = checkpoint["input_dim"]
-    hidden_size = checkpoint["hidden_size"]
-    num_layers = checkpoint["num_layers"]
-    try:
-        num_classes = checkpoint["output_dim"]
-    except KeyError:
-        num_classes = checkpoint["num_classes"]
-except KeyError:
-    # Fallback to default values if keys are not found
-    print("Fail to load hyperparameters from checkpoint, using default values.")
-    input_dim = 13
-    hidden_size = 50
-    num_layers = 2
-    num_classes = 2
-
-print(f"\nModel: {pytorchFile} with parameters:")
-print(f"Input Dimension: {input_dim}")
-print(f"Hidden Size: {hidden_size}")
-print(f"Number of Layers: {num_layers}")
-print(f"Number of Classes: {num_classes}")
-print("==============================\n")
-
-model = FCNet(input_dim, hidden_size=hidden_size,
-              num_layers=num_layers, num_classes=num_classes)
-
-if scaled:
-    norm_factor = 1
-else:
-    if model_task in ['mnist', 'cifar10', 'gtsrb']:
-        norm_factor = 255
-    else:
-        norm_factor = 1
-        print("Warning: no normalization factor for this dataset.")
-
-
 # ---- helper: register hooks to capture post-ReLU activations ----
 def get_activation_hook(activations_dict, name):
     def hook(module, input, output):
@@ -177,89 +124,145 @@ def compare_activations_generic(model, x_orig, x_cf, threshold=0.0):
     return changes
 
 ########################
-# Load dataset
-df = pd.read_csv(samples_file)
-# lables = df['target']
-# df.drop('target', axis=1, inplace=True)
 
+########################
+# Hyperparameters
+########################
+model_task = "cifar"  # options: "mnist", "cifar", "gtsrb", "heart_attack"
 
-# Load the state_dict into the model
-try:
-    model.load_state_dict(checkpoint["model_state_dict"])
-except:
-    state_dict = torch.load(pytorchFile, map_location=torch.device('cpu'))
-    model.load_state_dict(state_dict)
+for num_layers in [1,2,4,6,8,10]:
+    hidden_layers_size = 50
+    pytorchFile = f"data/models/{model_task}/{model_task}_{hidden_layers_size}x{num_layers}.pth"
+    activations_changes_file = f'data/activation_change/{model_task}/activation_{model_task}_50x1.txt'
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model.to(device)
-model.eval()
+    samples_file = f"data/datasets/{model_task}/{model_task}_s100_scaled.csv"
 
-idx = 0 # sample index
-for row in df.itertuples(index=False):
-    idx += 1
-    pixels = np.array(row[:-1], dtype=np.float32)
-    img_flat = torch.from_numpy(pixels).to(device).view(1, -1)
+    if model_task in ["heart_attack"]:
+        binary_classifier = True
+    else:
+        binary_classifier = False
 
-    with torch.no_grad():
-        if binary_classifier:
-            output = model(img_flat)
-            orig_pred = (output > 0).long().squeeze(0)
-            x_cf, cf_pred = pgd_counterfactual_binary(model,
-                      img_flat,
-                      true_label=orig_pred,
-                      # target_label=target,
-                      epsilon=0.3 * norm_factor,
-                      step_size=0.01 * norm_factor,
-                      num_steps=40,
-                      clamp_min=0.0,
-                      clamp_max=norm_factor,
-                      targeted=False)
+    checkpoint = torch.load(pytorchFile, map_location=torch.device('cpu'))
+    scaled = True
+    # Extract hyperparameters from checkpoint
+    try:
+        input_dim = checkpoint["input_dim"]
+        hidden_size = checkpoint["hidden_size"]
+        num_layers = checkpoint["num_layers"]
+        try:
+            num_classes = checkpoint["output_dim"]
+        except KeyError:
+            num_classes = checkpoint["num_classes"]
+    except KeyError:
+        # Fallback to default values if keys are not found
+        print("Fail to load hyperparameters from checkpoint, using default values.")
+        input_dim = 13
+        hidden_size = 50
+        num_layers = 2
+        num_classes = 2
+
+    print(f"\nModel: {pytorchFile} with parameters:")
+    print(f"Input Dimension: {input_dim}")
+    print(f"Hidden Size: {hidden_size}")
+    print(f"Number of Layers: {num_layers}")
+    print(f"Number of Classes: {num_classes}")
+    print("==============================\n")
+
+    model = FCNet(input_dim, hidden_size=hidden_size,
+                  num_layers=num_layers, num_classes=num_classes)
+
+    if scaled:
+        norm_factor = 1
+    else:
+        if model_task in ['mnist', 'cifar', 'gtsrb']:
+            norm_factor = 255
         else:
-            orig_pred = model(img_flat).argmax(dim=1)
-            # target = torch.tensor(7, device=device)  # e.g., want class 7
-            x_cf, cf_pred = pgd_counterfactual(
-                    model,
-                    img_flat,
-                    true_label=orig_pred,
-                    # target_label=target,
-                    epsilon=0.3 * norm_factor,
-                    step_size=0.01 * norm_factor,
-                    num_steps=40,
-                    clamp_min=0.0,
-                    clamp_max=norm_factor,
-                    targeted=False
-            )
+            norm_factor = 1
+            print("Warning: no normalization factor for this dataset.")
 
-    print("Original:", orig_pred.item(), "Counterfactual:", cf_pred.item())
-    if cf_pred.item() == orig_pred.item():
-        print("********** Failed to generate valid counterfactual. **********")
-        continue
+    # Load dataset
+    df = pd.read_csv(samples_file)
+    # lables = df['target']
+    # df.drop('target', axis=1, inplace=True)
 
-    # Print difference in input
-    input_diff = x_cf - img_flat
-    print("Input difference (L_inf):", torch.max(torch.abs(input_diff)).item())
-    print("Input difference (L_2):", torch.norm(input_diff, p=2).item())
 
-    changes = compare_activations_generic(model, img_flat, x_cf)
+    # Load the state_dict into the model
+    try:
+        model.load_state_dict(checkpoint["model_state_dict"])
+    except:
+        state_dict = torch.load(pytorchFile, map_location=torch.device('cpu'))
+        model.load_state_dict(state_dict)
 
-    # Print activation changes per layer
-    for layer, info in changes.items():
-        print(f"=== {layer} ===")
-        print("flipped ON (0 -> >0):", info['flipped_on_idx'].tolist())
-        print("flipped OFF (>0 -> 0):", info['flipped_off_idx'].tolist())
-        print("any change:", info['any_change_idx'].tolist())
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+    model.eval()
 
-    # Append sample and per-layer any_change masks to `activation_changes.txt`
-    # Place this inside the loop after `changes = compare_activations_generic(...)`
-    with open(activations_changes_file, 'a') as out_f:
-        out_f.write(f"{idx}\n")
-        # sample_pixels = ','.join(str(int(p)) for p in row[:-1])
-        # out_f.write(sample_pixels + "\n")
+    idx = 0 # sample index
+    for row in df.itertuples(index=False):
+        idx += 1
+        pixels = np.array(row[:-1], dtype=np.float32)
+        img_flat = torch.from_numpy(pixels).to(device).view(1, -1)
 
-        for layer_idx, (layer_name, info) in enumerate(list(changes.items())[:-1]):
-            # any_mask = (info['orig_active'] ^ info['cf_active']).to('cpu').numpy().astype(int)
-            line = ' '.join(str(x+1) for x in info['fixed_idx'].tolist())
-            out_f.write(line + " 0" + "\n")
+        with torch.no_grad():
+            if binary_classifier:
+                output = model(img_flat)
+                orig_pred = (output > 0).long().squeeze(0)
+                x_cf, cf_pred = pgd_counterfactual_binary(model,
+                          img_flat,
+                          true_label=orig_pred,
+                          # target_label=target,
+                          epsilon=0.3 * norm_factor,
+                          step_size=0.01 * norm_factor,
+                          num_steps=40,
+                          clamp_min=0.0,
+                          clamp_max=norm_factor,
+                          targeted=False)
+            else:
+                orig_pred = model(img_flat).argmax(dim=1)
+                # target = torch.tensor(7, device=device)  # e.g., want class 7
+                x_cf, cf_pred = pgd_counterfactual(
+                        model,
+                        img_flat,
+                        true_label=orig_pred,
+                        # target_label=target,
+                        epsilon=0.3 * norm_factor,
+                        step_size=0.01 * norm_factor,
+                        num_steps=40,
+                        clamp_min=0.0,
+                        clamp_max=norm_factor,
+                        targeted=False
+                )
 
-        # separate samples
-        out_f.write("\n")
+        print("Original:", orig_pred.item(), "Counterfactual:", cf_pred.item())
+        if cf_pred.item() == orig_pred.item():
+            print("********** Failed to generate valid counterfactual. **********")
+            continue
+
+        # Print difference in input
+        input_diff = x_cf - img_flat
+        print("Input difference (L_inf):", torch.max(torch.abs(input_diff)).item())
+        print("Input difference (L_2):", torch.norm(input_diff, p=2).item())
+
+        changes = compare_activations_generic(model, img_flat, x_cf)
+
+        # Print activation changes per layer
+        for layer, info in changes.items():
+            print(f"=== {layer} ===")
+            print("flipped ON (0 -> >0):", info['flipped_on_idx'].tolist())
+            print("flipped OFF (>0 -> 0):", info['flipped_off_idx'].tolist())
+            print("any change:", info['any_change_idx'].tolist())
+
+        # Append sample and per-layer any_change masks to `activation_changes.txt`
+        # Place this inside the loop after `changes = compare_activations_generic(...)`
+        with open(activations_changes_file, 'a') as out_f:
+            out_f.write(f"{idx}\n")
+            # sample_pixels = ','.join(str(int(p)) for p in row[:-1])
+            # out_f.write(sample_pixels + "\n")
+
+            for layer_idx, (layer_name, info) in enumerate(list(changes.items())[:-1]):
+                # any_mask = (info['orig_active'] ^ info['cf_active']).to('cpu').numpy().astype(int)
+                line = ' '.join(str(x+1) for x in info['fixed_idx'].tolist())
+                out_f.write(line + " 0" + "\n")
+
+            # separate samples
+            out_f.write("\n")
