@@ -97,4 +97,4 @@ OPTIONS+=(
     --output-times=\"$times_file\"
 )
 
-exec timeout $TIMEOUT bash -c "{ time ${CMD} \"$MODEL\" \"$DATASET\" \"$STRATEGIES\" ${OPTIONS[*]} "'"$@"'" >\"$out_file\" 2>\"$err_file\" ; } 2>\"$time_file\"" spexplain "$@"
+exec $TIMEOUT_CMD bash -c "{ time ${CMD} \"$MODEL\" \"$DATASET\" \"$STRATEGIES\" ${OPTIONS[*]} "'"$@"'" >\"$out_file\" 2>\"$err_file\" ; } 2>\"$time_file\"" spexplain "$@"

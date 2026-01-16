@@ -45,8 +45,8 @@ Any other arguments that will be forwarded to `spexplain`.
 ### Environment variables
 
 * `CMD`: sets the `spexplain` executable (default: `../../build/spexplain`)
-* `TIMEOUT`: overall timeout for the execution (default: `30m`); the duration is a number with an optional suffix: `s` for seconds (default), `m` for minutes, `h` for hours or `d` for days
-* `TIMEOUT_PER`: solving timeout per explanation (refers to option `-t` of `spexplain`); the duration format is the same as in `TIMEOUT`
+* `TIMEOUT`: optional overall timeout for the execution; the duration is a number with an optional suffix: `s` for seconds (default), `m` for minutes, `h` for hours or `d` for days
+* `TIMEOUT_PER`: optional timeout per explanation (refers to option `-t` of `spexplain`); the duration format is the same as in `TIMEOUT`
 * `SRC_EXPERIMENT`: sets already computed explanations with a given name (corresponding to `<name>` at that time) as the input, instead of using the original sample points (refers to option `-E` of `spexplain`)
 
 ### Examples
@@ -136,7 +136,7 @@ Only experiments with the name that matches the given regular expression will be
 
 * `CPU_PERCENTAGE`: the percentage of used CPUs (default: `60`)
 * `OPTIONS`: additional arguments passed to the `run1.sh` script
-* Variables `CMD` and `TIMEOUT` as described for the `run1.sh` script above
+* Variables `CMD`, `TIMEOUT` and `TIMEOUT_PER` as described for the `run1.sh` script above
 
 ### Examples
 

@@ -49,10 +49,19 @@ function set_cmd {
 TIMEOUT_STATUS=124
 
 function set_timeout {
-    [[ -z $TIMEOUT ]] && TIMEOUT=30m
+    # [[ -z $TIMEOUT ]] && TIMEOUT=30m
+    ## No default value
     export TIMEOUT
+
     ## No default value
     export TIMEOUT_PER
+
+    if [[ -z $TIMEOUT ]]; then
+        unset TIMEOUT_CMD
+    else
+        TIMEOUT_CMD="timeout $TIMEOUT"
+    fi
+    export TIMEOUT_CMD
 }
 
 function set_experiment_name_from_strategies {
