@@ -159,16 +159,24 @@ Network::Output Network::evaluate(Sample const & sample, EvalConfig const & conf
 
     Classification cls = computeClassification(values);
 
-    std::vector<Output::Values> hiddenNeuronValues;
+    std::vector<Output::Values> hiddenNeuronInputValues;
+    std::vector<Output::Values> hiddenNeuronOutputValues;
     if (conf.storeHiddenNeuronValues) {
         allValues.pop_back();
-        hiddenNeuronValues = std::move(allValues);
-        assert(hiddenNeuronValues.size() == getNumHiddenLayers());
+        std::size_t const nHiddenLayers = getNumHiddenLayers();
+        assert(allValues.size() == 2 * nHiddenLayers);
+        hiddenNeuronInputValues.reserve(nHiddenLayers);
+        hiddenNeuronOutputValues.reserve(nHiddenLayers);
+        for (std::size_t i = 0; i < nHiddenLayers; ++i) {
+            hiddenNeuronInputValues.push_back(std::move(allValues[i * 2]));
+            hiddenNeuronOutputValues.push_back(std::move(allValues[i * 2 + 1]));
+        }
     }
 
     return {.classification = std::move(cls),
             .values = std::move(values),
-            .hiddenNeuronValues = std::move(hiddenNeuronValues)};
+            .hiddenNeuronInputValues = std::move(hiddenNeuronInputValues),
+            .hiddenNeuronOutputValues = std::move(hiddenNeuronOutputValues)};
 }
 
 std::vector<Network::Output::Values> Network::computeOutputValues(Sample const & sample,
@@ -181,6 +189,7 @@ std::vector<Network::Output::Values> Network::computeOutputValues(Sample const &
     static_assert(std::is_same_v<Values, Output::Values>);
 
     std::size_t const nLayers = getNumLayers();
+    std::size_t const nHiddenLayers = getNumHiddenLayers();
 
     auto previousLayerValues = sample;
     Values currentLayerValues;
@@ -188,9 +197,9 @@ std::vector<Network::Output::Values> Network::computeOutputValues(Sample const &
     if (not storeHiddenNeuronValues) {
         outputValues.reserve(1);
     } else {
-        outputValues.reserve(nLayers - 1);
+        outputValues.reserve(2 * nHiddenLayers + 1);
     }
-    assert(nLayers >= 2);
+    assert(nLayers == nHiddenLayers + 2);
     for (auto layer = 1u;; ++layer) {
         std::size_t const layerSize = getLayerSize(layer);
         for (auto node = 0u; node < layerSize; ++node) {
@@ -207,6 +216,7 @@ std::vector<Network::Output::Values> Network::computeOutputValues(Sample const &
         assert(layer <= nLayers - 1);
         if (layer == nLayers - 1) { break; }
 
+        if (storeHiddenNeuronValues) { outputValues.push_back(currentLayerValues); }
         std::transform(currentLayerValues.begin(), currentLayerValues.end(), currentLayerValues.begin(),
                        [](Float val) { return std::max(Float{0}, val); });
         if (storeHiddenNeuronValues) { outputValues.push_back(currentLayerValues); }
@@ -259,20 +269,21 @@ Float getOutputValue(Network::Output::Values const & values, std::size_t nodeInd
     return values[nodeIndex];
 }
 
-Float getHiddenNeuronValue(Network::Output const & output, std::size_t layerNum, std::size_t nodeIndex) {
-    auto & hiddenNeuronValues = output.hiddenNeuronValues;
+Float getHiddenNeuronValue(std::vector<Network::Output::Values> const & values, std::size_t layerNum,
+                           std::size_t nodeIndex) {
     std::size_t const hiddenLayerIdx = layerNum - 1;
-    if (hiddenLayerIdx >= hiddenNeuronValues.size()) {
+    if (hiddenLayerIdx >= values.size()) {
         throw std::out_of_range{"Hidden layer index is out of range: "s + std::to_string(layerNum) +
-                                " >= " + std::to_string(hiddenNeuronValues.size() + 1)};
+                                " >= " + std::to_string(values.size() + 1)};
     }
 
-    auto & layerNeuronValues = hiddenNeuronValues[hiddenLayerIdx];
+    auto & layerNeuronValues = values[hiddenLayerIdx];
     return getOutputValue(layerNeuronValues, nodeIndex);
 }
 
 bool activatedHiddenNeuron(Network::Output const & output, std::size_t layerNum, std::size_t nodeIndex) {
-    Float const value = getHiddenNeuronValue(output, layerNum, nodeIndex);
+    Float const value = getHiddenNeuronOutputValue(output, layerNum, nodeIndex);
+    assert(value >= 0);
     return value > Float{0};
 }
 } // namespace spexplain
