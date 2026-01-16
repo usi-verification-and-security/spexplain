@@ -512,7 +512,15 @@ PTRef OpenSMTVerifier::OpenSMTImpl::encodeNeuron(LayerIndex layer, NodeIndex nod
             neuronTerm = storeNeuronTerms ? zero : PTRef_Undef;
         }
 
-        sampleModelRestrictions.push_back(cond);
+        // This can happen if there is a mismatch between float and real computation of the activation
+        // We only detect the cases when it is simplified to false
+        if (logic->isFalse(cond)) {
+            throw std::runtime_error{"Attempt to fix "s + (*optFixedActivation ? "active" : "inactive") +
+                                     " neuron condition that is false: layer=" + std::to_string(layer) +
+                                     " node=" + std::to_string(node)};
+        }
+        if (not logic->isTrue(cond)) { sampleModelRestrictions.push_back(cond); }
+
         return neuronTerm;
     }
 

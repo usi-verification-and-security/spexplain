@@ -289,4 +289,11 @@ bool activatedHiddenNeuron(Network::Output const & output, std::size_t layerNum,
     assert(value >= 0);
     return value > Float{0};
 }
+
+bool unstableHiddenNeuron(Network::Output const & output, std::size_t layerNum, std::size_t nodeIndex) {
+    static constexpr Float epsilon = 1e-3;
+
+    Float const value = getHiddenNeuronInputValue(output, layerNum, nodeIndex);
+    return value >= -epsilon and value <= epsilon;
+}
 } // namespace spexplain
