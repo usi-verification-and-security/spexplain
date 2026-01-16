@@ -111,6 +111,7 @@ inline Float getHiddenNeuronOutputValue(Network::Output const & output, std::siz
 }
 
 bool activatedHiddenNeuron(Network::Output const &, std::size_t layerNum, std::size_t nodeIndex);
+bool unstableHiddenNeuron(Network::Output const &, std::size_t layerNum, std::size_t nodeIndex);
 } // namespace spexplain
 
 #endif // SPEXPLAIN_NETWORK_H
