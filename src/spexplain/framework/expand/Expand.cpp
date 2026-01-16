@@ -341,7 +341,20 @@ void Framework::Expand::preprocessSampleModel(Sample::Idx idx, Network::Output c
     for (xai::verifiers::LayerIndex layer = 1; layer < nHiddenLayers + 1; ++layer) {
         xai::verifiers::NodeIndex const nNodes = network.getLayerSize(layer);
         for (xai::verifiers::NodeIndex node = 0; node < nNodes; ++node) {
+            bool const unstable = unstableHiddenNeuron(output, layer, node);
             bool const activated = activatedHiddenNeuron(output, layer, node);
+
+            // Prefer even on unstable neurons
+            if (auto optPreferOne = config.tryGetPreferenceOfSampleNeuronActivationAt(idx, layer, node)) {
+                if (*optPreferOne) { verifier.preferNeuronActivation(layer, node, activated); }
+            } else if (auto optPreferAll = config.tryGetPreferenceOfAllSampleNeuronActivationsAt(layer, node)) {
+                if (*optPreferAll) { verifier.preferNeuronActivation(layer, node, activated); }
+            } else if (usingSampleNeuronActivations(defaultPreferenceOfSampleNeuronActivations, activated)) {
+                verifier.tryPreferNeuronActivation(layer, node, activated);
+            }
+
+            // Do not fix unstable neurons
+            if (unstable) { continue; }
 
             if (auto optFixOne = config.tryGetFixingOfSampleNeuronActivationAt(idx, layer, node)) {
                 if (*optFixOne) { verifier.fixNeuronActivation(layer, node, activated); }
@@ -349,14 +362,6 @@ void Framework::Expand::preprocessSampleModel(Sample::Idx idx, Network::Output c
                 if (*optFixAll) { verifier.fixNeuronActivation(layer, node, activated); }
             } else if (usingSampleNeuronActivations(defaultFixingOfSampleNeuronActivations, activated)) {
                 verifier.tryFixNeuronActivation(layer, node, activated);
-            }
-
-            if (auto optPreferOne = config.tryGetPreferenceOfSampleNeuronActivationAt(idx, layer, node)) {
-                if (*optPreferOne) { verifier.preferNeuronActivation(layer, node, activated); }
-            } else if (auto optPreferAll = config.tryGetPreferenceOfAllSampleNeuronActivationsAt(layer, node)) {
-                if (*optPreferAll) { verifier.preferNeuronActivation(layer, node, activated); }
-            } else if (usingSampleNeuronActivations(defaultPreferenceOfSampleNeuronActivations, activated)) {
-                verifier.tryPreferNeuronActivation(layer, node, activated);
             }
         }
     }
