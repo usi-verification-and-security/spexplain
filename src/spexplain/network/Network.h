@@ -34,7 +34,8 @@ public:
         Classification classification;
         Values values{};
 
-        std::vector<Values> hiddenNeuronValues{};
+        std::vector<Values> hiddenNeuronInputValues{};
+        std::vector<Values> hiddenNeuronOutputValues{};
     };
 
     class Dataset;
@@ -100,7 +101,14 @@ inline Float getOutputValue(Network::Output const & output, std::size_t nodeInde
     return getOutputValue(output.values, nodeIndex);
 }
 
-Float getHiddenNeuronValue(Network::Output const &, std::size_t layerNum, std::size_t nodeIndex);
+Float getHiddenNeuronValue(std::vector<Network::Output::Values> const &, std::size_t layerNum, std::size_t nodeIndex);
+inline Float getHiddenNeuronInputValue(Network::Output const & output, std::size_t layerNum, std::size_t nodeIndex) {
+    return getHiddenNeuronValue(output.hiddenNeuronInputValues, layerNum, nodeIndex);
+}
+inline Float getHiddenNeuronOutputValue(Network::Output const & output, std::size_t layerNum, std::size_t nodeIndex) {
+    return getHiddenNeuronValue(output.hiddenNeuronOutputValues, layerNum, nodeIndex);
+}
+
 bool activatedHiddenNeuron(Network::Output const &, std::size_t layerNum, std::size_t nodeIndex);
 } // namespace spexplain
 
