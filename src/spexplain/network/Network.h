@@ -4,6 +4,7 @@
 #include <spexplain/common/Core.h>
 
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -109,7 +110,8 @@ inline Float getHiddenNeuronOutputValue(Network::Output const & output, std::siz
     return getHiddenNeuronValue(output.hiddenNeuronOutputValues, layerNum, nodeIndex);
 }
 
-bool activatedHiddenNeuron(Network::Output const &, std::size_t layerNum, std::size_t nodeIndex);
+// Returns unknown if too close to 0
+std::optional<bool> tryGetHiddenNeuronActivation(Network::Output const &, std::size_t layerNum, std::size_t nodeIndex);
 } // namespace spexplain
 
 #endif // SPEXPLAIN_NETWORK_H

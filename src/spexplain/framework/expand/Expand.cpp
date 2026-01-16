@@ -341,7 +341,9 @@ void Framework::Expand::preprocessSampleModel(Sample::Idx idx, Network::Output c
     for (xai::verifiers::LayerIndex layer = 1; layer < nHiddenLayers + 1; ++layer) {
         xai::verifiers::NodeIndex const nNodes = network.getLayerSize(layer);
         for (xai::verifiers::NodeIndex node = 0; node < nNodes; ++node) {
-            bool const activated = activatedHiddenNeuron(output, layer, node);
+            std::optional<bool> const optActivated = tryGetHiddenNeuronActivation(output, layer, node);
+            if (not optActivated) { continue; }
+            bool const activated = *optActivated;
 
             if (auto optFixOne = config.tryGetFixingOfSampleNeuronActivationAt(idx, layer, node)) {
                 if (*optFixOne) { verifier.fixNeuronActivation(layer, node, activated); }

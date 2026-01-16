@@ -281,8 +281,10 @@ Float getHiddenNeuronValue(std::vector<Network::Output::Values> const & values, 
     return getOutputValue(layerNeuronValues, nodeIndex);
 }
 
-bool activatedHiddenNeuron(Network::Output const & output, std::size_t layerNum, std::size_t nodeIndex) {
-    Float const value = getHiddenNeuronValue(output, layerNum, nodeIndex);
+std::optional<bool> tryGetHiddenNeuronActivation(Network::Output const & output, std::size_t layerNum,
+                                                 std::size_t nodeIndex) {
+    Float const value = getHiddenNeuronInputValue(output, layerNum, nodeIndex);
+    if (value >= -epsilon and value <= epsilon) { return std::nullopt; }
     return value > Float{0};
 }
 } // namespace spexplain
