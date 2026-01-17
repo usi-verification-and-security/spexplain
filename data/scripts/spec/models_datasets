@@ -288,4 +288,28 @@ DATASETS=(
 
     datasets/mnist/mnist_short.csv
     datasets/mnist/mnist_quick.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
 )
