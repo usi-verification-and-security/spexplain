@@ -35,3 +35,8 @@ venv/
 build*/
 
 *cache/
+
+*.zip
+*.tar.gz
+*.rar
+*.7z
