@@ -51,12 +51,13 @@ def pytorch2nnet(model, nnetFile, input_min=-1000000, input_max=1000000):
 # Hyperparameters
 ########################
 model_task = "cifar"  # options: "mnist", "cifar", "gtsrb", "heart_attack"
+scaled = True
+hidden_layers_size = 200
 
-for num_layers in [1,2,4,6,8,10]:
-    hidden_layers_size = 50
+for num_layers in range(1,11):
+
     pytorchFile = f"data/models/{model_task}/{model_task}_{hidden_layers_size}x{num_layers}.pth"
     nnetFile= f"data/models/{model_task}/{model_task}_{hidden_layers_size}x{num_layers}.nnet"
-    scaled = True
     checkpoint = torch.load(pytorchFile, map_location=torch.device('cpu'))
 
     # Extract hyperparameters from checkpoint
