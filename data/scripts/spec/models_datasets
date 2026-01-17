@@ -52,9 +52,58 @@ OUTPUT_DIRS=(
     explanations/obesity/full
     explanations/obesity/short
     explanations/obesity/quick
+    explanations/obesity/50x1/naive
+    explanations/obesity/50x1/prefer-all
+    explanations/obesity/50x2/naive
+    explanations/obesity/50x2/prefer-all
+    explanations/obesity/50x4/naive
+    explanations/obesity/50x4/prefer-all
+    explanations/obesity/50x6/naive
+    explanations/obesity/50x6/prefer-all
+    explanations/obesity/50x8/naive
+    explanations/obesity/50x8/prefer-all
+    explanations/obesity/50x10/naive
+    explanations/obesity/50x10/prefer-all
+    explanations/obesity/50x1/fix-guided
+    explanations/obesity/50x1/fix-all
+    explanations/obesity/50x2/fix-guided
+    explanations/obesity/50x2/fix-all
+    explanations/obesity/50x4/fix-guided
+    explanations/obesity/50x4/fix-all
+    explanations/obesity/50x6/fix-guided
+    explanations/obesity/50x6/fix-all
+    explanations/obesity/50x8/fix-guided
+    explanations/obesity/50x8/fix-all
+    explanations/obesity/50x10/fix-guided
+    explanations/obesity/50x10/fix-all
 
     explanations/mnist/short
     explanations/mnist/quick
+
+    explanations/mnist/50x1/naive
+    explanations/mnist/50x1/prefer-all
+    explanations/mnist/50x2/naive
+    explanations/mnist/50x2/prefer-all
+    explanations/mnist/50x4/naive
+    explanations/mnist/50x4/prefer-all
+    explanations/mnist/50x6/naive
+    explanations/mnist/50x6/prefer-all
+    explanations/mnist/50x8/naive
+    explanations/mnist/50x8/prefer-all
+    explanations/mnist/50x10/naive
+    explanations/mnist/50x10/prefer-all
+    explanations/mnist/50x1/fix-guided
+    explanations/mnist/50x1/fix-all
+    explanations/mnist/50x2/fix-guided
+    explanations/mnist/50x2/fix-all
+    explanations/mnist/50x4/fix-guided
+    explanations/mnist/50x4/fix-all
+    explanations/mnist/50x6/fix-guided
+    explanations/mnist/50x6/fix-all
+    explanations/mnist/50x8/fix-guided
+    explanations/mnist/50x8/fix-all
+    explanations/mnist/50x10/fix-guided
+    explanations/mnist/50x10/fix-all
 )
 
 MODELS=(
@@ -107,9 +156,58 @@ MODELS=(
     models/obesity/obesity-10-20-10.nnet
     models/obesity/obesity-10-20-10.nnet
     models/obesity/obesity-10-20-10.nnet
+    models/obesity/obesity_50x1.nnet
+    models/obesity/obesity_50x1.nnet
+    models/obesity/obesity_50x2.nnet
+    models/obesity/obesity_50x2.nnet
+    models/obesity/obesity_50x4.nnet
+    models/obesity/obesity_50x4.nnet
+    models/obesity/obesity_50x6.nnet
+    models/obesity/obesity_50x6.nnet
+    models/obesity/obesity_50x8.nnet
+    models/obesity/obesity_50x8.nnet
+    models/obesity/obesity_50x10.nnet
+    models/obesity/obesity_50x10.nnet
+    models/obesity/obesity_50x1.nnet
+    models/obesity/obesity_50x1.nnet
+    models/obesity/obesity_50x2.nnet
+    models/obesity/obesity_50x2.nnet
+    models/obesity/obesity_50x4.nnet
+    models/obesity/obesity_50x4.nnet
+    models/obesity/obesity_50x6.nnet
+    models/obesity/obesity_50x6.nnet
+    models/obesity/obesity_50x8.nnet
+    models/obesity/obesity_50x8.nnet
+    models/obesity/obesity_50x10.nnet
+    models/obesity/obesity_50x10.nnet
 
     models/mnist/mnist-200.nnet
     models/mnist/mnist-200.nnet
+    models/mnist/mnist_50x1.nnet
+    models/mnist/mnist_50x1.nnet
+    models/mnist/mnist_50x2.nnet
+    models/mnist/mnist_50x2.nnet
+    models/mnist/mnist_50x4.nnet
+    models/mnist/mnist_50x4.nnet
+    models/mnist/mnist_50x6.nnet
+    models/mnist/mnist_50x6.nnet
+    models/mnist/mnist_50x8.nnet
+    models/mnist/mnist_50x8.nnet
+    models/mnist/mnist_50x10.nnet
+    models/mnist/mnist_50x10.nnet
+    models/mnist/mnist_50x1.nnet
+    models/mnist/mnist_50x1.nnet
+    models/mnist/mnist_50x2.nnet
+    models/mnist/mnist_50x2.nnet
+    models/mnist/mnist_50x4.nnet
+    models/mnist/mnist_50x4.nnet
+    models/mnist/mnist_50x6.nnet
+    models/mnist/mnist_50x6.nnet
+    models/mnist/mnist_50x8.nnet
+    models/mnist/mnist_50x8.nnet
+    models/mnist/mnist_50x10.nnet
+    models/mnist/mnist_50x10.nnet
+
 )
 
 DATASETS=(
@@ -163,6 +261,30 @@ DATASETS=(
     # should not be a problem but ideally fix it
     datasets/obesity/obesity_short.csv
     datasets/obesity/obesity_quick.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
 
     datasets/mnist/mnist_short.csv
     datasets/mnist/mnist_quick.csv
