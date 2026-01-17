@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ACTION_REGEX='check|count-fixed|compare-subset'
+ACTION_REGEX='check|check-sat|count-fixed|compare-subset'
 
 function usage {
     printf "USAGE: %s <action> <psi> <f> [<f2>] [<max_rows>]\n" "$0"
@@ -26,6 +26,14 @@ shift
     printf "Expected an SMT-LIB psi file, got: %s\n" "$PSI_FILE" >&2
     usage 1
 }
+
+CHECK_SAT_ONLY=0
+case $ACTION in
+check-sat)
+    ACTION=check
+    CHECK_SAT_ONLY=1
+    ;;
+esac
 
 case $ACTION in
 check)
@@ -191,6 +199,9 @@ WAIT_SUPPORTS_P=$(bc -l <<<"${BASH_VERSION%.*} >= 5.2")
 IFILES=()
 OFILES=()
 
+IFILES_SAT=()
+OFILES_SAT=()
+
 IFILES_SUBSET=()
 IFILES_SUPSET=()
 
@@ -211,8 +222,29 @@ function cleanup {
     [[ -n $pid ]] && {
         for pidx in ${!PIDS[@]}; do
             local p=${PIDS[$pidx]}
-            [[ $p == $pid ]] || continue
-            local ofile=${OFILES[$pidx]}
+            local ofile
+            if [[ $p == $pid ]]; then
+                case $ACTION in
+                compare-subset)
+                    ofile=${OFILES_SUBSET[$pidx]}
+                    ;;
+                *)
+                    ofile=${OFILES[$pidx]}
+                    ;;
+                esac
+            else
+                p=${PIDS2[$pidx]}
+                [[ $p == $pid ]] || continue
+                case $ACTION in
+                check)
+                    ofile=${OFILES_SAT[$pidx]}
+                    ;;
+                compare-subset)
+                    ofile=${OFILES_SUPSET[$pidx]}
+                    ;;
+                esac
+            fi
+
             cat $ofile >&2
             break
         done
@@ -221,8 +253,12 @@ function cleanup {
     for idx in ${!IFILES[@]}; do
         local ifile=${IFILES[$idx]}
         local ofile=${OFILES[$idx]}
+        local ifile_sat=${IFILES_SAT[$idx]}
+        local ofile_sat=${OFILES_SAT[$idx]}
         rm -f $ifile
         rm -f $ofile
+        rm -f $ifile_sat
+        rm -f $ofile_sat
     done
 
     for idx in ${!IFILES_SUBSET[@]}; do
@@ -244,6 +280,7 @@ MAX_PROC=$(( 1 + $N_CPU/2 ))
 N_PROC=0
 
 PIDS=()
+PIDS2=()
 
 [[ $ACTION == count-fixed ]] && {
     VARIABLES=($(sed -rn '/declare-fun/s/.*declare-fun ([^ ]*) .*/\1/p' <$PSI_FILE))
@@ -270,6 +307,35 @@ compare-subset)
     ;;
 esac
 
+function set_input_output_file {
+    local ifile_var=$1
+    local ofile_var=$2
+    local ifiles_var=$3
+    local ofiles_var=$4
+    local psi_file="$5"
+
+    local -n lifile=$ifile_var
+    local -n lofile=$ofile_var
+
+    lifile=$(mktemp --suffix=.smt2)
+    lofile=${lifile}.out
+    eval $ifiles_var'+=($lifile)'
+    eval $ofiles_var'+=($lofile)'
+
+    cp "$psi_file" $lifile
+}
+
+function exec_solver {
+    local solver=$1
+    local ifile=$2
+    local ofile=$3
+    local pids_var=$4
+
+    $solver $ifile &>$ofile &
+    eval $pids_var'+=($!)'
+    (( ++N_PROC ))
+}
+
 i=-1
 cnt=0
 any_timeout_cnt=0
@@ -289,6 +355,7 @@ while true; do
             cleanup 3
         }
         psi_file="${PSI_FILE/_c[0-9]/_c$out_class}"
+        psi_sat_file="${PSI_FILE/_c[0-9]/_d}"
         ;;
     count-fixed)
         psi_file="$PSI_FILE"
@@ -299,6 +366,7 @@ while true; do
             printf "Unexpected missing data from the second file at i=%d\n" $i >&2
             cleanup 9
         }
+        psi_file="$PSI_FILE"
         ;;
     esac
 
@@ -317,34 +385,25 @@ while true; do
 
     for arg in ${ARGS[@]}; do
         case $ACTION in
-        compare-subset)
-            ifile_subset=$(mktemp --suffix=.smt2)
-            ofile_subset=${ifile_subset}.out
-            IFILES_SUBSET+=($ifile_subset)
-            OFILES_SUBSET+=($ofile_subset)
-            ifile_supset=$(mktemp --suffix=.smt2)
-            ofile_supset=${ifile_supset}.out
-            IFILES_SUPSET+=($ifile_supset)
-            OFILES_SUPSET+=($ofile_supset)
-
-            cp "$PSI_FILE" $ifile_subset
-            cp "$PSI_FILE" $ifile_supset
+        check)
+            set_input_output_file ifile ofile IFILES OFILES "$psi_file"
+            set_input_output_file ifile_sat ofile_sat IFILES_SAT OFILES_SAT "$psi_sat_file"
             ;;
-        *)
-            ifile=$(mktemp --suffix=.smt2)
-            ofile=${ifile}.out
-            IFILES+=($ifile)
-            OFILES+=($ofile)
-
-            cp "$psi_file" $ifile
+        count-fixed)
+            set_input_output_file ifile ofile IFILES OFILES "$psi_file"
+            ;;
+        compare-subset)
+            set_input_output_file ifile_subset ofile_subset IFILES_SUBSET OFILES_SUBSET "$psi_file"
+            set_input_output_file ifile_supset ofile_supset IFILES_SUPSET OFILES_SUPSET "$psi_file"
             ;;
         esac
 
 
         case $ACTION in
         check)
-            ## + we do not check that psi alone and also phi alone are both SAT
-            printf "(assert %s)\n" "$line" >>$ifile
+            ## + we do not check that psi alone is SAT
+            (( $CHECK_SAT_ONLY )) || printf "(assert %s)\n(check-sat)\n" "$line" >>$ifile
+            printf "(assert %s)\n(check-sat)\n" "$line" >>$ifile_sat
             ;;
         count-fixed)
             var=$arg
@@ -360,16 +419,11 @@ while true; do
 
             printf "(assert %s)\n(assert %s)\n" "$line" "$line2" >>$ifile
             printf "(assert (and (= %s C1) (= %s C2) (not (= C1 C2))))\n" $var $var2 >>$ifile
+            printf "(check-sat)\n" >>$ifile
             ;;
-        esac
-
-        case $ACTION in
         compare-subset)
             printf "(assert (and %s (not %s)))\n(check-sat)\n" "$line" "$line2" >>$ifile_subset
             printf "(assert (and (not %s) %s))\n(check-sat)\n" "$line" "$line2" >>$ifile_supset
-            ;;
-        *)
-            printf "(check-sat)\n" >>$ifile
             ;;
         esac
 
@@ -389,18 +443,16 @@ while true; do
         done
 
         case $ACTION in
-        compare-subset)
-            $SOLVER $ifile_subset &>$ofile_subset &
-            PIDS+=($!)
-            (( ++N_PROC ))
-            $SOLVER $ifile_supset &>$ofile_supset &
-            PIDS+=($!)
-            (( ++N_PROC ))
+        check)
+            (( $CHECK_SAT_ONLY )) || exec_solver $SOLVER $ifile $ofile PIDS
+            exec_solver $SOLVER $ifile_sat $ofile_sat PIDS2
             ;;
-        *)
-            $SOLVER $ifile &>$ofile &
-            PIDS+=($!)
-            (( ++N_PROC ))
+        count-fixed)
+            exec_solver $SOLVER $ifile $ofile PIDS
+            ;;
+        compare-subset)
+            exec_solver $SOLVER $ifile_subset $ofile_subset PIDS
+            exec_solver $SOLVER $ifile_supset $ofile_supset PIDS2
             ;;
         esac
     done
@@ -478,7 +530,7 @@ compare-subset)
     ;;
 *)
     cnt=0
-    for idx in ${!IFILES[@]}; do
+    (( $CHECK_SAT_ONLY )) || for idx in ${!IFILES[@]}; do
         ifile=${IFILES[$idx]}
         ofile=${OFILES[$idx]}
         result=$(cat $ofile)
@@ -493,7 +545,7 @@ compare-subset)
         elif [[ $result == sat ]]; then
             case $ACTION in
             check)
-                printf "NOT space explanation [%d]:\n" $idx >&2
+                printf "NOT space explanation [%d]: classification change not unsat:\n" $idx >&2
                 tail -n 2 $ifile | head -n 1 >&2
                 cp -v $ifile $(basename $ifile) >&2
                 cleanup 3
@@ -503,6 +555,26 @@ compare-subset)
             esac
         else
             printf "Unexpected output of query:\n%s\n" "$result" >&2
+            less $ofile
+            cleanup 3
+        fi
+    done
+    ;;
+esac
+
+case $ACTION in
+check)
+    for idx in ${!IFILES_SAT[@]}; do
+        ifile=${IFILES_SAT[$idx]}
+        ofile=${OFILES_SAT[$idx]}
+        result=$(cat $ofile)
+        if [[ $result == unsat ]]; then
+            printf "NOT space explanation [%d]: explanation not sat:\n" $idx >&2
+            tail -n 2 $ifile | head -n 1 >&2
+            cp -v $ifile $(basename $ifile) >&2
+            cleanup 3
+        elif [[ $result != sat ]]; then
+            printf "Unexpected output of sat query:\n%s\n" "$result" >&2
             less $ofile
             cleanup 3
         fi

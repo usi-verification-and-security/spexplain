@@ -36,7 +36,7 @@ PHI_DIR="$EXPLANATIONS_DIR/.."
 
 PSI_FILE="$PHI_DIR/psi_"
 case $ACTION in
-check)
+check*)
     PSI_FILE+=c0
     ;;
 *)
@@ -206,7 +206,7 @@ function get_cache_line {
     local suffix=' '
 
     case $ACTION in
-    check)
+    check*)
         prefix=/
         suffix='\.'
         ;;
@@ -215,7 +215,7 @@ function get_cache_line {
     local experiment_regex="${prefix}${experiment}${suffix}"
 
     case $ACTION in
-    check|count-fixed)
+    check*|count-fixed)
         lcache_line=$(${grep_cmd[@]} "${experiment_regex}" <<<"$CACHE")
         ;;
     compare-subset)
@@ -344,7 +344,7 @@ for do_reverse in ${do_reverse_args[@]}; do
             args=()
 
             case $ACTION in
-            check)
+            check*)
                 printf "Analyzing %s ... " "$phi_file"
                 ;;
             count-fixed)
@@ -361,7 +361,7 @@ for do_reverse in ${do_reverse_args[@]}; do
             out=$($ANALYZE_SCRIPT $ACTION "$PSI_FILE" "${phi_files[@]}" "${args[@]}") || exit $?
 
             case $ACTION in
-            check)
+            check*)
                 if [[ $out =~ ^OK ]]; then
                     printf "%s\n" "$out"
                 else
