@@ -128,14 +128,19 @@ def compare_activations_generic(model, x_orig, x_cf, threshold=0.0):
 ########################
 # Hyperparameters
 ########################
-model_task = "cifar"  # options: "mnist", "cifar", "gtsrb", "heart_attack"
+model_task = "obesity"  # options: "mnist", "cifar", "gtsrb", "heart_attack", "obesity"
+scaled = False
 
-for num_layers in [1,2,4,6,8,10]:
-    hidden_layers_size = 50
+for num_layers in range(1, 11):
+    hidden_layers_size = 200
     pytorchFile = f"data/models/{model_task}/{model_task}_{hidden_layers_size}x{num_layers}.pth"
-    activations_changes_file = f'data/activation_change/{model_task}/activation_{model_task}_50x1.txt'
+    activations_changes_file = f'data/activation_change/{model_task}/activation_{model_task}_{hidden_layers_size}x{num_layers}.txt'
 
     samples_file = f"data/datasets/{model_task}/{model_task}_s100_scaled.csv"
+    if model_task == "obesity":
+        samples_file = f"data/datasets/{model_task}/{model_task}_s100_norm.csv"
+
+
 
     if model_task in ["heart_attack"]:
         binary_classifier = True
@@ -143,7 +148,7 @@ for num_layers in [1,2,4,6,8,10]:
         binary_classifier = False
 
     checkpoint = torch.load(pytorchFile, map_location=torch.device('cpu'))
-    scaled = True
+
     # Extract hyperparameters from checkpoint
     try:
         input_dim = checkpoint["input_dim"]
@@ -173,11 +178,22 @@ for num_layers in [1,2,4,6,8,10]:
 
     if scaled:
         norm_factor = 1
+        clamp_min = 0.0
+        clamp_max = 1.0
     else:
         if model_task in ['mnist', 'cifar', 'gtsrb']:
             norm_factor = 255
-        else:
+            clamp_max = 255.0
+            clamp_min = 0.0
+
+        elif model_task in ['obesity']:
+            norm_factor = 2.5
+            clamp_max = [1.0,4.16,2.45,0.49,0.4,1.12,1.71,2.39,7.6,1.63,4.31,2.27,2.15,1.46,1.31]
+            clamp_min = [-1.0,-1.38,-2.62,-2.07,-2.54,-2.63,-2.19,-3.87,-0.14,-1.66,-0.24,-1.16,-1.08,-2.46,-1.98 ]
+        else:# already normalized to [0,1]
             norm_factor = 1
+            clamp_min = 0.0
+            clamp_max = 1.0
             print("Warning: no normalization factor for this dataset.")
 
     # Load dataset
@@ -214,8 +230,8 @@ for num_layers in [1,2,4,6,8,10]:
                           epsilon=0.3 * norm_factor,
                           step_size=0.01 * norm_factor,
                           num_steps=40,
-                          clamp_min=0.0,
-                          clamp_max=norm_factor,
+                          clamp_min=clamp_min,
+                          clamp_max=clamp_max,
                           targeted=False)
             else:
                 orig_pred = model(img_flat).argmax(dim=1)

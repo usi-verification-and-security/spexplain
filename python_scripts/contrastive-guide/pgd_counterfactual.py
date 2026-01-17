@@ -1,6 +1,14 @@
 import torch
 import torch.nn.functional as F
 
+def _to_bounds(val, ref, device):
+    if isinstance(val, (list, tuple)):
+        t = torch.tensor(val, device=device, dtype=ref.dtype)
+        return t.view_as(ref)
+    if isinstance(val, torch.Tensor):
+        return val.to(device=device, dtype=ref.dtype).view_as(ref)
+    return torch.full_like(ref, float(val), device=device)
+
 def pgd_counterfactual(
         model,
         x,
@@ -56,7 +64,8 @@ def pgd_counterfactual(
                 y = model(x_orig).argmax(dim=1)
         else:
             y = true_label.view(1).to(device)
-
+    clamp_min_t = _to_bounds(clamp_min, x_orig, device)
+    clamp_max_t = _to_bounds(clamp_max, x_orig, device)
     for _ in range(num_steps):
         # x_adv.requires_grad_(True)
 
@@ -77,14 +86,15 @@ def pgd_counterfactual(
                 grad = torch.autograd.grad(loss, x_adv)[0]
             x_adv = x_adv + step_size * torch.sign(grad)
 
+
         # Project into L_inf ball around x_orig
         perturbation = torch.clamp(x_adv - x_orig, -epsilon, epsilon)
         x_adv = x_orig + perturbation
 
         # Keep in valid pixel range
-        x_adv = torch.clamp(x_adv, clamp_min, clamp_max).detach()
+        x_adv = torch.clamp(x_adv, clamp_min_t, clamp_max_t).detach()
 
-    # Final prediction
+# Final prediction
     with torch.no_grad():
         y_pred = model(x_adv).argmax(dim=1)
 
