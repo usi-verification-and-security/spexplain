@@ -4,14 +4,14 @@
 #? do not make this assumption but make it explicit
 OUTPUT_DIRS=(
 ## for visualization!
-    explanations/heart-attack/50x1/naive
-    explanations/heart-attack/50x1/fix-all
-    explanations/heart-attack/50x1/prefer-all
-    explanations/heart-attack/50x1/fix-guided
-    explanations/heart-attack/50x2/naive
-    explanations/heart-attack/50x2/fix-all
-    explanations/heart-attack/50x2/prefer-all
-    explanations/heart-attack/50x2/fix-guided
+    explanations/heart-attack/vis/50x1/naive
+    explanations/heart-attack/vis/50x1/fix-all
+    explanations/heart-attack/vis/50x1/prefer-all
+    explanations/heart-attack/vis/50x1/fix-guided
+    explanations/heart-attack/vis/50x2/naive
+    explanations/heart-attack/vis/50x2/fix-all
+    explanations/heart-attack/vis/50x2/prefer-all
+    explanations/heart-attack/vis/50x2/fix-guided
 
     explanations/heart-attack/50x1/naive
     explanations/heart-attack/50x1/fix-all
