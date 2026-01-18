@@ -87,6 +87,19 @@ printf "\n"
 
 [[ -n $OPTIONS ]] && export OPTIONS
 
+function cleanup {
+    local code=$1
+
+    [[ -n $code && $code != 0 ]] && {
+        pkill -P $$
+        wait
+    }
+
+    [[ -n $code ]] && exit $code
+}
+
+trap 'cleanup 9' INT TERM
+
 function run1 {
     source "$DIRNAME/lib/run"
     read_experiments_spec "$EXPERIMENTS_SPEC"
