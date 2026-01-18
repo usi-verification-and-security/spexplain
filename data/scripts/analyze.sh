@@ -275,6 +275,8 @@ function cleanup {
     [[ -n $code ]] && exit $code
 }
 
+trap 'cleanup 9' INT TERM
+
 N_CPU=$(nproc --all)
 MAX_PROC=$(( 1 + $N_CPU/2 ))
 N_PROC=0
