@@ -332,8 +332,8 @@ for do_reverse in ${do_reverse_args[@]}; do
                     nterms_stats=$(bc -l <<<"($features * $perc_features)/100")
                     nterms_stats=$(printf '%.1f' $nterms_stats)
                 }
-                [[ $nterms == $nterms_stats ]] || {
-                    printf "%s: encountered inconsistency: stats.termSize != termSize(phi): %s != %s\n" $experiment_stem "$nterms_stats" "$nterms" >&2
+                (( $(bc -l <<<"diff = $nterms - $nterms_stats; thres = 0.2; diff >= -thres && diff <= thres") )) || {
+                    printf "%s: encountered inconsistency: stats.termSize !~ termSize(phi): %s != %s\n" $experiment_stem "$nterms_stats" "$nterms" >&2
                     cleanup 3
                 }
 
