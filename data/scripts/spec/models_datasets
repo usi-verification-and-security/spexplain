@@ -297,6 +297,10 @@ OUTPUT_DIRS=(
     explanations/cifar/50x10/fix-all
     explanations/cifar/50x10/prefer-all
     explanations/cifar/50x10/fix-guided
+    explanations/cifar/50x12/naive
+    explanations/cifar/50x12/fix-all
+    explanations/cifar/50x12/prefer-all
+    explanations/cifar/50x12/fix-guided
     explanations/cifar/200x1/naive
     explanations/cifar/200x1/fix-all
     explanations/cifar/200x1/prefer-all
@@ -715,6 +719,10 @@ MODELS=(
     models/cifar/cifar_50x10.nnet
     models/cifar/cifar_50x10.nnet
     models/cifar/cifar_50x10.nnet
+    models/cifar/cifar_50x12.nnet
+    models/cifar/cifar_50x12.nnet
+    models/cifar/cifar_50x12.nnet
+    models/cifar/cifar_50x12.nnet
     models/cifar/cifar_200x1.nnet
     models/cifar/cifar_200x1.nnet
     models/cifar/cifar_200x1.nnet
@@ -1093,6 +1101,10 @@ DATASETS=(
     datasets/mnist/mnist_s100_scaled.csv
     datasets/mnist/mnist_s100_scaled.csv
     datasets/mnist/mnist_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
     datasets/cifar/cifar_s100_scaled.csv
     datasets/cifar/cifar_s100_scaled.csv
     datasets/cifar/cifar_s100_scaled.csv
