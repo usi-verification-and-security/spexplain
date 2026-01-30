@@ -53,6 +53,14 @@ OUTPUT_DIRS=(
     explanations/heart_attack/50x10/fix-all
     explanations/heart_attack/50x10/prefer-all
     explanations/heart_attack/50x10/fix-guided
+    explanations/heart_attack/50x11/naive
+    explanations/heart_attack/50x11/fix-all
+    explanations/heart_attack/50x11/prefer-all
+    explanations/heart_attack/50x11/fix-guided
+    explanations/heart_attack/50x12/naive
+    explanations/heart_attack/50x12/fix-all
+    explanations/heart_attack/50x12/prefer-all
+    explanations/heart_attack/50x12/fix-guided
     explanations/heart_attack/200x1/naive
     explanations/heart_attack/200x1/fix-all
     explanations/heart_attack/200x1/prefer-all
@@ -133,6 +141,14 @@ OUTPUT_DIRS=(
     explanations/obesity/50x10/fix-all
     explanations/obesity/50x10/prefer-all
     explanations/obesity/50x10/fix-guided
+    explanations/obesity/50x11/naive
+    explanations/obesity/50x11/fix-all
+    explanations/obesity/50x11/prefer-all
+    explanations/obesity/50x11/fix-guided
+    explanations/obesity/50x12/naive
+    explanations/obesity/50x12/fix-all
+    explanations/obesity/50x12/prefer-all
+    explanations/obesity/50x12/fix-guided
     explanations/obesity/200x1/naive
     explanations/obesity/200x1/fix-all
     explanations/obesity/200x1/prefer-all
@@ -213,6 +229,10 @@ OUTPUT_DIRS=(
     explanations/mnist/50x10/fix-all
     explanations/mnist/50x10/prefer-all
     explanations/mnist/50x10/fix-guided
+    explanations/mnist/50x11/naive
+    explanations/mnist/50x11/fix-all
+    explanations/mnist/50x11/prefer-all
+    explanations/mnist/50x11/fix-guided
     explanations/mnist/50x12/naive
     explanations/mnist/50x12/fix-all
     explanations/mnist/50x12/prefer-all
@@ -297,6 +317,10 @@ OUTPUT_DIRS=(
     explanations/cifar/50x10/fix-all
     explanations/cifar/50x10/prefer-all
     explanations/cifar/50x10/fix-guided
+    explanations/cifar/50x11/naive
+    explanations/cifar/50x11/fix-all
+    explanations/cifar/50x11/prefer-all
+    explanations/cifar/50x11/fix-guided
     explanations/cifar/50x12/naive
     explanations/cifar/50x12/fix-all
     explanations/cifar/50x12/prefer-all
@@ -381,6 +405,14 @@ OUTPUT_DIRS=(
     explanations/gtsrb/50x10/fix-all
     explanations/gtsrb/50x10/prefer-all
     explanations/gtsrb/50x10/fix-guided
+    explanations/gtsrb/50x11/naive
+    explanations/gtsrb/50x11/fix-all
+    explanations/gtsrb/50x11/prefer-all
+    explanations/gtsrb/50x11/fix-guided
+    explanations/gtsrb/50x12/naive
+    explanations/gtsrb/50x12/fix-all
+    explanations/gtsrb/50x12/prefer-all
+    explanations/gtsrb/50x12/fix-guided
     explanations/gtsrb/200x1/naive
     explanations/gtsrb/200x1/fix-all
     explanations/gtsrb/200x1/prefer-all
@@ -421,7 +453,6 @@ OUTPUT_DIRS=(
     explanations/gtsrb/200x10/fix-all
     explanations/gtsrb/200x10/prefer-all
     explanations/gtsrb/200x10/fix-guided
-
 )
 
 MODELS=(
@@ -475,6 +506,14 @@ MODELS=(
     models/heart_attack/heart_attack_50x10.nnet
     models/heart_attack/heart_attack_50x10.nnet
     models/heart_attack/heart_attack_50x10.nnet
+    models/heart_attack/heart_attack_50x11.nnet
+    models/heart_attack/heart_attack_50x11.nnet
+    models/heart_attack/heart_attack_50x11.nnet
+    models/heart_attack/heart_attack_50x11.nnet
+    models/heart_attack/heart_attack_50x12.nnet
+    models/heart_attack/heart_attack_50x12.nnet
+    models/heart_attack/heart_attack_50x12.nnet
+    models/heart_attack/heart_attack_50x12.nnet
     models/heart_attack/heart_attack_200x1.nnet
     models/heart_attack/heart_attack_200x1.nnet
     models/heart_attack/heart_attack_200x1.nnet
@@ -555,6 +594,14 @@ MODELS=(
     models/obesity/obesity_50x10.nnet
     models/obesity/obesity_50x10.nnet
     models/obesity/obesity_50x10.nnet
+    models/obesity/obesity_50x11.nnet
+    models/obesity/obesity_50x11.nnet
+    models/obesity/obesity_50x11.nnet
+    models/obesity/obesity_50x11.nnet
+    models/obesity/obesity_50x12.nnet
+    models/obesity/obesity_50x12.nnet
+    models/obesity/obesity_50x12.nnet
+    models/obesity/obesity_50x12.nnet
     models/obesity/obesity_200x1.nnet
     models/obesity/obesity_200x1.nnet
     models/obesity/obesity_200x1.nnet
@@ -635,6 +682,10 @@ MODELS=(
     models/mnist/mnist_50x10.nnet
     models/mnist/mnist_50x10.nnet
     models/mnist/mnist_50x10.nnet
+    models/mnist/mnist_50x11.nnet
+    models/mnist/mnist_50x11.nnet
+    models/mnist/mnist_50x11.nnet
+    models/mnist/mnist_50x11.nnet
     models/mnist/mnist_50x12.nnet
     models/mnist/mnist_50x12.nnet
     models/mnist/mnist_50x12.nnet
@@ -719,6 +770,10 @@ MODELS=(
     models/cifar/cifar_50x10.nnet
     models/cifar/cifar_50x10.nnet
     models/cifar/cifar_50x10.nnet
+    models/cifar/cifar_50x11.nnet
+    models/cifar/cifar_50x11.nnet
+    models/cifar/cifar_50x11.nnet
+    models/cifar/cifar_50x11.nnet
     models/cifar/cifar_50x12.nnet
     models/cifar/cifar_50x12.nnet
     models/cifar/cifar_50x12.nnet
@@ -803,6 +858,14 @@ MODELS=(
     models/gtsrb/gtsrb_50x10.nnet
     models/gtsrb/gtsrb_50x10.nnet
     models/gtsrb/gtsrb_50x10.nnet
+    models/gtsrb/gtsrb_50x11.nnet
+    models/gtsrb/gtsrb_50x11.nnet
+    models/gtsrb/gtsrb_50x11.nnet
+    models/gtsrb/gtsrb_50x11.nnet
+    models/gtsrb/gtsrb_50x12.nnet
+    models/gtsrb/gtsrb_50x12.nnet
+    models/gtsrb/gtsrb_50x12.nnet
+    models/gtsrb/gtsrb_50x12.nnet
     models/gtsrb/gtsrb_200x1.nnet
     models/gtsrb/gtsrb_200x1.nnet
     models/gtsrb/gtsrb_200x1.nnet
@@ -843,7 +906,6 @@ MODELS=(
     models/gtsrb/gtsrb_200x10.nnet
     models/gtsrb/gtsrb_200x10.nnet
     models/gtsrb/gtsrb_200x10.nnet
-
 )
 
 DATASETS=(
@@ -937,6 +999,14 @@ DATASETS=(
     datasets/heart_attack/heart_attack_s100_scaled.csv
     datasets/heart_attack/heart_attack_s100_scaled.csv
     datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
+    datasets/heart_attack/heart_attack_s100_scaled.csv
     datasets/obesity/obesity_s100_norm.csv
     datasets/obesity/obesity_s100_norm.csv
     datasets/obesity/obesity_s100_norm.csv
@@ -1017,6 +1087,14 @@ DATASETS=(
     datasets/obesity/obesity_s100_norm.csv
     datasets/obesity/obesity_s100_norm.csv
     datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
+    datasets/obesity/obesity_s100_norm.csv
     datasets/mnist/mnist_s100_scaled.csv
     datasets/mnist/mnist_s100_scaled.csv
     datasets/mnist/mnist_s100_scaled.csv
@@ -1101,6 +1179,14 @@ DATASETS=(
     datasets/mnist/mnist_s100_scaled.csv
     datasets/mnist/mnist_s100_scaled.csv
     datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
     datasets/cifar/cifar_s100_scaled.csv
     datasets/cifar/cifar_s100_scaled.csv
     datasets/cifar/cifar_s100_scaled.csv
@@ -1185,6 +1271,14 @@ DATASETS=(
     datasets/cifar/cifar_s100_scaled.csv
     datasets/cifar/cifar_s100_scaled.csv
     datasets/cifar/cifar_s100_scaled.csv
+    datasets/gtsrb/gtsrb_s100_scaled.csv
+    datasets/gtsrb/gtsrb_s100_scaled.csv
+    datasets/gtsrb/gtsrb_s100_scaled.csv
+    datasets/gtsrb/gtsrb_s100_scaled.csv
+    datasets/gtsrb/gtsrb_s100_scaled.csv
+    datasets/gtsrb/gtsrb_s100_scaled.csv
+    datasets/gtsrb/gtsrb_s100_scaled.csv
+    datasets/gtsrb/gtsrb_s100_scaled.csv
     datasets/gtsrb/gtsrb_s100_scaled.csv
     datasets/gtsrb/gtsrb_s100_scaled.csv
     datasets/gtsrb/gtsrb_s100_scaled.csv
