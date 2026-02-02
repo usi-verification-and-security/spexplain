@@ -48,7 +48,7 @@ OPTIONS=(--quiet --format=smtlib2)
 
 [[ -n $REVERSE ]] && {
     OUTPUT_DIR+=/reverse
-    OPTIONS+=(--reverse-var)
+    OPTIONS+=(--reverse-vars)
 }
 
 [[ -n $TIMEOUT_PER ]] && {

@@ -110,7 +110,7 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     printUsageOptRow(os, 'v', "", "Run in verbose mode");
     printUsageLongOptRow(os, "quiet");
     printUsageOptRow(os, 'q', "", "Run in quiet mode");
-    printUsageLongOptRow(os, "reverse-var");
+    printUsageLongOptRow(os, "reverse-vars");
     printUsageOptRow(os, 'R', "", "Reverse the order of variables");
     printUsageLongOptRow(os, "encoding-neuron-vars", "true|false",
                          "Encode the internal neurons using (or not) auxiliary variables");
@@ -181,6 +181,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     constexpr int encodingNeuronVarsLongOpt = 13;
     constexpr int encodingOutputVarsLongOpt = 14;
     constexpr int allowNeuronVarsInExplanationsLongOpt = 15;
+    constexpr int shuffleVarsLongOpt = 16;
 
     struct ::option longOptions[] = {
         {"help", no_argument, nullptr, 'h'},
@@ -192,7 +193,8 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
         {"verbose", no_argument, nullptr, 'v'},
         {"quiet", no_argument, nullptr, 'q'},
         // {"version", no_argument, &selectedLongOpt, versionLongOpt},
-        {"reverse-var", no_argument, nullptr, 'R'},
+        {"reverse-vars", no_argument, nullptr, 'R'},
+        {"shuffle-vars", required_argument, &selectedLongOpt, shuffleVarsLongOpt},
         {"encoding-neuron-vars", required_argument, &selectedLongOpt, encodingNeuronVarsLongOpt},
         {"encoding-output-vars", required_argument, &selectedLongOpt, encodingOutputVarsLongOpt},
         {"allow-neuron-vars-in-explanations", required_argument, &selectedLongOpt,
