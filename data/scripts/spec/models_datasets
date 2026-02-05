@@ -325,6 +325,10 @@ OUTPUT_DIRS=(
     explanations/mnist/200x10/fix-all
     explanations/mnist/200x10/prefer-all
     explanations/mnist/200x10/fix-guided
+    explanations/mnist/200x12/naive
+    explanations/mnist/200x12/fix-all
+    explanations/mnist/200x12/prefer-all
+    explanations/mnist/200x12/fix-guided
     explanations/cifar/50x1/naive
     explanations/cifar/50x1/fix-all
     explanations/cifar/50x1/prefer-all
@@ -429,6 +433,10 @@ OUTPUT_DIRS=(
     explanations/cifar/200x10/fix-all
     explanations/cifar/200x10/prefer-all
     explanations/cifar/200x10/fix-guided
+    explanations/cifar/200x12/naive
+    explanations/cifar/200x12/fix-all
+    explanations/cifar/200x12/prefer-all
+    explanations/cifar/200x12/fix-guided
     explanations/gtsrb/50x1/naive
     explanations/gtsrb/50x1/fix-all
     explanations/gtsrb/50x1/prefer-all
@@ -533,6 +541,10 @@ OUTPUT_DIRS=(
     explanations/gtsrb/200x10/fix-all
     explanations/gtsrb/200x10/prefer-all
     explanations/gtsrb/200x10/fix-guided
+    explanations/gtsrb/200x12/naive
+    explanations/gtsrb/200x12/fix-all
+    explanations/gtsrb/200x12/prefer-all
+    explanations/gtsrb/200x12/fix-guided
 )
 
 MODELS=(
@@ -859,6 +871,10 @@ MODELS=(
     models/mnist/mnist_200x10.nnet
     models/mnist/mnist_200x10.nnet
     models/mnist/mnist_200x10.nnet
+    models/mnist/mnist_200x12.nnet
+    models/mnist/mnist_200x12.nnet
+    models/mnist/mnist_200x12.nnet
+    models/mnist/mnist_200x12.nnet
     models/cifar/cifar_50x1.nnet
     models/cifar/cifar_50x1.nnet
     models/cifar/cifar_50x1.nnet
@@ -963,6 +979,10 @@ MODELS=(
     models/cifar/cifar_200x10.nnet
     models/cifar/cifar_200x10.nnet
     models/cifar/cifar_200x10.nnet
+    models/cifar/cifar_200x12.nnet
+    models/cifar/cifar_200x12.nnet
+    models/cifar/cifar_200x12.nnet
+    models/cifar/cifar_200x12.nnet
     models/gtsrb/gtsrb_50x1.nnet
     models/gtsrb/gtsrb_50x1.nnet
     models/gtsrb/gtsrb_50x1.nnet
@@ -1067,6 +1087,10 @@ MODELS=(
     models/gtsrb/gtsrb_200x10.nnet
     models/gtsrb/gtsrb_200x10.nnet
     models/gtsrb/gtsrb_200x10.nnet
+    models/gtsrb/gtsrb_200x12.nnet
+    models/gtsrb/gtsrb_200x12.nnet
+    models/gtsrb/gtsrb_200x12.nnet
+    models/gtsrb/gtsrb_200x12.nnet
 )
 
 DATASETS=(
@@ -1392,6 +1416,10 @@ DATASETS=(
     datasets/mnist/mnist_s100_scaled.csv
     datasets/mnist/mnist_s100_scaled.csv
     datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
     datasets/cifar/cifar_s100_scaled.csv
     datasets/cifar/cifar_s100_scaled.csv
     datasets/cifar/cifar_s100_scaled.csv
@@ -1496,6 +1524,14 @@ DATASETS=(
     datasets/cifar/cifar_s100_scaled.csv
     datasets/cifar/cifar_s100_scaled.csv
     datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/cifar/cifar_s100_scaled.csv
+    datasets/gtsrb/gtsrb_s100_scaled.csv
+    datasets/gtsrb/gtsrb_s100_scaled.csv
+    datasets/gtsrb/gtsrb_s100_scaled.csv
+    datasets/gtsrb/gtsrb_s100_scaled.csv
     datasets/gtsrb/gtsrb_s100_scaled.csv
     datasets/gtsrb/gtsrb_s100_scaled.csv
     datasets/gtsrb/gtsrb_s100_scaled.csv
