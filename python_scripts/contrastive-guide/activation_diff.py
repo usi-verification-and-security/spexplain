@@ -128,10 +128,10 @@ def compare_activations_generic(model, x_orig, x_cf, threshold=0.0):
 ########################
 # Hyperparameters
 ########################
-model_task = "obesity"  # options: "mnist", "cifar", "gtsrb", "heart_attack", "obesity"
+model_task = "heart_attack"  # options: "mnist", "cifar", "gtsrb", "heart_attack", "obesity"
 scaled = False
 
-for num_layers in range(1, 11):
+for num_layers in range(10, 11):
     hidden_layers_size = 200
     pytorchFile = f"data/models/{model_task}/{model_task}_{hidden_layers_size}x{num_layers}.pth"
     activations_changes_file = f'data/activation_change/{model_task}/activation_{model_task}_{hidden_layers_size}x{num_layers}.txt'
