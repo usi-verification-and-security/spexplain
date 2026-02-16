@@ -25,6 +25,15 @@ bool Verifier::defaultEncodingOutputVars() const {
     return true;
 }
 
+bool Verifier::defaultEncodingReluLowerBounds() const {
+    if (not encodingNeuronVars()) { return false; }
+
+    auto const & network = getNetwork();
+    if (network.nHiddenLayers() > 1) { return false; }
+
+    return true;
+}
+
 void Verifier::fixNeuronActivation(LayerIndex layer, NodeIndex node, bool activation) {
     fixedNeuronActivations.insertOrAssign(layer, node, activation);
 }
