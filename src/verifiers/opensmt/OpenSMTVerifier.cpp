@@ -485,6 +485,7 @@ PTRef OpenSMTVerifier::OpenSMTImpl::encodeNeuron(LayerIndex layer, NodeIndex nod
     };
 
     bool const encodeNeuronVars = verifier.encodingNeuronVars();
+    bool const encodeReluLowerBounds = verifier.encodingReluLowerBounds();
     bool const storeNeuronTerms = storingNeuronTerms();
     assert(encodeNeuronVars or storeNeuronTerms);
 
@@ -524,11 +525,9 @@ PTRef OpenSMTVerifier::OpenSMTImpl::encodeNeuron(LayerIndex layer, NodeIndex nod
         return neuronTerm;
     }
 
-    bool const isSingleHiddenLayer = network.nHiddenLayers() == 1;
-
     PTRef activeCond;
     PTRef inactiveCond;
-    if (storeNeuronTerms or not(isSingleHiddenLayer and encodeNeuronVars)) {
+    if (storeNeuronTerms or not(encodeNeuronVars and encodeReluLowerBounds)) {
         activeCond = activeCondF(*logic, condInput, zero);
         inactiveCond = inactiveCondF(*logic, condInput, zero);
     }
@@ -536,7 +535,7 @@ PTRef OpenSMTVerifier::OpenSMTImpl::encodeNeuron(LayerIndex layer, NodeIndex nod
     PTRef activeLeq;
     PTRef inactiveLeq;
     if (encodeNeuronVars) {
-        if (isSingleHiddenLayer) {
+        if (encodeReluLowerBounds) {
             // Hard constraints
             PTRef activeGeq = logic->mkGeq(neuronVar, varInput);
             PTRef inactiveGeq = logic->mkGeq(neuronVar, zero);
@@ -564,9 +563,9 @@ PTRef OpenSMTVerifier::OpenSMTImpl::encodeNeuron(LayerIndex layer, NodeIndex nod
 
     if (auto optPreferredActivation = verifier.getPreferredNeuronActivation(layer, node)) {
         if (*optPreferredActivation) {
-            addPreference(isSingleHiddenLayer and encodeNeuronVars ? activeLeq : activeCond);
+            addPreference(encodeNeuronVars and encodeReluLowerBounds ? activeLeq : activeCond);
         } else {
-            addPreference(isSingleHiddenLayer and encodeNeuronVars ? inactiveLeq : inactiveCond);
+            addPreference(encodeNeuronVars and encodeReluLowerBounds ? inactiveLeq : inactiveCond);
         }
     }
 
