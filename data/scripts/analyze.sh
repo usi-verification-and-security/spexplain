@@ -1,5 +1,9 @@
 #!/bin/bash
 
+export DIRNAME=$(dirname "$0")
+
+source "$DIRNAME/lib/run"
+
 ACTION_REGEX='check|check-sat|count-fixed|compare-subset'
 
 function usage {
@@ -11,7 +15,8 @@ function usage {
 
 [[ -z $1 ]] && usage 0
 
-ACTION=$1
+ORIG_ACTION=$1
+ACTION=$ORIG_ACTION
 shift
 
 [[ $ACTION =~ ^($ACTION_REGEX)$ ]] || {
@@ -101,6 +106,8 @@ esac
 
 MAX_LINES=$1
 shift
+
+set_timeout
 
 N_LINES=$(wc -l <"$PHI_FILE")
 
@@ -333,9 +340,18 @@ function exec_solver {
     local ofile=$3
     local pids_var=$4
 
-    $solver $ifile &>$ofile &
+    $TIMEOUT_PER_CMD $solver $ifile &>$ofile &
     eval $pids_var'+=($!)'
     (( ++N_PROC ))
+}
+
+function timeouted {
+    local output="$1"
+
+    [[ -z $output ]] && return 0
+    [[ $output =~ (xit|signal|SIG) ]] && return 0
+
+    return 1
 }
 
 i=-1
@@ -431,16 +447,25 @@ while true; do
 
         while (( $N_PROC >= $MAX_PROC )); do
             if (( $WAIT_SUPPORTS_P )); then
-                wait -n -p pid || {
-                    printf "Process %d exited with error.\n" $pid >&2
-                    cleanup 4 $pid
-                }
+                wait -n -p pid
+                ret=$?
             else
-                wait -n || {
-                    printf "Process exited with error.\n" >&2
-                    cleanup 4
-                }
+                wait -n
+                ret=$?
+                unset pid
             fi
+
+            (( $ret > 0 )) && {
+                if [[ -n $TIMEOUT_PER_CMD ]] && (( $ret == $TIMEOUT_STATUS )); then
+                    :
+                else
+                    printf "Process " >&2
+                    [[ -n $pid ]] && printf "%d " $pid >&2
+                    printf "exited with error.\n" >&2
+                    cleanup 4 $pid
+                fi
+            }
+
             (( --N_PROC ))
         done
 
@@ -484,6 +509,7 @@ wait || {
     cleanup 4
 }
 
+UNKNOWN_CNT=0
 case $ACTION in
 compare-subset)
     SUBSET_CNT=0
@@ -497,13 +523,15 @@ compare-subset)
         subset_result=$(cat $ofile_subset)
         supset_result=$(cat $ofile_supset)
 
-        if [[ $subset_result == unsat ]]; then
+        if [[ -n $TIMEOUT_PER_CMD ]] && (timeouted "$subset_result" || timeouted "$supset_result"); then
+            (( ++UNKNOWN_CNT ))
+        elif [[ $subset_result == unsat ]]; then
             if [[ $supset_result == unsat ]]; then
                 (( ++EQUAL_CNT ))
             elif [[ $supset_result == sat ]]; then
                 (( ++SUBSET_CNT ))
             else
-                printf "Unexpected output of supset query: %s\n" $supset_result >&2
+                printf "\nUnexpected output of supset query:\n%s\n" "$supset_result" >&2
                 less $ofile_supset
                 cleanup 3
             fi
@@ -513,37 +541,47 @@ compare-subset)
             elif [[ $supset_result == sat ]]; then
                 (( ++UNCOMPARABLE_CNT ))
             else
-                printf "Unexpected output of supset query: %s\n" $supset_result >&2
+                printf "\nUnexpected output of supset query:\n%s\n" "$supset_result" >&2
                 less $ofile_supset
                 cleanup 3
             fi
         else
-            printf "Unexpected output of subset query: %s\n" $subset_result >&2
+            printf "\nUnexpected output of subset query:\n%s\n" "$subset_result" >&2
             less $ofile_subset
             cleanup 3
         fi
     done
 
-    sum=$(( $SUBSET_CNT + $SUPSET_CNT + $EQUAL_CNT + $UNCOMPARABLE_CNT ))
+    sum=$(( $SUBSET_CNT + $SUPSET_CNT + $EQUAL_CNT + $UNCOMPARABLE_CNT + $UNKNOWN_CNT ))
     (( $cnt == $sum )) || {
         printf "Unexpected mismatch of particular counts with the total count: %d != %d\n" $cnt $sum >&2
         cleanup 3
     }
     ;;
 *)
-    cnt=0
+    [[ $ORIG_ACTION == check ]] && {
+        (( $CHECK_SAT_ONLY )) && {
+            printf "Unexpected CHECK_SAT_ONLY for action %s\n" $ORIG_ACTION >&2
+            cleanup 3
+        }
+        IS_UNKNOWN_ARRAY=()
+    }
+
+    CNT=0
     (( $CHECK_SAT_ONLY )) || for idx in ${!IFILES[@]}; do
         ifile=${IFILES[$idx]}
         ofile=${OFILES[$idx]}
         result=$(cat $ofile)
-        if [[ $result == unsat ]]; then
-            case $ACTION in
-            check)
-                ;;
-            count-fixed)
-                (( ++cnt ))
-                ;;
-            esac
+
+        [[ $ORIG_ACTION == check ]] && is_unknown=0
+        if [[ -n $TIMEOUT_PER_CMD ]] && timeouted "$result"; then
+            if [[ $ORIG_ACTION == check ]]; then
+                is_unknown=1
+            else
+                (( ++UNKNOWN_CNT ))
+            fi
+        elif [[ $result == unsat ]]; then
+            [[ $ORIG_ACTION == check ]] || (( ++CNT ))
         elif [[ $result == sat ]]; then
             case $ACTION in
             check)
@@ -556,45 +594,86 @@ compare-subset)
                 ;;
             esac
         else
-            printf "Unexpected output of query:\n%s\n" "$result" >&2
+            printf "\nUnexpected output of query:\n%s\n" "$result" >&2
             less $ofile
             cleanup 3
         fi
+
+        [[ $ORIG_ACTION == check ]] && IS_UNKNOWN_ARRAY[$idx]=$is_unknown
     done
     ;;
 esac
 
 case $ACTION in
 check)
+    [[ $ORIG_ACTION == check ]] && [[ ${#IFILES[@]} != ${#IFILES_SAT[@]} ]] && {
+        printf "Unexpected mismatch of #files between check and check-sat: %d != %d\n" ${#IFILES[@]} ${#IFILES_SAT[@]} >&2
+        cleanup 3
+    }
+
     for idx in ${!IFILES_SAT[@]}; do
         ifile=${IFILES_SAT[$idx]}
         ofile=${OFILES_SAT[$idx]}
         result=$(cat $ofile)
-        if [[ $result == unsat ]]; then
+
+        [[ $ORIG_ACTION == check ]] && is_unknown=0
+        if [[ -n $TIMEOUT_PER_CMD ]] && timeouted "$result"; then
+            if [[ $ORIG_ACTION == check ]]; then
+                is_unknown=1
+            else
+                (( ++UNKNOWN_CNT ))
+            fi
+        elif [[ $result == sat ]]; then
+            [[ $ORIG_ACTION == check ]] || (( ++CNT ))
+        elif [[ $result == unsat ]]; then
             printf "NOT space explanation [%d]: explanation not sat:\n" $idx >&2
             tail -n 2 $ifile | head -n 1 >&2
             cp -v $ifile $(basename $ifile) >&2
             cleanup 3
-        elif [[ $result != sat ]]; then
+        else
             printf "Unexpected output of sat query:\n%s\n" "$result" >&2
             less $ofile
             cleanup 3
         fi
+
+        [[ $ORIG_ACTION == check ]] || continue
+        [[ ${IS_UNKNOWN_ARRAY[$idx]} == 1 || $is_unknown == 1 ]] && (( ++UNKNOWN_CNT ))
     done
+
+    [[ $ORIG_ACTION == check ]] && CNT=$(( ${#IFILES[@]} - $UNKNOWN_CNT ))
+    ;;
+esac
+
+case $ACTION in
+check|count-fixed)
+    PERC=$(bc -l <<<"($CNT / ${#IFILES[@]})*100")
+    UNKNOWN_PERC=$(bc -l <<<"($UNKNOWN_CNT / ${#IFILES[@]})*100")
     ;;
 esac
 
 case $ACTION in
 check)
-    printf "OK!\n"
+    printf "OK!"
     ;;
 count-fixed)
-    printf "avg #fixed features: %.1f%%\n" $(bc -l <<<"($cnt / ${#IFILES[@]})*100")
+    printf "avg #fixed features: %.1f%%" $PERC
     ;;
 compare-subset)
     printf "Total: %d\n" $cnt
-    printf "<: %d =: %d >: %d | ?: %d\n" $SUBSET_CNT $EQUAL_CNT $SUPSET_CNT $UNCOMPARABLE_CNT
+    printf "<: %d =: %d >: %d | NC: %d" $SUBSET_CNT $EQUAL_CNT $SUPSET_CNT $UNCOMPARABLE_CNT
     ;;
 esac
+[[ -n $TIMEOUT_PER_CMD ]] && case $ACTION in
+check)
+    printf " (%.1f%%)" $PERC
+    ;;
+count-fixed)
+    printf " (?: %.1f%%)" $UNKNOWN_PERC
+    ;;
+compare-subset)
+    printf " ?: %d" $UNKNOWN_CNT
+    ;;
+esac
+printf "\n"
 
 cleanup 0

@@ -62,6 +62,13 @@ function set_timeout {
         TIMEOUT_CMD="timeout $TIMEOUT"
     fi
     export TIMEOUT_CMD
+
+    if [[ -z $TIMEOUT_PER ]]; then
+        unset TIMEOUT_PER_CMD
+    else
+        TIMEOUT_PER_CMD="timeout $TIMEOUT_PER"
+    fi
+    export TIMEOUT_PER_CMD
 }
 
 function set_experiment_name_from_strategies {

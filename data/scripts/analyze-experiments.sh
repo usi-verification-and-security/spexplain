@@ -5,6 +5,7 @@ SCRIPTS_DIR=$(dirname "$0")
 ANALYZE_SCRIPT="$SCRIPTS_DIR/analyze.sh"
 
 source "$SCRIPTS_DIR/lib/experiments"
+source "$SCRIPTS_DIR/lib/run"
 
 function usage {
     printf "USAGE: %s <action> <explanations_dir> <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>] [<filter_regex2>] [-h|-f]\n" "$0"
@@ -87,6 +88,8 @@ FORCE_COMPUTE=0
     usage 1 >&2
 }
 
+set_timeout
+
 #++ store consecutive cache to separate files to avoid destroying it
 if [[ -z $INCLUDE_CONSECUTIVE ]]; then
     declare -n lEXPERIMENT_NAMES=EXPERIMENT_NAMES
@@ -144,6 +147,24 @@ compare-subset)
     printf " | %${UNCOMPARABLE_MAX_WIDTH}s" $UNCOMPARABLE_CAPTION
     ;;
 esac
+
+[[ -n $TIMEOUT_PER_CMD ]] && {
+    case $ACTION in
+    count-fixed)
+        UNKNOWN_CAPTION='%unknown'
+        UNKNOWN_MAX_WIDTH=${#UNKNOWN_CAPTION}
+        ;;
+    compare-subset)
+        UNKNOWN_CAPTION='?'
+        UNKNOWN_MAX_WIDTH=$COMPARE_SUBSET_MAX_WIDTH
+        ;;
+    esac
+    case $ACTION in
+    count-fixed|compare-subset)
+        printf " | %${UNKNOWN_MAX_WIDTH}s" $UNKNOWN_CAPTION
+        ;;
+    esac
+}
 
 case $ACTION in
 count-fixed|compare-subset)
@@ -358,25 +379,33 @@ for do_reverse in ${do_reverse_args[@]}; do
                 ;;
             esac
 
-            out=$($ANALYZE_SCRIPT $ACTION "$PSI_FILE" "${phi_files[@]}" "${args[@]}") || exit $?
+            out=$($ANALYZE_SCRIPT $ACTION "$PSI_FILE" "${phi_files[@]}" "${args[@]}") || {
+                printf '%s\n' "$out" >&2
+                exit $?
+            }
 
             case $ACTION in
             check*)
                 if [[ $out =~ ^OK ]]; then
-                    printf "%s\n" "$out"
+                    printf "%s" "$out"
                 else
-                    printf "\n%s\n" "$out" >&2
+                    printf "\n%s" "$out" >&2
                     exit 4
                 fi
                 ;;
             count-fixed)
                 perc_fixed_features=$(sed -n 's/^.*#fixed features: \([^%]*\)%.*$/\1/p'  <<<"$out")
 
-                perc_dimension=$(bc -l <<<"100 - $perc_fixed_features")
+                if [[ -n $TIMEOUT_PER_CMD ]]; then
+                    unknown_perc=$(sed -n 's/^.*#fixed features:.*(?: \([^%]*\)%.*)$/\1/p'  <<<"$out")
+
+                    perc_dimension=$(bc -l <<<"100 - $perc_fixed_features - $unknown_perc")
+                else
+                    perc_dimension=$(bc -l <<<"100 - $perc_fixed_features")
+                fi
 
                 printf " |%${FIXED_MAX_WIDTH}.1f%%" $perc_fixed_features
                 printf " |%${DIMENSION_MAX_WIDTH}.1f%%" $perc_dimension
-                printf "\n"
                 ;;
             compare-subset)
                 outs=($(sed -n 's/[^:]*: \([0-9]*\)/\1 /pg' <<<"$out"))
@@ -391,13 +420,26 @@ for do_reverse in ${do_reverse_args[@]}; do
                 supset_perc=$(bc -l <<<"100 * ($supset_cnt / $cnt)")
                 uncomparable_perc=$(bc -l <<<"100 * ($uncomparable_cnt / $cnt)")
 
+                [[ -n $TIMEOUT_PER_CMD ]] && {
+                    unknown_cnt=${outs[5]}
+
+                    unknown_perc=$(bc -l <<<"100 * ($unknown_cnt / $cnt)")
+                }
+
                 printf " |%${SUBSET_MAX_WIDTH}.1f%%" $subset_perc
                 printf " |%${EQUAL_MAX_WIDTH}.1f%%" $equal_perc
                 printf " |%${SUPSET_MAX_WIDTH}.1f%%" $supset_perc
                 printf " |%${UNCOMPARABLE_MAX_WIDTH}.1f%%" $uncomparable_perc
-                printf "\n"
                 ;;
             esac
+            [[ -n $TIMEOUT_PER_CMD ]] && {
+                case $ACTION in
+                count-fixed|compare-subset)
+                    printf " |%${UNKNOWN_MAX_WIDTH}.1f%%" $unknown_perc
+                    ;;
+                esac
+            }
+            printf "\n"
         done
 
         case $ACTION in
