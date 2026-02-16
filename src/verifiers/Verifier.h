@@ -36,9 +36,11 @@ public:
     // Whether the verifier should encode hidden/output neurons, resp., using auxiliary variables
     void setEncodingNeuronVars(bool val = true) { _encodingNeuronVars = val; }
     void setEncodingOutputVars(bool val = true) { _encodingOutputVars = val; }
+    void setEncodingReluLowerBounds(bool val = true) { _encodingReluLowerBounds = val; }
 
     bool encodingNeuronVars() const { return _encodingNeuronVars.value_or(defaultEncodingNeuronVars()); }
     bool encodingOutputVars() const { return _encodingOutputVars.value_or(defaultEncodingOutputVars()); }
+    bool encodingReluLowerBounds() const { return _encodingReluLowerBounds.value_or(defaultEncodingReluLowerBounds()); }
 
     void allowNeuronVarsInExplanations(bool val = true) { _allowNeuronVarsInExplanations = val; }
 
@@ -103,6 +105,7 @@ protected:
 
     virtual bool defaultEncodingNeuronVars() const;
     virtual bool defaultEncodingOutputVars() const;
+    virtual bool defaultEncodingReluLowerBounds() const;
 
     virtual void initImpl(spexplain::Network const &);
 
@@ -121,6 +124,7 @@ private:
 
     std::optional<bool> _encodingNeuronVars;
     std::optional<bool> _encodingOutputVars;
+    std::optional<bool> _encodingReluLowerBounds;
 
     bool _allowNeuronVarsInExplanations{true};
 };

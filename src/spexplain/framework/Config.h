@@ -58,6 +58,7 @@ public:
 
     void setEncodingNeuronVars(bool val = true) { _encodingNeuronVars = val; }
     void setEncodingOutputVars(bool val = true) { _encodingOutputVars = val; }
+    void setEncodingReluLowerBounds(bool val = true) { _encodingReluLowerBounds = val; }
 
     void allowNeuronVarsInExplanations(bool val = true) { _allowNeuronVarsInExplanations = val; }
 
@@ -165,6 +166,10 @@ public:
     [[maybe_unused]]
     std::optional<bool> encodingOutputVars() const {
         return _encodingOutputVars;
+    }
+    [[maybe_unused]]
+    std::optional<bool> encodingReluLowerBounds() const {
+        return _encodingReluLowerBounds;
     }
 
     [[maybe_unused]]
@@ -294,6 +299,7 @@ protected:
 
     std::optional<bool> _encodingNeuronVars{};
     std::optional<bool> _encodingOutputVars{};
+    std::optional<bool> _encodingReluLowerBounds{};
 
     std::optional<bool> _allowNeuronVarsInExplanations{};
 
