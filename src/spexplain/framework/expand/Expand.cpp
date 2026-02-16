@@ -330,6 +330,9 @@ void Framework::Expand::initVerifier() {
     if (auto optEncodingOutputVars = config.encodingOutputVars()) {
         verifierPtr->setEncodingOutputVars(*optEncodingOutputVars);
     }
+    if (auto optEncodingReluLowerBounds = config.encodingReluLowerBounds()) {
+        verifierPtr->setEncodingReluLowerBounds(*optEncodingReluLowerBounds);
+    }
 
     if (auto optAllowedNeuronVars = config.allowedNeuronVarsInExplanations()) {
         verifierPtr->allowNeuronVarsInExplanations(*optAllowedNeuronVars);
