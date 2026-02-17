@@ -114,8 +114,16 @@ std::unique_ptr<Network> Network::fromNNetFile(std::string_view filename) {
                                                 std::move(weights), std::move(biases))};
 }
 
+std::size_t Network::nClasses() const {
+    std::size_t nOutputs_ = nOutputs();
+    assert(nOutputs_ > 0);
+    assert(nOutputs_ != 2);
+    if (nOutputs_ == 1) { return 2; }
+    return nOutputs_;
+}
+
 std::size_t Network::getLayerSize(std::size_t layerNum) const {
-    if (layerNum == 0) return numInputs;
+    if (layerNum == 0) { return nInputs(); }
     assert(layerNum <= biases.size());
     return biases[layerNum - 1].size();
 }
@@ -142,12 +150,6 @@ Float Network::getInputUpperBound(std::size_t nodeIndex) const {
     return inputMaximums.at(nodeIndex);
 }
 
-bool Network::isBinaryClassifier() const {
-    assert(getOutputSize() != 0);
-    assert(getOutputSize() != 2);
-    return getOutputSize() == 1;
-}
-
 Network::Output Network::operator()(Sample const & sample) const {
     Output::Values values = computeOutputValues(sample);
     Classification cls = computeClassification(values);
@@ -156,13 +158,15 @@ Network::Output Network::operator()(Sample const & sample) const {
 }
 
 Network::Output::Values Network::computeOutputValues(Sample const & sample) const {
-    auto inputSize = getInputSize();
-    if (sample.size() != inputSize) { throw std::logic_error("Input values do not have expected size!"); }
+    std::size_t const nVars = nInputs();
+    if (sample.size() != nVars) { throw std::logic_error("Input values do not have expected size!"); }
 
     auto previousLayerValues = sample;
     Values currentLayerValues;
-    for (auto layer = 1u; layer < getNumLayers(); ++layer) {
-        for (auto node = 0u; node < getLayerSize(layer); ++node) {
+    std::size_t const nLayers_ = nLayers();
+    for (std::size_t layer = 1; layer < nLayers_; ++layer) {
+        std::size_t const layerSize = getLayerSize(layer);
+        for (std::size_t node = 0; node < layerSize; ++node) {
             auto const & incomingWeights = getWeights(layer, node);
             assert(incomingWeights.size() == previousLayerValues.size());
             Values addends;
@@ -171,7 +175,7 @@ Network::Output::Values Network::computeOutputValues(Sample const & sample) cons
             }
             currentLayerValues.push_back(std::accumulate(addends.begin(), addends.end(), getBias(layer, node)));
         }
-        if (layer < getNumLayers() - 1) {
+        if (layer < nLayers_ - 1) {
             std::transform(currentLayerValues.begin(), currentLayerValues.end(), currentLayerValues.begin(),
                            [](Float val) { return std::max(Float{0}, val); });
             previousLayerValues = std::move(currentLayerValues);
@@ -182,7 +186,8 @@ Network::Output::Values Network::computeOutputValues(Sample const & sample) cons
 }
 
 Network::Classification Network::computeClassification(Output::Values const & values) const {
-    if (isBinaryClassifier()) {
+    assert(nClasses() >= 2);
+    if (nClasses() == 2) {
         return computeBinaryClassification(values);
     } else {
         return computeNonBinaryClassification(values);

@@ -10,7 +10,7 @@
 #include <string_view>
 
 #ifndef NDEBUG
-#include <unordered_set>
+#include <set>
 #endif
 
 namespace spexplain {
@@ -20,11 +20,13 @@ public:
     using SampleIndices = std::vector<Sample::Idx>;
     using Outputs = std::vector<Output>;
 
-    Dataset(std::string_view fileName);
+    Dataset(Network const &, std::string_view fileName);
+    Dataset(std::size_t nInputs_, std::size_t nClasses_, std::string_view fileName);
+
+    std::size_t nInputs() const { return _nInputs; }
+    std::size_t nClasses() const { return _nClasses; }
 
     std::size_t size() const { return getSamples().size(); }
-
-    std::size_t classificationSize() const;
 
     Samples const & getSamples() const { return samples; }
     Sample const & getSample(Sample::Idx idx) const {
@@ -80,6 +82,9 @@ private:
     SampleIndices & getCorrectSampleIndicesOfClass(Classification::Label);
     SampleIndices & getIncorrectSampleIndicesOfClass(Classification::Label);
 
+    std::size_t _nInputs;
+    std::size_t _nClasses;
+
     SampleIndices correctSampleIndices{};
     SampleIndices incorrectSampleIndices{};
 
@@ -89,7 +94,7 @@ private:
     std::vector<SampleIndices> incorrectSampleIndicesOfClasses{};
 
 #ifndef NDEBUG
-    std::unordered_set<Classification::Label> classificationLabels{};
+    std::set<Classification::Label> expectedClassificationLabels{};
 #endif
 };
 } // namespace spexplain

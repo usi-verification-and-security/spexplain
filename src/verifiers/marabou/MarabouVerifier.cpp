@@ -207,9 +207,9 @@ void QueryIncrementalWrapper::setHardInputUpperBound(VarIndex var, Float val) {
 
 std::unique_ptr<QueryIncrementalWrapper> QueryIncrementalWrapper::fromNNet(spexplain::Network const & network) {
     auto queryWrapper = std::make_unique<QueryIncrementalWrapper>();
-    assert(network.getNumLayers() >= 2);
+    assert(network.nLayers() >= 2);
     auto & layerSizes = queryWrapper->layerSizes;
-    for (std::size_t layerNum = 0; layerNum < network.getNumLayers(); ++layerNum) {
+    for (std::size_t layerNum = 0; layerNum < network.nLayers(); ++layerNum) {
         layerSizes.push_back(network.getLayerSize(layerNum));
     }
 
@@ -219,7 +219,7 @@ std::unique_ptr<QueryIncrementalWrapper> QueryIncrementalWrapper::fromNNet(spexp
         queryWrapper->markInputVariable(var);
     }
     // Register backward and forward variables for hidden layers
-    for (std::size_t layerNum = 0; layerNum < network.getNumLayers(); ++layerNum) {
+    for (std::size_t layerNum = 0; layerNum < network.nLayers(); ++layerNum) {
         for (std::size_t node = 0; node < layerSizes[layerNum]; ++node) {
             queryWrapper->registerNewVariable();
             queryWrapper->registerNewVariable();
@@ -233,7 +233,7 @@ std::unique_ptr<QueryIncrementalWrapper> QueryIncrementalWrapper::fromNNet(spexp
 
     // Build equations for each variable from weights and biases
     // RHS variables start from first hidden layer, i.e., we skip input layer
-    for (std::size_t layerNum = 1; layerNum < network.getNumLayers(); ++layerNum) {
+    for (std::size_t layerNum = 1; layerNum < network.nLayers(); ++layerNum) {
         for (std::size_t node = 0; node < network.getLayerSize(layerNum); ++node) {
             Equation eq;
             auto const & weights = network.getWeights(layerNum, node);
@@ -248,7 +248,7 @@ std::unique_ptr<QueryIncrementalWrapper> QueryIncrementalWrapper::fromNNet(spexp
         }
     }
     // Add ReLUs
-    for (std::size_t layerNum = 1; layerNum < network.getNumLayers() - 1; ++layerNum) {
+    for (std::size_t layerNum = 1; layerNum < network.nLayers() - 1; ++layerNum) {
         for (std::size_t node = 0; node < network.getLayerSize(layerNum); ++node) {
             queryWrapper->reluList.emplace_back(queryWrapper->getVarIndex(layerNum, node, VariableType::BACKWARD),
                                                 queryWrapper->getVarIndex(layerNum, node, VariableType::FORWARD)

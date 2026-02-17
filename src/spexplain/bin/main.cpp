@@ -297,7 +297,7 @@ int mainExplain(int argc, char * argv[], int i, int nArgs) {
     std::istringstream strategiesSpecIss{std::string{strategiesSpec}};
     spexplain::Framework framework{config, std::move(networkPtr), strategiesSpecIss};
 
-    auto dataset = spexplain::Network::Dataset{datasetFn};
+    auto dataset = spexplain::Network::Dataset{framework.getNetwork(), datasetFn};
     std::size_t const size = dataset.size();
 
     spexplain::Explanations explanations =

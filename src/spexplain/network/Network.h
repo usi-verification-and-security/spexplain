@@ -39,9 +39,12 @@ public:
 
     static std::unique_ptr<Network> fromNNetFile(std::string_view filename);
 
-    std::size_t getInputSize() const { return numInputs; }
-    std::size_t getOutputSize() const { return numOutputs; }
-    std::size_t getNumLayers() const { return numLayers; }
+    std::size_t nInputs() const { return numInputs; }
+    std::size_t nOutputs() const { return numOutputs; }
+    std::size_t nLayers() const { return numLayers; }
+
+    std::size_t nClasses() const;
+
     std::size_t getLayerSize(std::size_t layerNum) const;
 
     Values const & getWeights(std::size_t layerNum, std::size_t nodeIndex) const;
@@ -50,8 +53,6 @@ public:
 
     Float getInputLowerBound(std::size_t node) const;
     Float getInputUpperBound(std::size_t node) const;
-
-    bool isBinaryClassifier() const;
 
     Output operator()(Sample const &) const;
 

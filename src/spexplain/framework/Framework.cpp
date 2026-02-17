@@ -42,10 +42,10 @@ void Framework::setNetwork(std::unique_ptr<Network> networkPtr_) {
     networkPtr = std::move(networkPtr_);
 
     auto & network = *networkPtr;
-    std::size_t const size = network.getInputSize();
-    varNames.reserve(size);
-    domainIntervals.reserve(size);
-    for (VarIdx idx = 0; idx < size; ++idx) {
+    std::size_t const nVars = network.nInputs();
+    varNames.reserve(nVars);
+    domainIntervals.reserve(nVars);
+    for (VarIdx idx = 0; idx < nVars; ++idx) {
         varNames.emplace_back(makeVarName(idx));
         domainIntervals.emplace_back(network.getInputLowerBound(idx), network.getInputUpperBound(idx));
     }

@@ -13,9 +13,18 @@
 #endif
 
 namespace spexplain {
-Network::Dataset::Dataset(std::string_view fileName) {
+Network::Dataset::Dataset(Network const & network, std::string_view fileName)
+    : Dataset(network.nInputs(), network.nClasses(), fileName) {}
+
+Network::Dataset::Dataset(std::size_t nInputs_, std::size_t nClasses_, std::string_view fileName)
+    : _nInputs{nInputs_},
+      _nClasses{nClasses_} {
     std::ifstream file{std::string{fileName}};
     if (not file.good()) { throw std::ifstream::failure{"Could not open dataset file "s + std::string{fileName}}; }
+
+    for (std::size_t label = 0; label < nClasses_; ++label) {
+        getSampleIndicesOfClass(label);
+    }
 
     // Read the first line to skip the header
     std::string header;
@@ -39,7 +48,7 @@ Network::Dataset::Dataset(std::string_view fileName) {
         Classification::Label label = expectedClassFloat;
         expectedClassifications.push_back({.label = label});
 #ifndef NDEBUG
-        classificationLabels.insert(label);
+        expectedClassificationLabels.insert(label);
 #endif
 
         SampleIndices & sampleIndicesOfClass = getSampleIndicesOfClass(label);
@@ -52,13 +61,10 @@ Network::Dataset::Dataset(std::string_view fileName) {
     assert(size() == samples.size());
     assert(size() == expectedClassifications.size());
 
-    assert(classificationSize() >= 2);
-    assert(classificationSize() == classificationLabels.size());
-    assert(classificationSize() == sampleIndicesOfClasses.size());
-}
-
-std::size_t Network::Dataset::classificationSize() const {
-    return sampleIndicesOfClasses.size();
+    assert(nClasses_ >= 2);
+    assert(expectedClassificationLabels.size() <= nClasses_);
+    assert(*expectedClassificationLabels.rbegin() < nClasses_);
+    assert(sampleIndicesOfClasses.size() == nClasses_);
 }
 
 Network::Dataset::SampleIndices Network::Dataset::getSampleIndices() const {
@@ -95,12 +101,12 @@ void Network::Dataset::setComputedOutputs(Outputs outs) {
 
 #ifndef NDEBUG
     for (auto & output : computedOutputs) {
-        assert(classificationLabels.contains(output.classification.label));
+        assert(output.classification.label < nClasses());
         assert(not output.values.empty());
-        if (output.values.size() == 1) {
-            assert(classificationSize() == 2);
+        if (nClasses() == 2) {
+            assert(output.values.size() + 1 <= nClasses());
         } else {
-            assert(output.values.size() == classificationSize());
+            assert(output.values.size() <= nClasses());
         }
     }
 #endif
@@ -116,8 +122,8 @@ bool Network::Dataset::isCorrect(Sample::Idx idx) {
 }
 
 void Network::Dataset::setCorrectAndIncorrectSamples() {
-    std::size_t const classificationSize_ = classificationSize();
-    for (std::size_t label = 0; label < classificationSize_; ++label) {
+    std::size_t const nClasses_ = nClasses();
+    for (std::size_t label = 0; label < nClasses_; ++label) {
         getCorrectSampleIndicesOfClass(label);
         getIncorrectSampleIndicesOfClass(label);
     }
@@ -137,8 +143,8 @@ void Network::Dataset::setCorrectAndIncorrectSamples() {
 
     assert(size() == correctSampleIndices.size() + incorrectSampleIndices.size());
 
-    assert(classificationSize_ == correctSampleIndicesOfClasses.size());
-    assert(classificationSize_ == incorrectSampleIndicesOfClasses.size());
+    assert(correctSampleIndicesOfClasses.size() == nClasses_);
+    assert(incorrectSampleIndicesOfClasses.size() == nClasses_);
 }
 
 Network::Dataset::SampleIndices const & Network::Dataset::getCorrectSampleIndices() const {

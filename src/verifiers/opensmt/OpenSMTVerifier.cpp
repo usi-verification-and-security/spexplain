@@ -289,7 +289,7 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
 
     // Create representation for each neuron in hidden layers, from input to output layers
     std::vector<PTRef> previousLayerRefs = inputVars;
-    for (LayerIndex layer = 1u; layer < network.getNumLayers() - 1; layer++) {
+    for (LayerIndex layer = 1u; layer < network.nLayers() - 1; layer++) {
         std::vector<PTRef> currentLayerRefs;
         for (NodeIndex node = 0u; node < network.getLayerSize(layer); ++node) {
             std::vector<PTRef> addends;
@@ -313,7 +313,7 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
 
     // Create representation of the outputs (without RELU!)
     // TODO: Remove code duplication!
-    auto lastLayerIndex = network.getNumLayers() - 1;
+    auto lastLayerIndex = network.nLayers() - 1;
     auto lastLayerSize = network.getLayerSize(lastLayerIndex);
     outputVars.clear();
     for (NodeIndex node = 0u; node < lastLayerSize; ++node) {
@@ -334,7 +334,7 @@ void OpenSMTVerifier::OpenSMTImpl::loadModel(spexplain::Network const & network)
 
     // Store information about layer sizes
     layerSizes.clear();
-    for (LayerIndex layer = 0u; layer < network.getNumLayers(); layer++) {
+    for (LayerIndex layer = 0u; layer < network.nLayers(); layer++) {
         layerSizes.push_back(network.getLayerSize(layer));
     }
 

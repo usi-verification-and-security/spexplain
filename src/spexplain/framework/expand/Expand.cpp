@@ -133,13 +133,9 @@ void Framework::Expand::dumpClassificationsAsSmtLib2Queries() {
     auto & cinfo = print.info();
 
     auto & network = framework.getNetwork();
-    std::size_t nOutputs = network.getOutputSize();
-    if (network.isBinaryClassifier()) {
-        ++nOutputs;
-        assert(nOutputs == 2);
-    }
+    std::size_t const nClasses = network.nClasses();
 
-    for (Network::Classification::Label l = 0; l < nOutputs; ++l) {
+    for (Network::Classification::Label l = 0; l < nClasses; ++l) {
         Network::Classification cls{.label = l};
 
         std::string const fname = "psi_c" + std::to_string(l) + ".smt2";
@@ -312,11 +308,12 @@ void Framework::Expand::assertClassification(Network::Classification const & cls
     verifierPtr->push();
 
     auto & network = framework.getNetwork();
-    auto const outputLayerIndex = network.getNumLayers() - 1;
+    auto const outputLayerIndex = network.nLayers() - 1;
 
     auto const & label = cls.label;
 
-    if (not network.isBinaryClassifier()) {
+    assert(network.nClasses() >= 2);
+    if (network.nClasses() > 2) {
         verifierPtr->addClassificationConstraint(label, 0);
         return;
     }
