@@ -46,6 +46,7 @@ public:
 
     void setStrategies(std::istream &);
 
+    // Based on Config
     void setVerifier();
     void setVerifier(std::string_view name);
 

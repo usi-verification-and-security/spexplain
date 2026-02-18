@@ -33,8 +33,9 @@ public:
 
     // Not inline because of fwd-decl. types
     Framework();
+    // Does *not* call setNetwork, setStrategies nor setVerifier
     Framework(Config const &);
-    Framework(Config const &, std::unique_ptr<Network>);
+    // Calls setNetwork, setStrategies and setVerifier
     Framework(Config const &, std::unique_ptr<Network>, std::istream & expandStrategiesSpec);
     ~Framework();
 
@@ -52,10 +53,11 @@ public:
         return *networkPtr;
     }
 
-    void setExpand(std::istream & strategiesSpec);
+    void setStrategies(std::istream & strategiesSpec);
 
-    // Sufficient to set in Config
-    void setVerifierName(std::string_view name);
+    // Based on Config
+    void setVerifier();
+    void setVerifier(std::string_view name);
 
     // Sufficient to set in Config
     void setExplanationsFileName(std::string_view fileName);

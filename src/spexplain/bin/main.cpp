@@ -318,9 +318,9 @@ int mainDumpPsi(int argc, char * argv[], int i, [[maybe_unused]] int nArgs) {
 
     if (auto optRet = getOpts(argc, argv, config)) { return *optRet; }
 
-    //++ should not be necessary
-    std::istringstream strategiesSpecIss{spexplain::Framework::Expand::NopStrategy::name()};
-    spexplain::Framework framework{config, std::move(networkPtr), strategiesSpecIss};
+    spexplain::Framework framework{config};
+    framework.setNetwork(std::move(networkPtr));
+    framework.setVerifier();
 
     framework.dumpDomainsAsSmtLib2Query();
     framework.dumpClassificationsAsSmtLib2Queries();

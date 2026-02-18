@@ -22,13 +22,11 @@ Framework::Framework(Config const & config) : configPtr{MAKE_UNIQUE(config)} {
     printPtr = std::make_unique<Print>(*this);
 }
 
-Framework::Framework(Config const & config, std::unique_ptr<Network> networkPtr_) : Framework(config) {
-    setNetwork(std::move(networkPtr_));
-}
-
 Framework::Framework(Config const & config, std::unique_ptr<Network> networkPtr_, std::istream & expandStrategiesSpec)
-    : Framework(config, std::move(networkPtr_)) {
-    setExpand(expandStrategiesSpec);
+    : Framework(config) {
+    setNetwork(std::move(networkPtr_));
+    setStrategies(expandStrategiesSpec);
+    setVerifier();
 }
 
 Framework::~Framework() = default;
@@ -51,13 +49,17 @@ void Framework::setNetwork(std::unique_ptr<Network> networkPtr_) {
     }
 }
 
-void Framework::setExpand(std::istream & strategiesSpec) {
+void Framework::setStrategies(std::istream & strategiesSpec) {
     assert(expandPtr);
     expandPtr->setStrategies(strategiesSpec);
+}
+
+void Framework::setVerifier() {
+    assert(expandPtr);
     expandPtr->setVerifier();
 }
 
-void Framework::setVerifierName(std::string_view name) {
+void Framework::setVerifier(std::string_view name) {
     assert(expandPtr);
     expandPtr->setVerifier(name);
 }
