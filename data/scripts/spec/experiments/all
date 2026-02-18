@@ -132,18 +132,18 @@ EXPERIMENT_NAMES=(
 #+ change to associative array right away? and rename 'all' to 'strategies'
 EXPERIMENT_STRATEGIES=(
     'abductive'
-    'ucore sample, min'
+    'ucore min'
     'ucore interval, min'
 
     'trial n 4'
     'abductive; trial n 4'
-    'ucore sample, min; trial n 4'
+    'ucore min; trial n 4'
 
-    'ucore sample, min; itp'
+    'ucore min; itp'
     'ucore interval, min; itp'
-    'ucore sample, min; itp; ucore'
+    'ucore min; itp; ucore'
     'ucore interval, min; itp; ucore'
-    'ucore sample, min; itp; ucore min'
+    'ucore min; itp; ucore min'
     'ucore interval, min; itp; ucore min'
 
     'itp astronger, bstrong'

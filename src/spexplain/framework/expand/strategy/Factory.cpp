@@ -132,11 +132,6 @@ Framework::Expand::Strategy::Factory::parseUnsatCore(std::string const & str, au
         if (not iss) { throwInvalidParameterTp<UnsatCoreStrategy>(paramStr); }
         auto const paramLower = toLower(param);
 
-        if (paramLower == "sample") {
-            baseConf.splitIntervals = false;
-            continue;
-        }
-
         if (paramLower == "interval") {
             baseConf.splitIntervals = true;
             continue;

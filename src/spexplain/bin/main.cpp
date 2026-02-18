@@ -17,12 +17,20 @@
 #include <getopt.h>
 
 namespace {
-void printUsageStrategyRow(std::ostream & os, std::string_view name, std::vector<std::string_view> params = {}) {
-    os << std::setw(12) << name << ":";
+void printUsageStrategyRow(std::ostream & os, std::string_view name, std::vector<std::string_view> params = {},
+                           std::vector<std::string_view> defaultParams = {}) {
+    os << std::setw(12) << name;
     if (not params.empty()) {
-        os << " " << params.front();
+        os << ": " << params.front();
         for (auto param : params | std::views::drop(1)) {
             os << ", " << param;
+        }
+        if (not defaultParams.empty()) {
+            os << " (default: " << defaultParams.front();
+            for (auto param : defaultParams | std::views::drop(1)) {
+                os << ", " << param;
+            }
+            os << ')';
         }
     }
     os << '\n';
@@ -65,16 +73,17 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
 
     os << "STRATEGIES SPEC: '<spec1>[; <spec2>]...'\n";
     os << "Each spec: '<name>[ <param>[, <param>]...]'\n";
-    os << "Strategies and parameters:\n";
+    os << "Strategies and possible parameters:\n";
     //+ template by the strategy and move the params to the classes as well
     printUsageStrategyRow(os, Framework::Expand::NopStrategy::name());
     printUsageStrategyRow(os, Framework::Expand::AbductiveStrategy::name());
     //+ also include 'vars'
-    printUsageStrategyRow(os, Framework::Expand::TrialAndErrorStrategy::name(), {"n <int>"});
-    printUsageStrategyRow(os, UnsatCoreStrategy::name(), {"sample", "interval", "min", "vars x<i>..."});
+    printUsageStrategyRow(os, Framework::Expand::TrialAndErrorStrategy::name(), {"n <int>"}, {"n 4"});
+    printUsageStrategyRow(os, UnsatCoreStrategy::name(), {"interval", "min", "vars x<i>..."});
     printUsageStrategyRow(os, InterpolationStrategy::name(),
                           {"weak", "strong", "weaker", "stronger", "bweak", "bstrong", "aweak", "astrong", "aweaker",
-                           "astronger", "afactor <factor>", "vars x<i>..."});
+                           "astronger", "afactor <factor>", "vars x<i>..."},
+                          {"aweak", "bstrong"});
     printUsageStrategyRow(os, Framework::Expand::SliceStrategy::name(), {"[vars] x<i>..."});
     os << "Default strategy: " << InterpolationStrategy::name() << '\n';
 
