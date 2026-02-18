@@ -53,6 +53,8 @@ public:
         return *networkPtr;
     }
 
+    // Using the default
+    void setStrategies();
     void setStrategies(std::istream & strategiesSpec);
 
     // Based on Config

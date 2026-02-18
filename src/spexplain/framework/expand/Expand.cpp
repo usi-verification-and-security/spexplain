@@ -5,7 +5,7 @@
 #include "../Print.h"
 #include "../explanation/Explanation.h"
 #include "strategy/Factory.h"
-#include "strategy/Strategy.h"
+#include "strategy/Strategies.h"
 
 #include <spexplain/common/Core.h>
 #include <spexplain/common/String.h>
@@ -28,9 +28,18 @@
 namespace spexplain {
 Framework::Expand::Expand(Framework & fw) : framework{fw} {}
 
+void Framework::Expand::setStrategies() {
+    auto strategyPtr = std::make_unique<expand::opensmt::InterpolationStrategy>(*this);
+    addStrategy(std::move(strategyPtr));
+}
+
 void Framework::Expand::setStrategies(std::istream & is) {
     // pipe character '|' reserved for disjunctions
     static constexpr char strategyDelim = ';';
+
+    is >> std::ws;
+    if (is.eof()) { return setStrategies(); }
+    assert(is.good());
 
     auto const & config = framework.getConfig();
 

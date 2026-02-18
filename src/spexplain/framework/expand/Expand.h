@@ -44,6 +44,8 @@ public:
 
     Framework const & getFramework() const { return framework; }
 
+    // Using default strategies
+    void setStrategies();
     void setStrategies(std::istream &);
 
     // Based on Config

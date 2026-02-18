@@ -60,7 +60,7 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
 
     os << "ACTIONS: [explain] dump-psi\n";
     os << "ARGS:\n";
-    os << "\t explain:\t <nn_model_fn> <dataset_fn> <exp_strategies_spec>\n";
+    os << "\t explain:\t <nn_model_fn> <dataset_fn> [<exp_strategies_spec>]\n";
     os << "\t dump-psi:\t <nn_model_fn>\n";
 
     os << "STRATEGIES SPEC: '<spec1>[; <spec2>]...'\n";
@@ -76,6 +76,7 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
                           {"weak", "strong", "weaker", "stronger", "bweak", "bstrong", "aweak", "astrong", "aweaker",
                            "astronger", "afactor <factor>", "vars x<i>..."});
     printUsageStrategyRow(os, Framework::Expand::SliceStrategy::name(), {"[vars] x<i>..."});
+    os << "Default strategy: " << InterpolationStrategy::name() << '\n';
 
     os << "VERIFIERS: opensmt";
 #ifdef MARABOU
@@ -273,7 +274,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
 int mainExplain(int argc, char * argv[], int i, int nArgs) {
     assert(nArgs >= 1);
 
-    constexpr int minArgs = 3;
+    constexpr int minArgs = 2;
     if (nArgs < minArgs) {
         std::cerr << "Expected at least " << minArgs << " arguments for explain, got: " << nArgs << '\n';
         printUsage(argv, std::cerr);
@@ -286,7 +287,7 @@ int mainExplain(int argc, char * argv[], int i, int nArgs) {
 
     std::string_view const datasetFn = argv[++i];
 
-    std::string_view const strategiesSpec = argv[++i];
+    std::string_view const strategiesSpec = (i + 1 < argc) ? argv[++i] : "";
 
     std::string explanationsFn;
 

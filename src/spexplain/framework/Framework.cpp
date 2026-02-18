@@ -49,6 +49,11 @@ void Framework::setNetwork(std::unique_ptr<Network> networkPtr_) {
     }
 }
 
+void Framework::setStrategies() {
+    assert(expandPtr);
+    expandPtr->setStrategies();
+}
+
 void Framework::setStrategies(std::istream & strategiesSpec) {
     assert(expandPtr);
     expandPtr->setStrategies(strategiesSpec);
