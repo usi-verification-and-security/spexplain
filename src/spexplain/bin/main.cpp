@@ -36,13 +36,17 @@ void printUsageStrategyRow(std::ostream & os, std::string_view name, std::vector
     os << '\n';
 }
 
+constexpr int optMaxWidth = 7;
+constexpr int optArgMaxWidth = 7;
+
 void printUsageOptRow(std::ostream & os, char opt, std::string_view arg = "", std::string_view desc = "") {
     os << "    -" << opt << ' ';
-    os << std::left << std::setw(7);
+    os << std::left << std::setw(optArgMaxWidth);
     if (arg.empty()) {
         os << ' ';
     } else {
         os << arg;
+        if (arg.size() >= optArgMaxWidth) { os << '\n' << std::left << std::setw(optMaxWidth + optArgMaxWidth) << ' '; }
     }
     os << desc << '\n';
 }
@@ -52,7 +56,7 @@ void printUsageLongOptRow(std::ostream & os, std::string_view longOpt, std::stri
     os << "    --" << longOpt << " " << arg << '\n';
     if (desc.empty()) { return; }
 
-    os << std::left << std::setw(14) << ' ' << desc << '\n';
+    os << std::left << std::setw(optMaxWidth + optArgMaxWidth) << ' ' << desc << '\n';
 }
 
 void printUsage(char * const argv[], std::ostream & os = std::cout) {
@@ -120,6 +124,9 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     printUsageOptRow(os, 'r', "", "Shuffle (randomize) samples");
     printUsageLongOptRow(os, "max-samples");
     printUsageOptRow(os, 'n', "<int>", "Maximum no. samples to be processed");
+    printUsageLongOptRow(os, "samples");
+    //+ change s.t. '<idx>' is just one sample and '<idx>,' starts from the sample
+    printUsageOptRow(os, 'i', "<idx>[,<idx2>]", "Only process samples starting from <idx> [and ending at <idx2>]");
     printUsageLongOptRow(os, "filter-samples", "[in]correct|class<c>",
                          "Only process sample points that match the given filter");
     printUsageLongOptRow(os, "time-limit-per");
@@ -158,11 +165,12 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                                      {"format", required_argument, &selectedLongOpt, formatLongOpt},
                                      {"shuffle-samples", no_argument, nullptr, 'r'},
                                      {"max-samples", required_argument, nullptr, 'n'},
+                                     {"samples", required_argument, nullptr, 'i'},
                                      {"filter-samples", required_argument, &selectedLongOpt, filterLongOpt},
                                      {"time-limit-per", required_argument, nullptr, 't'},
                                      {0, 0, 0, 0}};
 
-    std::string optString = ":hV:E:e:s:vqRSIrn:t:";
+    std::string optString = ":hV:E:e:s:vqRSIrn:i:t:";
 
     while (true) {
         int optIndex = 0;
@@ -259,6 +267,34 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
             case 'n': {
                 auto const n = std::stoull(optarg);
                 config.setMaxSamples(n);
+                break;
+            }
+            case 'i': {
+                std::istringstream iss{optarg};
+                std::size_t idx;
+                iss >> idx;
+                if (iss.fail()) {
+                    std::cerr << "Option '-" << char(c) << "': parsing the first index failed\n";
+                    printUsage(argv, std::cerr);
+                    return 1;
+                }
+                config.setFirstSampleIdx(idx);
+                if (not iss.eof()) {
+                    char c2;
+                    iss >> c2 >> idx;
+                    if (iss.fail() || c2 != ',') {
+                        std::cerr << "Option '-" << char(c) << "': parsing the second index failed\n";
+                        printUsage(argv, std::cerr);
+                        return 1;
+                    }
+                    if (not iss.eof()) {
+                        std::cerr << "Option '-" << char(c)
+                                  << "': additional arguments after parsing the second index\n";
+                        printUsage(argv, std::cerr);
+                        return 1;
+                    }
+                    config.setLastSampleIdx(idx);
+                }
                 break;
             }
             case 't': {

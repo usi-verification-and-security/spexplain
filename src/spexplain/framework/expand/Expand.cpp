@@ -101,6 +101,17 @@ Network::Dataset::SampleIndices Framework::Expand::makeSampleIndices(Network::Da
 
     if (config.shufflingSamples()) { std::ranges::shuffle(indices, std::default_random_engine{}); }
 
+    assert(not config.limitingLastSample() || config.limitingFirstSample());
+    if (config.limitingFirstSample()) {
+        auto const firstIdx = config.getFirstSampleIdx() - 1;
+        assert(firstIdx < indices.size());
+        auto const firstIt = indices.begin() + firstIdx;
+        auto const lastIdx_ = config.limitingLastSample() ? config.getLastSampleIdx() : indices.size();
+        assert(lastIdx_ <= indices.size());
+        auto const lastIt = indices.begin() + lastIdx_;
+        indices = decltype(indices)(firstIt, lastIt);
+    }
+
     if (config.limitingMaxSamples()) {
         auto const maxSamples = config.getMaxSamples();
         assert(maxSamples > 0);
@@ -349,11 +360,22 @@ void Framework::Expand::printHead(std::ostream & os, Network::Dataset const & da
 
     std::size_t const size = data.size();
     os << "Dataset size: " << size << '\n';
+    os << "Number of variables: " << framework.varSize() << '\n';
+
+    if (config.shufflingSamples()) { os << "Shuffled samples\n"; }
+    if (config.limitingFirstSample()) {
+        auto const firstIdx = config.getFirstSampleIdx();
+        if (firstIdx > 1) { os << "Starting from sample " << firstIdx << '\n'; }
+    }
+    if (config.limitingLastSample()) {
+        auto const lastIdx = config.getLastSampleIdx();
+        if (lastIdx < size) { os << "Ending at sample " << lastIdx << '\n'; }
+    }
     if (config.limitingMaxSamples()) {
         auto const maxSamples = config.getMaxSamples();
-        if (maxSamples < size) { os << "Number of samples: " << maxSamples << '\n'; }
+        if (maxSamples < size) { os << "Limited number of samples: " << maxSamples << '\n'; }
     }
-    os << "Number of variables: " << framework.varSize() << '\n';
+
     if (config.timeLimitPerExplanationIsSet()) {
         auto const timeLimitPer_ms = config.getTimeLimitPerExplanation().count();
         double const timeLimitPer_s = static_cast<double>(timeLimitPer_ms) / 1000;

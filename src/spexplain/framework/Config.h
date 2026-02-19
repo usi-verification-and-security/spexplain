@@ -49,6 +49,8 @@ public:
     void shuffleSamples() { _shuffleSamples = true; }
 
     void setMaxSamples(std::size_t n) { maxSamples = n; }
+    void setFirstSampleIdx(std::size_t idx) { firstSample = idx; }
+    void setLastSampleIdx(std::size_t idx) { lastSample = idx; }
 
     void filterCorrectSamples() { optFilterCorrectSamples = true; }
     void filterIncorrectSamples() { optFilterCorrectSamples = false; }
@@ -124,6 +126,22 @@ public:
     std::size_t getMaxSamples() const { return maxSamples; }
     [[nodiscard]]
     bool limitingMaxSamples() const { return getMaxSamples() > 0; }
+    [[nodiscard]]
+    std::size_t getFirstSampleIdx() const {
+        return firstSample;
+    }
+    [[nodiscard]]
+    bool limitingFirstSample() const {
+        return getFirstSampleIdx() > 0;
+    }
+    [[nodiscard]]
+    std::size_t getLastSampleIdx() const {
+        return lastSample;
+    }
+    [[nodiscard]]
+    bool limitingLastSample() const {
+        return getLastSampleIdx() > 0;
+    }
 
     [[nodiscard]]
     bool filteringCorrectSamples() const { return optFilterCorrectSamples.has_value() and *optFilterCorrectSamples; }
@@ -160,6 +178,8 @@ protected:
     bool _shuffleSamples{};
 
     std::size_t maxSamples{};
+    std::size_t firstSample{};
+    std::size_t lastSample{};
 
     std::optional<bool> optFilterCorrectSamples{};
     std::optional<Network::Classification::Label> optFilterSamplesOfExpectedClass{};
