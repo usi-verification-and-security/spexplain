@@ -213,6 +213,32 @@ SCRIPT_OUTPUT_CACHE_FILE="${SCRIPT_OUTPUT_CACHE_FILE_REVERSE/reverse\//}"
 
 mkdir -p $(dirname "$SCRIPT_OUTPUT_CACHE_FILE_REVERSE") >/dev/null || exit $?
 
+function cleanup {
+    local code=$1
+
+    [[ -n $code && $code != 0 ]] && {
+        pkill -P $$
+        wait
+
+        sed -i '$d' "${lSCRIPT_OUTPUT_CACHE_FILE}"
+    }
+
+    close_cache
+
+    [[ -n $code && $code != 0 ]] && {
+        [[ -n $CACHE ]] && {
+            local tmp=$(mktemp)
+            { cat "${lSCRIPT_OUTPUT_CACHE_FILE}" && echo "$CACHE"; } | sort | uniq >$tmp
+            cat $tmp >"${lSCRIPT_OUTPUT_CACHE_FILE}"
+            rm $tmp
+        }
+    }
+
+    [[ -n $code ]] && exit $code
+}
+
+trap 'cleanup 9' INT TERM
+
 function get_cache_line {
     local -n lcache_line=$1
     local experiment=$2
@@ -262,6 +288,15 @@ function get_cache_line {
     esac
 
     [[ -n $lcache_line ]]
+}
+
+function close_cache {
+    exec >&3 3>&-
+
+    [[ -n $FILTER && -e $FILTERED_OUTPUT_CACHE_FILE ]] && {
+        cat "$FILTERED_OUTPUT_CACHE_FILE" >>"${lSCRIPT_OUTPUT_CACHE_FILE}"
+        rm "$FILTERED_OUTPUT_CACHE_FILE"
+    }
 }
 
 do_reverse_args=(0)
@@ -451,11 +486,7 @@ for do_reverse in ${do_reverse_args[@]}; do
 
     case $ACTION in
     *)
-        exec >&3 3>&-
-        [[ -n $FILTER ]] && {
-            cat "$FILTERED_OUTPUT_CACHE_FILE" >>"${lSCRIPT_OUTPUT_CACHE_FILE}"
-            rm "$FILTERED_OUTPUT_CACHE_FILE"
-        }
+        close_cache
         ;;
     esac
 done
