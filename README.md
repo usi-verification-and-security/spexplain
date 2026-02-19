@@ -23,15 +23,21 @@ The preferred option is cloning the repository using Git.
 You can also directly download a zipped archive with the source codes,
 but it is not documented nor recommended.
 
-To clone, run
+To clone just to the most recent version, run
 
 ```
-git clone --recurse-submodules https://github.com/usi-verification-and-security/spexplain.git
+git clone --single-branch --depth 1 https://github.com/usi-verification-and-security/spexplain.git
 ```
-
-Note the `--recurse-submodules` option:
-if omitted,
-one would have to clone/download all nested submodules manually.
+This will *not* fetch submodules, which is currently just `./data/explanations`
+(see `./data/README.md`)
+that is not needed for running the tool
+but contains reference explanations.
+To also fetch all submodules, either run
+```
+git clone --recurse-submodules --single-branch --depth 1 https://github.com/usi-verification-and-security/spexplain.git
+```
+or clone/download the nested submodules manually.
+Note that the submodules will download several GBs of data.
 
 
 ## Building from source
