@@ -14,6 +14,7 @@ Typically, a dataset name has a suffix such as `_full`, `_short` or `_quick`. Th
 ## `scripts`
 
 Refer there for explicit documentation.
+These include scripts for the analysis of the generated explanations.
 
 ## `explanations`
 

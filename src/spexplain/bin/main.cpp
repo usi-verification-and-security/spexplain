@@ -126,10 +126,11 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     printUsageOptRow(os, 't', "<ms>", "Time limit per explanation in miliseconds");
 
     os << "\nEXAMPLES:\n";
+    os << cmd << " data/models/toy.nnet data/datasets/toy.csv\n";
     os << cmd << " explain data/models/toy.nnet data/datasets/toy.csv abductive -e data/explanations/toy.phi.txt\n";
-    os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'ucore interval, min' -RvS -e toy.phi.txt\n";
+    os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'ucore interval, min' -RS -e toy.phi.txt\n";
     os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'itp aweaker, bstrong; ucore'\n";
-    os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'trial n 2' -n1 -s stats.txt\n";
+    os << cmd << " data/models/toy.nnet data/datasets/toy.csv 'trial n 3' -n2 -s stats.txt\n";
     os << cmd << " dump-psi data/models/toy.nnet\n";
 
     os.flush();
