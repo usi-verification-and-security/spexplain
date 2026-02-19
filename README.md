@@ -15,6 +15,25 @@ input feature space.
 The tool leverages [OpenSMT2](https://github.com/usi-verification-and-security/opensmt) solver compatible
 with a range of flexible Craig interpolation algorithms and unsatisfiable core generation.
 
+## Download
+
+Download from the [GitHub](https://github.com/usi-verification-and-security/spexplain) repository.
+
+The preferred option is cloning the repository using Git.
+You can also directly download a zipped archive with the source codes,
+but it is not documented nor recommended.
+
+To clone, run
+
+```
+git clone --recurse-submodules https://github.com/usi-verification-and-security/spexplain.git
+```
+
+Note the `--recurse-submodules` option:
+if omitted,
+one would have to clone/download all nested submodules manually.
+
+
 ## Building from source
 
 To build the system from the source code repository, you need a C++20
