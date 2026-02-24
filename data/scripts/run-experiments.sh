@@ -7,8 +7,7 @@ source "$DIRNAME/lib/run"
 function usage {
     local experiments_spec_ary=($(ls "$EXPERIMENTS_SPEC_DIR"))
 
-    printf "USAGE: %s <output_dir> <experiments_spec> [consecutive] [[+]reverse] [<max_samples>] [<filter_experiments_regex>] [-h|-n]\n" "$0"
-    printf "\t<output_dir> must be specified in %s\n" "$MODELS_DATASETS_SPEC"
+    printf "USAGE: %s <nn_model_fn> <dataset_fn> <experiments_spec> [consecutive] [[+]reverse] [<max_samples>] [<filter_experiments_regex>] [-h|-n]\n" "$0"
     printf "\t<experiments_spec> is one of: %s\n" "${experiments_spec_ary[*]}"
     printf "CONSECUTIVE_EXPERIMENTS are not run unless 'consecutive' is provided\n"
     printf "\nOPTIONS:\n"
@@ -18,10 +17,10 @@ function usage {
     [[ -n $1 ]] && exit $1
 }
 
-[[ -z $1 ]] && usage 1 >&2
+[[ -z $1 || -z $2 ]] && usage 1 >&2
 
-read_output_dir "$1" || usage $? >&2
-shift
+set_output_dir_from_model_dataset "$1" "$2" || usage $? >&2
+shift 2
 
 read_experiments_spec "$1" || usage $? >&2
 shift
@@ -138,7 +137,7 @@ function run1 {
     }
 
     for rev in "${reverse_args[@]}"; do
-        SRC_EXPERIMENT=$src_experiment "$DIRNAME/run1.sh" "$OUTPUT_DIR" "$experiment_strategies" $experiment $rev $MAX_SAMPLES $OPTIONS &
+        SRC_EXPERIMENT=$src_experiment "$DIRNAME/run1.sh" "$MODEL" "$DATASET" "$experiment_strategies" $experiment $rev $MAX_SAMPLES $OPTIONS &
     done
 
     wait -n
@@ -153,7 +152,7 @@ function run1 {
         ;;
     *)
         printf "%s failed!\nUsed command: %s\n" $experiment \
-            "SRC_EXPERIMENT=$src_experiment \"$DIRNAME/run1.sh\" \"$OUTPUT_DIR\" \"$experiment_strategies\" $experiment $rev $MAX_SAMPLES $OPTIONS &" >&2
+            "SRC_EXPERIMENT=$src_experiment \"$DIRNAME/run1.sh\" \"$MODEL\" \"$DATASET\" \"$experiment_strategies\" $experiment $rev $MAX_SAMPLES $OPTIONS &" >&2
         return 1
         ;;
     esac

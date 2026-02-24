@@ -2,41 +2,74 @@
 
 source "$DIRNAME/lib/experiments"
 
-function read_output_dir {
-    export OUTPUT_DIR="$1"
+function set_model_dataset {
+    local model="$1"
+    local dataset="$2"
 
-    OUTPUT_DIR="${OUTPUT_DIR%%/}"
-    OUTPUT_DIR="${OUTPUT_DIR##./}"
-    for odir_idx in ${!OUTPUT_DIRS[@]}; do
-        odir="${OUTPUT_DIRS[$odir_idx]}"
-        [[ $odir == $OUTPUT_DIR ]] || continue
-        OUTPUT_DIR_IDX=$odir_idx
-        break
-    done
+    model=$(realpath --relative-to=. "${model}")
+    dataset=$(realpath --relative-to=. "${dataset}")
 
-    [[ -z $OUTPUT_DIR_IDX ]] && {
-        printf "Unrecognized output directory: %s\n" "$OUTPUT_DIR" >&2
-        printf "Expected one of: %s\n" "${OUTPUT_DIRS[*]}" >&2
-        return 1
-    }
-
-    [[ -d $OUTPUT_DIR && -w $OUTPUT_DIR ]] || mkdir -p "$OUTPUT_DIR" >/dev/null || {
-        printf "Could not create output directory %s.\n" "$OUTPUT_DIR" >&2
+    [[ -r $model ]] || {
+        printf "Model file %s is not readable.\n" "$model" >&2
         return 2
     }
 
-    export MODEL="${MODELS[$OUTPUT_DIR_IDX]}"
-    export DATASET="${DATASETS[$OUTPUT_DIR_IDX]}"
-
-    [[ -r $MODEL ]] || {
-        printf "Model file %s is not readable.\n" "$MODEL" >&2
+    [[ -r $dataset ]] || {
+        printf "Dataset file %s is not readable.\n" "$dataset" >&2
         return 2
     }
 
-    [[ -r $DATASET ]] || {
-        printf "Dataset file %s is not readable.\n" "$DATASET" >&2
+    export MODEL="$model"
+    export DATASET="$dataset"
+
+    return 0
+}
+
+function set_output_dir_from_model_dataset {
+    [[ -n $1 ]] && {
+        set_model_dataset "$1" "$2" || return $?
+    }
+
+    local model_type=$(dirname "$MODEL")
+    model_type="${model_type#*models/}"
+    local dataset_type=$(dirname "$DATASET")
+    dataset_type="${dataset_type#*datasets/}"
+
+    [[ $model_type == $dataset_type ]] || {
+        printf "Mismatch between model and dataset type:\n%s != %s\n" "$model_type" "$dataset_type" >&2
+        return 3
+    }
+
+    local type_base=${model_type%%/*}
+
+    local model_base="${MODEL/models/explanations}"
+    model_base="${model_base%.*}"
+    local dataset_base=$(basename -s .csv "${DATASET}")
+
+    local output_dir="${model_base}/${dataset_base}"
+    output_dir="${output_dir//\/${type_base}_/\/}"
+    output_dir="${output_dir//\/${type_base}-/\/}"
+
+    local variant=default
+    [[ -n $VARIANT ]] && variant="$VARIANT"
+    output_dir+="/${variant}"
+
+    set_output_dir "$output_dir"
+    return $?
+}
+
+function set_output_dir {
+    local output_dir="$1"
+
+    output_dir="${output_dir%%/}"
+    output_dir="${output_dir##./}"
+
+    [[ -d $output_dir && -w $output_dir ]] || mkdir -p "$output_dir" >/dev/null || {
+        printf "Could not create output directory %s.\n" "$output_dir" >&2
         return 2
     }
+
+    export OUTPUT_DIR="$output_dir"
 
     return 0
 }

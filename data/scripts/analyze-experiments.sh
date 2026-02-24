@@ -27,13 +27,14 @@ shift
 
 EXPLANATIONS_DIR="$1"
 shift
+EXPLANATIONS_DIR="${EXPLANATIONS_DIR%%/}"
 [[ -d $EXPLANATIONS_DIR && -r $EXPLANATIONS_DIR ]] || {
     printf "'%s' is not a readable directory.\n" "$EXPLANATIONS_DIR" >&2
     usage 1 >&2
 }
 
 #+ do not make this implicit assumption
-PHI_DIR="$EXPLANATIONS_DIR/.."
+PHI_DIR="$EXPLANATIONS_DIR/../.."
 
 PSI_FILE="$PHI_DIR/psi_"
 case $ACTION in
@@ -205,10 +206,10 @@ function maybe_replace_subexp {
     return 0
 }
 
-MODEL="$(basename $(realpath "$PHI_DIR"))/$(basename "$EXPLANATIONS_DIR")"
+EXPLANATIONS_DIR_BASE=$(realpath --relative-to="$SCRIPTS_DIR/.." "$EXPLANATIONS_DIR")
 
 SCRIPT_NAME=$(basename -s .sh "$0")
-SCRIPT_OUTPUT_CACHE_FILE_REVERSE="$SCRIPTS_DIR/cache/$MODEL/$MAX_SAMPLES_NAME/reverse/${SCRIPT_NAME}.${ACTION}.txt"
+SCRIPT_OUTPUT_CACHE_FILE_REVERSE="$SCRIPTS_DIR/cache/$EXPLANATIONS_DIR_BASE/$MAX_SAMPLES_NAME/reverse/${SCRIPT_NAME}.${ACTION}.txt"
 SCRIPT_OUTPUT_CACHE_FILE="${SCRIPT_OUTPUT_CACHE_FILE_REVERSE/reverse\//}"
 
 mkdir -p $(dirname "$SCRIPT_OUTPUT_CACHE_FILE_REVERSE") >/dev/null || exit $?

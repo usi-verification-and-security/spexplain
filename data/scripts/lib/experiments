@@ -1,10 +1,7 @@
 [[ -z $DIRNAME ]] && DIRNAME=$(dirname "$0")
 
 SPEC_DIR="$DIRNAME/spec"
-MODELS_DATASETS_SPEC="$SPEC_DIR/models_datasets"
 EXPERIMENTS_SPEC_DIR="$SPEC_DIR/experiments"
-
-source "$MODELS_DATASETS_SPEC"
 
 function _check_array_sizes {
     local array_var1=$1
@@ -18,9 +15,6 @@ function _check_array_sizes {
     printf "Mismatch of the size of arrays %s and %s: %d != %d\n" $array_var1 $array_var2 ${#larray1[@]} ${#larray2[@]} >&2
     exit 9
 }
-
-_check_array_sizes OUTPUT_DIRS MODELS
-_check_array_sizes OUTPUT_DIRS DATASETS
 
 function _read_experiments_spec_source {
     local f="$1"

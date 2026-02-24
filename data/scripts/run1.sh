@@ -5,15 +5,15 @@ DIRNAME=$(dirname "$0")
 source "$DIRNAME/lib/run"
 
 function usage {
-    printf "USAGE: %s <output_dir> <exp_strategies_spec> [<name>] [reverse] [<max_samples>] <args>...\n" "$0"
+    printf "USAGE: %s <nn_model_fn> <dataset_fn> <exp_strategies_spec> [<name>] [reverse] [<max_samples>] <args>...\n" "$0"
 
     [[ -n $1 ]] && exit $1
 }
 
-[[ -z $1 ]] && usage 1 >&2
+[[ -z $1 || -z $2 ]] && usage 1 >&2
 
-read_output_dir "$1" || usage $? >&2
-shift
+set_output_dir_from_model_dataset "$1" "$2" || usage $? >&2
+shift 2
 
 [[ -z $1 || $1 =~ ^(reverse|short)$ ]] && usage 1 >&2
 STRATEGIES="$1"
