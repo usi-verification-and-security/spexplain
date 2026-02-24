@@ -7,7 +7,8 @@ source "$DIRNAME/lib/run"
 function usage {
     local experiments_spec_ary=($(ls "$EXPERIMENTS_SPEC_DIR"))
 
-    printf "USAGE: %s <nn_model_fn> <dataset_fn> <experiments_spec> [consecutive] [[+]reverse] [<max_samples>] [<filter_experiments_regex>] [-h|-n]\n" "$0"
+    ##+ it is still not possible to run multiple variants (different options)
+    printf "USAGE: %s (<nn_model_fn> <dataset_fn>)... <experiments_spec> [consecutive] [[+]reverse] [<max_samples>] [<filter_experiments_regex>] [-h|-n]\n" "$0"
     printf "\t<experiments_spec> is one of: %s\n" "${experiments_spec_ary[*]}"
     printf "CONSECUTIVE_EXPERIMENTS are not run unless 'consecutive' is provided\n"
     printf "\nOPTIONS:\n"
@@ -18,9 +19,18 @@ function usage {
 }
 
 [[ -z $1 || -z $2 ]] && usage 1 >&2
+[[ ! $1 =~ / ]] && {
+    printf "Model filename does not contain '/': %s\n" "$1" >&2
+    usage 1 >&2
+}
 
-set_output_dir_from_model_dataset "$1" "$2" || usage $? >&2
-shift 2
+MODELS=()
+DATASETS=()
+while [[ $1 =~ / ]]; do
+    MODELS+=("$1")
+    DATASETS+=("$2")
+    shift 2
+done
 
 read_experiments_spec "$1" || usage $? >&2
 shift
@@ -67,11 +77,6 @@ else
 fi
 export EXPERIMENT_NAMES_VAR
 
-printf "Output directory: %s\n" "$OUTPUT_DIR"
-printf "Model: %s\n" "$MODEL"
-printf "Dataset: %s\n" "$DATASET"
-printf "\n"
-
 [[ -n $INCLUDE_REVERSE ]] && {
     printf "Running reversed-order experiments "
     if (( $REVERSE_ONLY )); then
@@ -85,6 +90,18 @@ printf "\n"
 (( $DRY_RUN )) && printf "DRY RUN - only printing what would be run\n\n"
 
 [[ -n $OPTIONS ]] && export OPTIONS
+
+for idx in ${!MODELS[@]}; do
+    model="${MODELS[$idx]}"
+    dataset="${DATASETS[$idx]}"
+
+    set_output_dir_from_model_dataset "$model" "$dataset" || usage $? >&2
+
+    printf "Model: %s\n" "$MODEL"
+    printf "Dataset: %s\n" "$DATASET"
+    printf "Output directory: %s\n" "$OUTPUT_DIR"
+    printf "\n"
+done
 
 function cleanup {
     local code=$1
@@ -103,13 +120,20 @@ function run1 {
     source "$DIRNAME/lib/run"
     read_experiments_spec "$EXPERIMENTS_SPEC"
 
-    local exp_idx=$1
+    local model="$1"
+    local dataset="$2"
+    local exp_idx=$3
+
+    set_output_dir_from_model_dataset "$model" "$dataset" || return $?
 
     local -n lexperiment_names=$EXPERIMENT_NAMES_VAR
 
     local experiment=${lexperiment_names[$exp_idx]}
+    local experiment_full="${OUTPUT_DIR}/${experiment}"
+    experiment_full="${experiment_full#explanations/}"
+
     [[ -n $FILTER && ! $experiment =~ $FILTER ]] && {
-        printf "Skipping %s ...\n" $experiment
+        printf "Skipping: %s\n" "$experiment_full"
         return 0
     }
 
@@ -126,7 +150,7 @@ function run1 {
         find_strategies_for_experiment $dst_experiment experiment_strategies
     fi
 
-    printf "Running %s in the background ...\n" $experiment
+    printf "Running in the background: %s\n" "$experiment_full"
 
     (( $DRY_RUN )) && return 0
 
@@ -143,11 +167,11 @@ function run1 {
     wait -n
     case $? in
     0)
-        printf "Finished %s\n" $experiment
+        printf "Finished: %s\n" "$experiment_full"
         return 0
         ;;
     $TIMEOUT_STATUS)
-        printf "Timeout %s\n" $experiment
+        printf "Timeout: %s\n" "$experiment_full"
         return 0
         ;;
     *)
@@ -166,7 +190,7 @@ export -f run1
 declare -n lEXPERIMENT_NAMES=$EXPERIMENT_NAMES_VAR
 
 if (( ${#lEXPERIMENT_NAMES[@]} )); then
-    parallel --halt soon,fail=1 --line-buffer --jobs ${CPU_PERCENTAGE}% 'run1 {}' ::: ${!lEXPERIMENT_NAMES[@]}
+    parallel --halt soon,fail=1 --line-buffer --jobs ${CPU_PERCENTAGE}% 'run1 {} {} {}' ::: "${MODELS[@]}" :::+ "${DATASETS[@]}" ::: ${!lEXPERIMENT_NAMES[@]}
 else
     printf "Nothing to run.\n"
 fi
