@@ -6,7 +6,7 @@
 #include <memory>
 
 namespace opensmt {
-class PTRef;
+struct PTRef;
 class MainSolver;
 } // namespace opensmt
 
