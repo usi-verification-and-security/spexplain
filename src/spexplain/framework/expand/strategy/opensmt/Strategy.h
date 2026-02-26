@@ -17,9 +17,7 @@ using namespace spexplain::opensmt;
 //+ make templated with Formula
 class Strategy : virtual public Framework::Expand::Strategy {
 public:
-    using Base = Framework::Expand::Strategy;
-
-    using Base::Base;
+    using Framework::Expand::Strategy::Strategy;
 
     bool requiresSMTSolver() const override { return true; }
 

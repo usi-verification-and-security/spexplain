@@ -6,7 +6,7 @@
 
 namespace spexplain::expand::opensmt {
 void UnsatCoreStrategy::executeInit(Explanations & explanations, Network::Dataset const & data, ExplanationIdx idx) {
-    Base::executeInit(explanations, data, idx);
+    Framework::Expand::UnsatCoreStrategy::executeInit(explanations, data, idx);
     // if opensmt Strategy also has executeInit, only its local function should be called
 
     auto & verifier = getVerifier();

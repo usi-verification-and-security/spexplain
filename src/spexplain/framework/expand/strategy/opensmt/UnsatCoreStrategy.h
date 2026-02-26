@@ -7,18 +7,16 @@
 namespace spexplain::expand::opensmt {
 class UnsatCoreStrategy : public Framework::Expand::UnsatCoreStrategy, public Strategy {
 public:
-    using Base = Framework::Expand::UnsatCoreStrategy;
-
     struct Config {
         //+ move to the base as well
         bool minimal = false;
     };
 
-    using Base::Base;
-    UnsatCoreStrategy(Framework::Expand & exp, Base::Config const & baseConf, Config const & conf,
-                      Framework::Expand::VarOrdering order = {})
-        : Strategy::Base{exp, std::move(order)},
-          Base{exp, baseConf},
+    using Framework::Expand::UnsatCoreStrategy::UnsatCoreStrategy;
+    UnsatCoreStrategy(Framework::Expand & exp, Framework::Expand::UnsatCoreStrategy::Config const & baseConf,
+                      Config const & conf, Framework::Expand::VarOrdering order = {})
+        : Framework::Expand::Strategy{exp, std::move(order)},
+          Framework::Expand::UnsatCoreStrategy{exp, baseConf},
           Strategy{exp}, // necessary but actually ignored by the compiler
           config{conf} {}
 

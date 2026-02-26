@@ -121,7 +121,7 @@ std::unique_ptr<Framework::Expand::Strategy>
 Framework::Expand::Strategy::Factory::parseUnsatCore(std::string const & str, auto & params) {
     using expand::opensmt::UnsatCoreStrategy;
 
-    UnsatCoreStrategy::Base::Config baseConf;
+    Framework::Expand::UnsatCoreStrategy::Config baseConf;
     UnsatCoreStrategy::Config conf;
     while (not params.empty()) {
         std::string const paramStr = std::move(params.front());
