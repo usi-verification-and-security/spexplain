@@ -19,6 +19,7 @@ public:
                       Framework::Expand::VarOrdering order = {})
         : Strategy::Base{exp, std::move(order)},
           Base{exp, baseConf},
+          Strategy{exp}, // necessary but actually ignored by the compiler
           config{conf} {}
 
 protected:

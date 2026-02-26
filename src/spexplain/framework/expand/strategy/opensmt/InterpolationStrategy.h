@@ -21,6 +21,7 @@ public:
     using Strategy::Strategy;
     InterpolationStrategy(Framework::Expand & exp, Config const & conf, Framework::Expand::VarOrdering order = {})
         : Strategy::Base{exp, std::move(order)},
+          Strategy{exp}, // necessary but actually ignored by the compiler
           config{conf} {}
 
     static char const * name() { return "itp"; }
