@@ -89,6 +89,8 @@ maybe_read_max_samples "$1" && shift
 
 case $ACTION in
 compare-subset)
+    declare -A CMP_LINES_SET
+
     if [[ -n $1 && ! $1 =~ ^- ]]; then
         FILTER2="$1"
         shift
@@ -476,6 +478,25 @@ for do_reverse in ${do_reverse_args[@]}; do
                 ;;
             esac
 
+            case $ACTION in
+            compare-subset)
+                cmp_line="$experiment_full $VS_STR $experiment2_full"
+                rev_cmp_line="$experiment2_full $VS_STR $experiment_full"
+
+                [[ -n ${CMP_LINES_SET[$cmp_line]} ]] && {
+                    printf '\n!! Duplicate line:\n%s\n' "$cmp_line" >&2
+                    exit 9
+                }
+
+                [[ -n ${CMP_LINES_SET[$rev_cmp_line]} ]] && {
+                    printf '\n!! Duplicate reversed line:\n%s\n=\n%s\n' "$cmp_line" "$rev_cmp_line" >&2
+                    exit 9
+                }
+
+                CMP_LINES_SET[$cmp_line]=1
+                ;;
+            esac
+
             any=1
 
             get_cache_line cache_line "$experiment_full" "$experiment2_full" 1 && {
@@ -493,7 +514,7 @@ for do_reverse in ${do_reverse_args[@]}; do
                 printf "%${EXPERIMENT_MAX_WIDTH}s" "$experiment_full"
                 ;;
             compare-subset)
-                printf "%${EXPERIMENT_MAX_WIDTH}s" "$experiment $VS_STR $experiment2"
+                printf "%${EXPERIMENT_MAX_WIDTH}s" "$cmp_line"
 
                 ## Be flexible and accept even incomplete phi files (as in other actions) for any argument
                 args+=(max)
@@ -578,6 +599,55 @@ for do_reverse in ${do_reverse_args[@]}; do
         close_cache
         ;;
     esac
+
+    case $ACTION in
+    compare-subset)
+        :
+        ;;
+    *)
+        continue
+        ;;
+    esac
+
+    for exp_idx in ${!lEXPERIMENT_NAMES[@]}; do
+        experiment=${lEXPERIMENT_NAMES[$exp_idx]}
+
+        [[ -n $FILTER && ! $experiment =~ $FILTER ]] && {
+            continue
+        }
+
+        filter2="$FILTER2"
+        maybe_replace_subexp filter2 "$FILTER" $experiment
+
+        for exp_idx2 in ${!lEXPERIMENT_NAMES[@]}; do
+            experiment2=${lEXPERIMENT_NAMES[$exp_idx2]}
+
+            [[ -n $filter2 && ! $experiment2 =~ $filter2 ]] && {
+                continue
+            }
+
+            for vidx in ${!VARIANTS[@]}; do
+                variant="${VARIANTS[$vidx]}"
+                experiment_full="${variant}/${experiment}"
+
+                for vidx2 in ${!VARIANTS[@]}; do
+                    variant2="${VARIANTS[$vidx2]}"
+                    experiment2_full="${variant2}/${experiment2}"
+
+                    [[ $experiment_full == $experiment2_full ]] && continue
+
+                    cmp_line="$experiment_full $VS_STR $experiment2_full"
+                    rev_cmp_line="$experiment2_full $VS_STR $experiment_full"
+
+                    [[ -n ${CMP_LINES_SET[$cmp_line]} ]] && continue
+                    [[ -n ${CMP_LINES_SET[$rev_cmp_line]} ]] && continue
+
+                    printf '\n!! Missing line:\n%s\n' "$cmp_line" >&2
+                    exit 9
+                done
+            done
+        done
+    done
 done
 
 exit 0
