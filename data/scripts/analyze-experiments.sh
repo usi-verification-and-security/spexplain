@@ -216,15 +216,20 @@ function set_phi_filename {
 [[ -n $FILTER ]] && {
     FILTER_IDXS=()
     FILTER_IDXS_C=()
+    FILTER_IDXS_SET=()
 
     for exp_idx in ${!lEXPERIMENT_NAMES[@]}; do
         experiment=${lEXPERIMENT_NAMES[$exp_idx]}
         if [[ $experiment =~ $FILTER ]]; then
             FILTER_IDXS+=($exp_idx)
+            FILTER_IDXS_SET+=(1)
         else
             FILTER_IDXS_C+=($exp_idx)
+            FILTER_IDXS_SET+=(0)
         fi
     done
+
+    ## Must not use FILTER2 yet, it can contain backreferences
 }
 
 function maybe_replace_subexp {
@@ -398,6 +403,18 @@ for do_reverse in ${do_reverse_args[@]}; do
             filter2="$FILTER2"
             maybe_replace_subexp filter2 "$FILTER" $experiment
 
+            [[ -n $FILTER ]] && {
+                filter_arg1=$(( ${FILTER_IDXS_SET[$exp_idx]} ))
+
+                if [[ $experiment =~ $filter2 ]]; then
+                    filter2_arg1=1
+                else
+                    filter2_arg1=0
+                fi
+
+                filter_only_arg1=$(( $filter_arg1 && !$filter2_arg1 ))
+            }
+
             ARGS=()
             for vidx2 in ${!VARIANTS[@]}; do
                 variant2="${VARIANTS[$vidx2]}"
@@ -434,11 +451,20 @@ for do_reverse in ${do_reverse_args[@]}; do
                 if (( $vidx < $vidx2 )); then
                     ARGS+=("${all_args[@]}")
                 elif (( $vidx == $vidx2 )); then
-                    ARGS+=("${filter_c_pre_args[@]}")
+                    if (( $filter_only_arg1 )); then
+                        ARGS+=("${pre_args[@]}")
+                    else
+                        ARGS+=("${filter_c_pre_args[@]}")
+                    fi
                     ARGS+=("${post_args[@]}")
                 else
-                    ARGS+=("${filter_c_pre_args[@]}")
-                    ARGS+=("${filter_c_post_args[@]}")
+                    if (( $filter_only_arg1 )); then
+                        ARGS+=("${pre_args[@]}")
+                        ARGS+=("${post_args[@]}")
+                    else
+                        ARGS+=("${filter_c_pre_args[@]}")
+                        ARGS+=("${filter_c_post_args[@]}")
+                    fi
                 fi
             done
             ;;
