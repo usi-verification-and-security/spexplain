@@ -89,10 +89,12 @@ maybe_read_max_samples "$1" && shift
 
 case $ACTION in
 compare-subset)
-    [[ -n $1 && ! $1 =~ ^- ]] && {
+    if [[ -n $1 && ! $1 =~ ^- ]]; then
         FILTER2="$1"
         shift
-    }
+    else
+        FILTER2="$FILTER"
+    fi
 esac
 
 FORCE_COMPUTE=0
