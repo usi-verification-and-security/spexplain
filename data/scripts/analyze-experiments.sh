@@ -1,6 +1,7 @@
 #!/bin/bash
 
 SCRIPTS_DIR=$(dirname "$0")
+SCRIPT_NAME=$(basename -s .sh "$0")
 
 ANALYZE_SCRIPT="$SCRIPTS_DIR/analyze.sh"
 
@@ -8,7 +9,7 @@ source "$SCRIPTS_DIR/lib/experiments"
 source "$SCRIPTS_DIR/lib/run"
 
 function usage {
-    printf "USAGE: %s <action> <explanations_dir> <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>] [<filter_regex2>] [-h|-f]\n" "$0"
+    printf "USAGE: %s <action> <explanations_dir>... <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>] [<filter_regex2>] [-h|-f]\n" "$0"
     $ANALYZE_SCRIPT |& grep ACTIONS
     printf "\t[<filter_regex2>] is only to be used with binary actions\n"
 
@@ -25,16 +26,39 @@ shift
     usage 1 >&2
 }
 
-EXPLANATIONS_DIR="$1"
-shift
-EXPLANATIONS_DIR="${EXPLANATIONS_DIR%%/}"
-[[ -d $EXPLANATIONS_DIR && -r $EXPLANATIONS_DIR ]] || {
-    printf "'%s' is not a readable directory.\n" "$EXPLANATIONS_DIR" >&2
+[[ ! $1 =~ / ]] && {
+    printf "Phi data directory does not contain '/': %s\n" "$1" >&2
     usage 1 >&2
 }
 
-#+ do not make this implicit assumption
-PHI_DIR="$EXPLANATIONS_DIR/../.."
+unset EXPLANATIONS_DIR_BASE
+unset PHI_DIR
+EXPLANATIONS_DIRS=()
+VARIANTS=()
+while [[ $1 =~ / ]]; do
+    EXPLANATIONS_DIR=$(realpath --relative-to="$SCRIPTS_DIR/.." "$1")
+    shift
+
+    [[ -d $EXPLANATIONS_DIR && -r $EXPLANATIONS_DIR ]] || {
+        printf "'%s' is not a readable directory.\n" "$EXPLANATIONS_DIR" >&2
+        usage 1 >&2
+    }
+    EXPLANATIONS_DIRS+=("$EXPLANATIONS_DIR")
+
+    explanations_dir_base=$(dirname "$EXPLANATIONS_DIR")
+    #+ do not make this implicit assumption
+    phi_dir=$(dirname "$explanations_dir_base")
+    if [[ -z $EXPLANATIONS_DIR_BASE ]]; then
+        EXPLANATIONS_DIR_BASE="$explanations_dir_base"
+        PHI_DIR="$phi_dir"
+    elif [[ $explanations_dir_base != $EXPLANATIONS_DIR_BASE ]]; then
+        printf "%s is not compatible with %s\n" "$EXPLANATIONS_DIR" "${EXPLANATIONS_DIRS[0]}" >&2
+        exit 2
+    fi
+
+    VARIANT=$(basename "$EXPLANATIONS_DIR")
+    VARIANTS+=("$VARIANT")
+done
 
 PSI_FILE="$PHI_DIR/psi_"
 case $ACTION in
@@ -174,21 +198,28 @@ count-fixed|compare-subset)
 esac
 
 function set_phi_filename {
-    local experiment=$1
-    local -n lphi_file=$2
+    local explanations_dir="$1"
+    local experiment=$2
+    local -n lphi_file=$3
 
     local experiment_stem=$experiment
     (( $do_reverse )) && experiment_stem=reverse/$experiment_stem
     [[ -n $MAX_SAMPLES ]] && experiment_stem=$MAX_SAMPLES_NAME/$experiment_stem
 
-    lphi_file="${EXPLANATIONS_DIR}/${experiment_stem}.phi.txt"
+    lphi_file="${explanations_dir}/${experiment_stem}.phi.txt"
 }
 
 [[ -n $FILTER ]] && {
-    KEPT_IDXS=()
+    FILTER_IDXS=()
+    FILTER_IDXS_C=()
+
     for exp_idx in ${!lEXPERIMENT_NAMES[@]}; do
         experiment=${lEXPERIMENT_NAMES[$exp_idx]}
-        [[ $experiment =~ $FILTER ]] && KEPT_IDXS+=($exp_idx)
+        if [[ $experiment =~ $FILTER ]]; then
+            FILTER_IDXS+=($exp_idx)
+        else
+            FILTER_IDXS_C+=($exp_idx)
+        fi
     done
 }
 
@@ -205,14 +236,6 @@ function maybe_replace_subexp {
 
     return 0
 }
-
-EXPLANATIONS_DIR_BASE=$(realpath --relative-to="$SCRIPTS_DIR/.." "$EXPLANATIONS_DIR")
-
-SCRIPT_NAME=$(basename -s .sh "$0")
-SCRIPT_OUTPUT_CACHE_FILE_REVERSE="$SCRIPTS_DIR/cache/$EXPLANATIONS_DIR_BASE/$MAX_SAMPLES_NAME/reverse/${SCRIPT_NAME}.${ACTION}.txt"
-SCRIPT_OUTPUT_CACHE_FILE="${SCRIPT_OUTPUT_CACHE_FILE_REVERSE/reverse\//}"
-
-mkdir -p $(dirname "$SCRIPT_OUTPUT_CACHE_FILE_REVERSE") >/dev/null || exit $?
 
 function cleanup {
     local code=$1
@@ -239,6 +262,22 @@ function cleanup {
 }
 
 trap 'cleanup 9' INT TERM
+
+CACHE_DIR_BASE="${EXPLANATIONS_DIR_BASE}/"
+for VARIANT in "${VARIANTS[@]}"; do
+    CACHE_DIR_BASE+="${VARIANT}_"
+done
+CACHE_DIR_BASE="${CACHE_DIR_BASE%_}"
+
+[[ ${#VARIANTS[@]} == 1 && $CACHE_DIR_BASE != $EXPLANATIONS_DIR ]] && {
+    printf "Unexpected mismatch of CACHE_DIR_BASE and EXPLANATIONS_DIR:\n%s != %s\n" "$CACHE_DIR_BASE" "$EXPLANATIONS_DIR" >&2
+    exit 7
+}
+
+SCRIPT_OUTPUT_CACHE_FILE_REVERSE="$SCRIPTS_DIR/cache/$CACHE_DIR_BASE/$MAX_SAMPLES_NAME/reverse/${SCRIPT_NAME}.${ACTION}.txt"
+SCRIPT_OUTPUT_CACHE_FILE="${SCRIPT_OUTPUT_CACHE_FILE_REVERSE/reverse\//}"
+
+mkdir -p $(dirname "$SCRIPT_OUTPUT_CACHE_FILE_REVERSE") >/dev/null || exit $?
 
 function get_cache_line {
     local -n lcache_line=$1
@@ -338,25 +377,66 @@ for do_reverse in ${do_reverse_args[@]}; do
         ;;
     esac
 
+    for vidx in ${!VARIANTS[@]}; do
+
+    variant="${VARIANTS[$vidx]}"
+    explanations_dir="${EXPLANATIONS_DIRS[$vidx]}"
+
+    ##+ add indentation vvv
     for exp_idx in ${!lEXPERIMENT_NAMES[@]}; do
         experiment=${lEXPERIMENT_NAMES[$exp_idx]}
+        experiment_full="${variant}/${experiment}"
 
-        set_phi_filename $experiment phi_file
+        set_phi_filename "$explanations_dir" $experiment phi_file
 
         case $ACTION in
         compare-subset)
             filter2="$FILTER2"
             maybe_replace_subexp filter2 "$FILTER" $experiment
 
-            ARGS=(${lEXPERIMENT_NAMES[@]:$(($exp_idx+1))})
-            [[ -n $FILTER ]] && {
-                aux=(${lEXPERIMENT_NAMES[@]::$exp_idx})
-                for fidx in ${KEPT_IDXS[@]}; do
-                    (( $fidx >= $exp_idx )) && break
-                    unset -v aux[$fidx]
+            ARGS=()
+            for vidx2 in ${!VARIANTS[@]}; do
+                variant2="${VARIANTS[$vidx2]}"
+                ## reconstructed later
+                # explanations_dir2="${EXPLANATIONS_DIRS[$vidx2]}"
+
+                pre_args=()
+                post_args=()
+                for eidx in ${!lEXPERIMENT_NAMES[@]}; do
+                    exp=${lEXPERIMENT_NAMES[$eidx]}
+                    arg="${variant2}/${exp}"
+                    if (( $eidx < $exp_idx )); then
+                        pre_args+=("$arg")
+                    elif (( $eidx == $exp_idx )); then
+                        mid_arg="$arg"
+                    else
+                        post_args+=("$arg")
+                    fi
                 done
-                ARGS=(${aux[@]} ${ARGS[@]})
-            }
+                all_args=("${pre_args[@]}" "$mid_arg" "${post_args[@]}")
+                filter_c_pre_args=()
+                filter_c_post_args=()
+                [[ -n $FILTER ]] && {
+                    ## Keep those that are filtered out for caching
+                    for fidx in ${FILTER_IDXS_C[@]}; do
+                        if (( $fidx < $exp_idx )); then
+                            filter_c_pre_args+=("${pre_args[$fidx]}")
+                        elif (( $fidx > $exp_idx )); then
+                            filter_c_post_args+=("${all_args[$fidx]}")
+                        fi
+                    done
+                }
+
+                if (( $vidx < $vidx2 )); then
+                    ARGS+=("${all_args[@]}")
+                elif (( $vidx == $vidx2 )); then
+                    ARGS+=("${filter_c_pre_args[@]}")
+                    ARGS+=("${post_args[@]}")
+                else
+                    ARGS+=("${filter_c_pre_args[@]}")
+                    ARGS+=("${filter_c_post_args[@]}")
+                fi
+            done
             ;;
         *)
             ARGS=(dummy)
@@ -364,28 +444,31 @@ for do_reverse in ${do_reverse_args[@]}; do
         esac
 
         any=0
-        for arg in ${ARGS[@]}; do
+        for arg in "${ARGS[@]}"; do
             phi_files=("$phi_file")
             unset experiment2
 
             case $ACTION in
             compare-subset)
-                experiment2=$arg
+                experiment2_full="$arg"
+                experiment2="${experiment2_full#*/}"
+                variant2="${experiment2_full%/*}"
+                explanations_dir2="${EXPLANATIONS_DIR_BASE}/${variant2}"
 
-                set_phi_filename $experiment2 phi_file2
+                set_phi_filename "$explanations_dir2" $experiment2 phi_file2
                 phi_files+=("$phi_file2")
                 ;;
             esac
 
             [[ -n $FILTER && ! $experiment =~ $FILTER ]] && {
-                get_cache_line cache_line $experiment $experiment2 && printf "%s\n" "$cache_line" >>"$FILTERED_OUTPUT_CACHE_FILE"
+                get_cache_line cache_line "$experiment_full" "$experiment2_full" && printf "%s\n" "$cache_line" >>"$FILTERED_OUTPUT_CACHE_FILE"
                 continue
             }
 
             case $ACTION in
             compare-subset)
                 [[ -n $filter2 && ! $experiment2 =~ $filter2 ]] && {
-                    get_cache_line cache_line $experiment $experiment2 1 && printf "%s\n" "$cache_line" >>"$FILTERED_OUTPUT_CACHE_FILE"
+                    get_cache_line cache_line "$experiment_full" "$experiment2_full" 1 && printf "%s\n" "$cache_line" >>"$FILTERED_OUTPUT_CACHE_FILE"
                     continue
                 }
                 ;;
@@ -393,7 +476,7 @@ for do_reverse in ${do_reverse_args[@]}; do
 
             any=1
 
-            get_cache_line cache_line $experiment $experiment2 1 && {
+            get_cache_line cache_line "$experiment_full" "$experiment2_full" 1 && {
                 printf "%s\n" "$cache_line"
                 continue
             }
@@ -405,7 +488,7 @@ for do_reverse in ${do_reverse_args[@]}; do
                 printf "Analyzing %s ... " "$phi_file"
                 ;;
             count-fixed)
-                printf "%${EXPERIMENT_MAX_WIDTH}s" $experiment
+                printf "%${EXPERIMENT_MAX_WIDTH}s" "$experiment_full"
                 ;;
             compare-subset)
                 printf "%${EXPERIMENT_MAX_WIDTH}s" "$experiment $VS_STR $experiment2"
@@ -483,6 +566,9 @@ for do_reverse in ${do_reverse_args[@]}; do
             (( $any )) && printf "\n"
             ;;
         esac
+    done
+    ##+ add indentation ^^^
+
     done
 
     case $ACTION in
