@@ -19,7 +19,7 @@ shift 2
 STRATEGIES="$1"
 shift
 
-if [[ -z $1 || $1 =~ ^(reverse|short)$ ]]; then
+if [[ -z $1 || $1 =~ ^(reverse|short)$ || $1 =~ ^- ]]; then
     set_experiment_name_from_strategies EXPERIMENT "$STRATEGIES"
 else
     EXPERIMENT="$1"
