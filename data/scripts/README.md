@@ -98,7 +98,8 @@ OPTIONS:
    -n    Dry mode - only print what would have been run
 ```
 
-This script runs a collection of experiments in parallel, using the script `run1.sh` as a subroutine.
+This script runs a collection of experiments in parallel while restricting to the available resources,
+using the script `run1.sh` as a subroutine.
 First, the file `spec/experiments/all` defines experiment names and their associated strategies.
 Second, all other files in the directory `spec/experiments` define certain collections (i.e. a subset) of experiments by referring to their names (as defined in `spec/experiments/all`), using the array `EXPERIMENT_NAMES`. They can also define the array `CONSECUTIVE_EXPERIMENTS` which define certain experiments that are run on top of others (refer to `SRC_EXPERIMENT` description of the `run1.sh` script above).
 
@@ -195,24 +196,26 @@ In directory `data/`:
 
 ## `analyze.sh`
 
+Analyzes all explanations in an explanation file, using certain queries to an SMT solver:
 ```
 USAGE: ./analyze.sh <action> <psi> <f> [<f2>] [<max_rows>]
-ACTIONS: check|count-fixed|compare-subset
+ACTIONS: check|check-sat|count-fixed|compare-subset
 ```
 Except of these, it also accepts several environment variables, described below.
 
 It normally requires at least one of `opensmt`, `cvc5`, `z3`, or `mathsat` SMT solvers installed system-wide.
 Currently, it uses only `opensmt` as a *fast* solver. A fast solver is used by default.
 Currently, the only exception is action `check` that intentionally ensures to use a third-party solver to increase trust.
-Note that using a different solver than a fast one usually quite slower. 
+Note that using a different solver than a fast one is usually quite slower.
 If one wants to use a particular solver, e.g. locally built, use environment variable `SOLVER`.
 
 ### `<action>`
 
-* `check` (unary): verifies that an explanation file is correct, i.e. the classification indeed cannot change.
+* `check-sat` (unary): verifies that all explanations in the file are satisfiable
+* `check` (unary): extends `check-sat` by also verifying that the explanations cannot change the classification
 * `count-fixed` (unary): precisely computes the ratio of the total number of features that are fixed to a single value by the explanation (e.g., `astrong` explanations sometimes still fix some features)
 * `compare-subset` (binary): computes the subset relation between the corresponding explanations in two files
-(`<` means: \#explanations from `<f>` that are a subset of those from `<f2>`; `=` means equivalency, `>` stands for supersets, and `?` means uncomparable - neither subsumes another)
+(`<` means: \#explanations from `<f>` that are a subset of those from `<f2>`; `=` means equivalency, `>` stands for supersets, and `NC` means uncomparable - neither subsumes another)
 
 ### `<psi>`
 
@@ -230,6 +233,11 @@ Use either your locally generated explanations or those already computed and sto
 
 Processes at most the given number of explanations.
 
+### Environment variables
+
+* `SOLVER`: sets a particular SMT solver to be used for the queries
+* `TIMEOUT_PER`: as in `run1.sh`, but used for particular queries to the SMT solver
+
 ### Examples
 
 From directory `data/`, to check explanations, run e.g.:
@@ -240,11 +248,21 @@ which should output:
 ```
 OK!
 ```
-If one wants to use a particular solver:
 
+If one wants to use a particular solver:
 ```
 SOLVER=<path_to_solver> ./scripts/analyze.sh check explanations/heart_attack/psi_c0.smt2 explanations/heart_attack/quick/itp_astrong_bstrong.phi.txt
 ```
+
+To restrict the run of particular check queries:
+```
+TIMEOUT_PER=10 ./scripts/analyze.sh check explanations/heart_attack/psi_c0.smt2 explanations/heart_attack/quick/itp_astrong_bstrong.phi.txt
+```
+Possible output:
+```
+OK! (60.0%)
+```
+which means that only `60.0%` of explanations have been verified, due to the time limit per query.
 
 To count fixed features, run e.g.:
 ```
@@ -254,6 +272,7 @@ which should output:
 ```
 avg #fixed features: 10.0%
 ```
+
 Running on just 2 upmost explanations:
 ```
 ./scripts/analyze.sh count-fixed explanations/heart_attack/psi_d.smt2 explanations/heart_attack/quick/itp_astrong_bstrong.phi.txt 2
@@ -264,21 +283,44 @@ avg #fixed features: 50.0%
 ```
 meaning that the second explanation fixes all features (for just the first explanation, the average is `0%`).
 
+To analyze all but restrict the run of particular check queries:
+```
+TIMEOUT_PER=0.2 ./scripts/analyze.sh count-fixed explanations/heart_attack/psi_d.smt2 explanations/heart_attack/quick/itp_astrong_bstrong.phi.txt
+```
+Possible output:
+```
+avg #fixed features: 9.2% (?: 20.8%)
+```
+which means that `20.8%` out of all features of all explanations have not completed
+and do not participate in the `10.0%` average.
+
 To compare two explanation files, run:
 ```
 ./scripts/analyze.sh compare-subset explanations/heart_attack/psi_d.smt2 explanations/heart_attack/quick/itp_astrong_bstrong.phi.txt explanations/heart_attack/quick/itp_aweak_bstrong.phi.txt
 ```
 which should output:
 ```
-<: 10 =: 0 >: 0 | ?: 0
+Total: 10
+<: 10 =: 0 >: 0 | NC: 0
 ```
+
+To use a time limit, run:
+```
+TIMEOUT_PER=0.05 ./scripts/analyze.sh compare-subset explanations/heart_attack/psi_d.smt2 explanations/heart_attack/quick/itp_astrong_bstrong.phi.txt explanations/heart_attack/quick/itp_aweak_bstrong.phi.txt
+```
+Possible output:
+```
+Total: 10
+<: 9 =: 0 >: 0 | NC: 0 ?: 1
+```
+which means that one of the comparisons timed out.
 
 
 ## `analyze-experiments.sh`
 
 ```
 USAGE: ./analyze-experiments.sh <action> <explanations_dir> <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>] [<filter_regex2>] [-h|-f]
-ACTIONS: check|count-fixed|compare-subset
+ACTIONS: check|check-sat|count-fixed|compare-subset
    [<filter_regex2>] is only to be used with binary actions
 ```
 
@@ -294,14 +336,15 @@ Beware, in this case, it compares all pairs of files, which is quite a lot.
 
 ### Filtering
 
-For example, to only compare all `astrong` `itp` variants with `aweak`:
+For example, to only compare all `astrong` `itp` strategies with `aweak`:
 ```
 ./scripts/analyze-experiments.sh compare-subset explanations/heart_attack/quick/ itp astrong_ aweak_
 ```
 
 The filters are treated as extended regular expressions. This will still result in many pairs.
 
-The script also supports pairwise pattern matching as done in the `sed` tool. For example, to only compare `itp_astrong` with `itp_aweak`, `ucore_itp_astrong` with `ucore_itp_aweak`, and `ucore_min_itp_astrong` with `ucore_min_itp_aweak` (i.e. always the same "ucore category"):
+The script also supports pairwise pattern matching as done in the `sed` tool.
+For example, to only compare `itp_astrong` with `itp_aweak`, `ucore_itp_astrong` with `ucore_itp_aweak`, and `ucore_min_itp_astrong` with `ucore_min_itp_aweak` (i.e. always the same "ucore category"):
 ```
 ./scripts/analyze-experiments.sh compare-subset explanations/heart_attack/quick/ itp '^(|ucore(|_min)_)itp_astrong_' '^\1itp_aweak_'
 ```
