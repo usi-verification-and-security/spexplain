@@ -9,7 +9,7 @@ source "$SCRIPTS_DIR/lib/experiments"
 source "$SCRIPTS_DIR/lib/run"
 
 function usage {
-    printf "USAGE: %s <action> <explanations_dir>... <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>] [<filter_regex2>] [-h|-f]\n" "$0"
+    printf "USAGE: %s <action> <explanations_dir>... <experiments_spec> [[+]consecutive] [<max_samples>] [<filter_regex>] [<filter_regex2>] [-h|-f]\n" "$0"
     $ANALYZE_SCRIPT |& grep ACTIONS
     printf "\t[<filter_regex2>] is only to be used with binary actions\n"
 
@@ -79,7 +79,6 @@ read_experiments_spec "$1" || usage $? >&2
 shift
 
 maybe_read_consecutive "$1" && shift
-maybe_read_reverse "$1" && shift
 maybe_read_max_samples "$1" && shift
 
 [[ -n $1 && ! $1 =~ ^- ]] && {
@@ -207,7 +206,6 @@ function set_phi_filename {
     local -n lphi_file=$3
 
     local experiment_stem=$experiment
-    (( $do_reverse )) && experiment_stem=reverse/$experiment_stem
     [[ -n $MAX_SAMPLES ]] && experiment_stem=$MAX_SAMPLES_NAME/$experiment_stem
 
     lphi_file="${explanations_dir}/${experiment_stem}.phi.txt"
@@ -283,10 +281,9 @@ CACHE_DIR_BASE="${CACHE_DIR_BASE%_}"
     exit 7
 }
 
-SCRIPT_OUTPUT_CACHE_FILE_REVERSE="$SCRIPTS_DIR/cache/$CACHE_DIR_BASE/$MAX_SAMPLES_NAME/reverse/${SCRIPT_NAME}.${ACTION}.txt"
-SCRIPT_OUTPUT_CACHE_FILE="${SCRIPT_OUTPUT_CACHE_FILE_REVERSE/reverse\//}"
+SCRIPT_OUTPUT_CACHE_FILE="$SCRIPTS_DIR/cache/$CACHE_DIR_BASE/$MAX_SAMPLES_NAME/${SCRIPT_NAME}.${ACTION}.txt"
 
-mkdir -p $(dirname "$SCRIPT_OUTPUT_CACHE_FILE_REVERSE") >/dev/null || exit $?
+mkdir -p $(dirname "$SCRIPT_OUTPUT_CACHE_FILE") >/dev/null || exit $?
 
 function get_cache_line {
     local -n lcache_line=$1
@@ -348,18 +345,8 @@ function close_cache {
     }
 }
 
-do_reverse_args=(0)
-[[ -n $INCLUDE_REVERSE ]] && {
-    (( $REVERSE_ONLY )) && do_reverse_args=()
-    do_reverse_args+=(1)
-}
-
-for do_reverse in ${do_reverse_args[@]}; do
-    if (( $do_reverse )); then
-        declare -n lSCRIPT_OUTPUT_CACHE_FILE=SCRIPT_OUTPUT_CACHE_FILE_REVERSE
-    else
-        declare -n lSCRIPT_OUTPUT_CACHE_FILE=SCRIPT_OUTPUT_CACHE_FILE
-    fi
+##+ change indentation vvv
+    declare -n lSCRIPT_OUTPUT_CACHE_FILE=SCRIPT_OUTPUT_CACHE_FILE
 
     unset CACHE
     (( ! $FORCE_COMPUTE )) && [[ -r $lSCRIPT_OUTPUT_CACHE_FILE ]] && {
@@ -373,16 +360,6 @@ for do_reverse in ${do_reverse_args[@]}; do
         exec > >(tee -i "${lSCRIPT_OUTPUT_CACHE_FILE}")
         >"${lSCRIPT_OUTPUT_CACHE_FILE}"
         [[ -n $FILTER ]] && FILTERED_OUTPUT_CACHE_FILE=$(mktemp)
-        ;;
-    esac
-
-    case $ACTION in
-    count-fixed|compare-subset)
-        if (( $do_reverse )); then
-            printf "REVERSE:\n"
-        else
-            printf "REGULAR:\n"
-        fi
         ;;
     esac
 
@@ -632,7 +609,7 @@ for do_reverse in ${do_reverse_args[@]}; do
         :
         ;;
     *)
-        continue
+        exit 0
         ;;
     esac
 
@@ -675,6 +652,6 @@ for do_reverse in ${do_reverse_args[@]}; do
             done
         done
     done
-done
+##+ change indentation ^^^
 
 exit 0

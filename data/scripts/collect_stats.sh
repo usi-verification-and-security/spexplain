@@ -7,7 +7,7 @@ STATS_SCRIPT="$SCRIPTS_DIR/stats.awk"
 source "$SCRIPTS_DIR/lib/experiments"
 
 function usage {
-    printf "USAGE: %s <explanations_dir> <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>] [<OPTIONS>]\n" "$0"
+    printf "USAGE: %s <explanations_dir> <experiments_spec> [[+]consecutive] [<max_samples>] [<filter_regex>] [<OPTIONS>]\n" "$0"
     printf "OPTIONS:\n"
     printf "\t--exclude-column <name>\t\tExclude given column\n"
     printf "\t--average [<regex>]\t\tAverage columns for all rows [matching the regex] (can be repeated)\n"
@@ -31,7 +31,6 @@ read_experiments_spec "$1" || usage $? >&2
 shift
 
 maybe_read_consecutive "$1" && shift
-maybe_read_reverse "$1" && shift
 maybe_read_max_samples "$1" && shift
 
 [[ -n $1 && ! $1 =~ ^-- ]] && {
@@ -142,15 +141,12 @@ function compute_mb_size {
 }
 
 PRINTED_HEADER=0
-PRINTED_REVERSE=0
-PRINTED_REGULAR=0
 
 function print_header {
-    local reverse=$1
-    local dataset_size=$2
-    local n_features=$3
-    local timeout_per=$4
-    local n_correct=$5
+    local dataset_size=$1
+    local n_features=$2
+    local timeout_per=$3
+    local n_correct=$4
 
     (( $PRINTED_HEADER )) || {
         printf 'Dataset size: %d\n' $dataset_size
@@ -173,25 +169,6 @@ function print_header {
 
         PRINTED_HEADER=1
     }
-
-
-    if (( $reverse )); then
-        (( $PRINTED_REVERSE )) || {
-            printf "REVERSE:\n"
-            PRINTED_REVERSE=1
-        }
-    else
-        (( $PRINTED_REGULAR )) || {
-            printf "REGULAR:\n"
-            PRINTED_REGULAR=1
-        }
-    fi
-}
-
-do_reverse_args=(0)
-[[ -n $INCLUDE_REVERSE ]] && {
-    (( $REVERSE_ONLY )) && do_reverse_args=()
-    do_reverse_args+=(1)
 }
 
 ERR_FILE=$(mktemp)
@@ -252,7 +229,7 @@ function postprocess_str_var {
     esac
 }
 
-for do_reverse in ${do_reverse_args[@]}; do
+##+ change indentation vvv
     experiment_array=()
     perc_features_str_array=()
     perc_fixed_features_str_array=()
@@ -268,7 +245,6 @@ for do_reverse in ${do_reverse_args[@]}; do
         experiment_stem=$experiment
         [[ -n $FILTER && ! $experiment =~ $FILTER ]] && continue
 
-        (( $do_reverse )) && experiment_stem=reverse/$experiment_stem
         [[ -n $MAX_SAMPLES ]] && experiment_stem=$MAX_SAMPLES_NAME/$experiment_stem
 
         stats_file="${STATS_DIR}/${experiment_stem}.stats.txt"
@@ -301,7 +277,7 @@ for do_reverse in ${do_reverse_args[@]}; do
         timeout_per=$(sed -n 's/^Timeout per[^0-9]*\([0-9].*\)$/\1/p' <<<"$stats")
         n_correct=$(sed -n 's/^[^#]*#correct classifications[^0-9]*\([0-9][^%]*\)%$/\1/p' <<<"$stats")
 
-        print_header $do_reverse "$size" "$features" "$timeout_per" "$n_correct"
+        print_header "$size" "$features" "$timeout_per" "$n_correct"
 
         time_str=$(sed -n 's/^user[^0-9]*\([0-9].*\)$/\1/p' <"$time_file")
         if [[ -z $time_str ]]; then
@@ -474,6 +450,6 @@ for do_reverse in ${do_reverse_args[@]}; do
         [[ -z ${EXCLUDE_COLUMNS[$AVG_PAR2_CAPTION]} ]] && printf " | %${AVG_PAR2_MAX_WIDTH}s" "$avg_par2_str"
         printf "\n"
     done
-done
+##+ change indentation ^^^
 
 cleanup 0

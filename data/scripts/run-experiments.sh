@@ -8,7 +8,7 @@ function usage {
     local experiments_spec_ary=($(ls "$EXPERIMENTS_SPEC_DIR"))
 
     ##+ it is still not possible to run multiple variants (different options)
-    printf "USAGE: %s (<nn_model_fn> <dataset_fn>)... <experiments_spec> [consecutive] [[+]reverse] [<max_samples>] [<filter_experiments_regex>] [-h|-n]\n" "$0"
+    printf "USAGE: %s (<nn_model_fn> <dataset_fn>)... <experiments_spec> [consecutive] [<max_samples>] [<filter_experiments_regex>] [-h|-n]\n" "$0"
     printf "\t<experiments_spec> is one of: %s\n" "${experiments_spec_ary[*]}"
     printf "CONSECUTIVE_EXPERIMENTS are not run unless 'consecutive' is provided\n"
     printf "\nOPTIONS:\n"
@@ -36,7 +36,6 @@ read_experiments_spec "$1" || usage $? >&2
 shift
 
 maybe_read_consecutive "$1" && shift
-maybe_read_reverse "$1" && shift
 maybe_read_max_samples "$1" && shift
 
 [[ -n $1 && ! $1 =~ ^- ]] && {
@@ -76,16 +75,6 @@ else
     EXPERIMENT_NAMES_VAR=CONSECUTIVE_EXPERIMENTS_NAMES
 fi
 export EXPERIMENT_NAMES_VAR
-
-[[ -n $INCLUDE_REVERSE ]] && {
-    printf "Running reversed-order experiments "
-    if (( $REVERSE_ONLY )); then
-        printf "only"
-    else
-        printf "as well"
-    fi
-    printf "\n\n"
-}
 
 (( $DRY_RUN )) && printf "DRY RUN - only printing what would be run\n\n"
 
@@ -154,15 +143,8 @@ function run1 {
 
     (( $DRY_RUN )) && return 0
 
-    reverse_args=('')
-    [[ -n $INCLUDE_REVERSE ]] && {
-        (( $REVERSE_ONLY )) && reverse_args=()
-        reverse_args+=(reverse)
-    }
-
-    for rev in "${reverse_args[@]}"; do
-        SRC_EXPERIMENT=$src_experiment "$DIRNAME/run1.sh" "$MODEL" "$DATASET" "$experiment_strategies" $experiment $rev $MAX_SAMPLES $OPTIONS &
-    done
+    ##+ allow running multiple variants
+    SRC_EXPERIMENT=$src_experiment "$DIRNAME/run1.sh" "$MODEL" "$DATASET" "$experiment_strategies" $experiment $MAX_SAMPLES $OPTIONS &
 
     wait -n
     case $? in
@@ -176,7 +158,7 @@ function run1 {
         ;;
     *)
         printf "%s failed!\nUsed command: %s\n" $experiment \
-            "SRC_EXPERIMENT=$src_experiment \"$DIRNAME/run1.sh\" \"$MODEL\" \"$DATASET\" \"$experiment_strategies\" $experiment $rev $MAX_SAMPLES $OPTIONS &" >&2
+            "SRC_EXPERIMENT=$src_experiment \"$DIRNAME/run1.sh\" \"$MODEL\" \"$DATASET\" \"$experiment_strategies\" $experiment $MAX_SAMPLES $OPTIONS &" >&2
         return 1
         ;;
     esac
@@ -184,8 +166,6 @@ function run1 {
 export -f run1
 
 [[ -z $CPU_PERCENTAGE ]] && CPU_PERCENTAGE=60
-
-[[ -n $INCLUDE_REVERSE ]] && (( ! $REVERSE_ONLY )) && CPU_PERCENTAGE=$(( $CPU_PERCENTAGE/2 ))
 
 declare -n lEXPERIMENT_NAMES=$EXPERIMENT_NAMES_VAR
 

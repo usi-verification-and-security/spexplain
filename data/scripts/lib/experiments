@@ -64,17 +64,6 @@ function maybe_read_consecutive {
     return 0
 }
 
-function maybe_read_reverse {
-    [[ $1 =~ ^(|\+)reverse$ ]] || return 1
-
-    export INCLUDE_REVERSE=1
-    export REVERSE_ONLY=1
-
-    [[ $1 =~ ^\+ ]] && REVERSE_ONLY=0
-
-    return 0
-}
-
 function maybe_read_max_samples {
     # [[ $1 =~ ^(short|[0-9]+)$ ]] || return 1
     [[ $1 =~ ^[0-9]+$ ]] || return 1
