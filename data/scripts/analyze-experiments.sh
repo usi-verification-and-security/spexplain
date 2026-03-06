@@ -548,8 +548,9 @@ for do_reverse in ${do_reverse_args[@]}; do
             esac
 
             out=$($ANALYZE_SCRIPT $ACTION "$PSI_FILE" "${phi_files[@]}" "${args[@]}") || {
+                ret=$?
                 printf '%s\n' "$out" >&2
-                exit $?
+                cleanup $ret
             }
 
             case $ACTION in
@@ -558,7 +559,7 @@ for do_reverse in ${do_reverse_args[@]}; do
                     printf "%s" "$out"
                 else
                     printf "\n%s" "$out" >&2
-                    exit 4
+                    cleanup 4
                 fi
                 ;;
             count-fixed)
