@@ -5,7 +5,7 @@ DIRNAME=$(dirname "$0")
 source "$DIRNAME/lib/run"
 
 function usage {
-    printf "USAGE: %s <nn_model_fn> <dataset_fn> <exp_strategies_spec> [<name>] [reverse] [<max_samples>] <args>...\n" "$0"
+    printf "USAGE: %s <nn_model_fn> <dataset_fn> <exp_strategies_spec> [<name>] [<max_samples>] <args>...\n" "$0"
 
     [[ -n $1 ]] && exit $1
 }
@@ -15,25 +15,20 @@ function usage {
 set_output_dir_from_model_dataset "$1" "$2" || usage $? >&2
 shift 2
 
-[[ -z $1 || $1 =~ ^(reverse|short)$ ]] && usage 1 >&2
+[[ -z $1 || $1 == short ]] && usage 1 >&2
 STRATEGIES="$1"
 shift
 
-if [[ -z $1 || $1 =~ ^(reverse|short)$ || $1 =~ ^- ]]; then
+if [[ -z $1 || $1 == short || $1 =~ ^- ]]; then
     set_experiment_name_from_strategies EXPERIMENT "$STRATEGIES"
 else
     EXPERIMENT="$1"
     shift
 fi
 
-[[ $1 == reverse ]] && {
-    REVERSE=1
-    shift
-}
-
 maybe_read_max_samples "$1" && shift
 
-[[ $1 =~ ^(reverse|short)$ ]] && usage 1 >&2
+[[ $1 == short ]] && usage 1 >&2
 
 set_cmd
 set_timeout
@@ -44,11 +39,6 @@ OPTIONS=(--quiet --format=smtlib2)
 [[ -n $MAX_SAMPLES ]] && {
     OUTPUT_DIR+=/$MAX_SAMPLES_NAME
     OPTIONS+=(--shuffle-samples --max-samples=$MAX_SAMPLES)
-}
-
-[[ -n $REVERSE ]] && {
-    OUTPUT_DIR+=/reverse
-    OPTIONS+=(--reverse-var)
 }
 
 [[ -n $TIMEOUT_PER ]] && {
