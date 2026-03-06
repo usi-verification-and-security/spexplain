@@ -57,10 +57,19 @@ VARIANT=reverse ./scripts/run1.sh models/heart_attack/heart_attack-50.nnet datas
 which generates files into the destination `explanations/heart_attack/50/full/reverse`.
 (The order of features is insignificant for `itp` strategies and has a much higher impact on `abductive` and `trial` strategies.)
 
+Another example:
+```
+VARIANT=fix-all ./scripts/run1.sh models/heart_attack/heart_attack-50.nnet datasets/heart_attack/heart_attack_full.csv 'itp astrong, bstrong; ucore' --fix-default-sample-neuron-activations all
+```
+which by default fixes all neuron activations
+and generates files into the destination `explanations/heart_attack/50/full/fix-all`.
+
+To use a timeout of `2h`:
 ```
 TIMEOUT=2h ./scripts/run1.sh models/heart_attack/heart_attack-50.nnet datasets/heart_attack/heart_attack_quick.csv 'abductive; itp aweaker, bstrong; ucore min' test_name -e phi.txt
 ```
-will use timeout of `2h` and generate explanations into `./phi.txt` (due to the extra arguments `-e phi.txt`)
+In addition,
+this generates explanations into `./phi.txt` (due to the extra arguments `-e phi.txt`)
 but statistics into `explanations/heart_attack/50/quick/default/test_name.stats.txt`, etc.
 
 ```
@@ -156,7 +165,14 @@ will use the timeout of `2m` per experiment (i.e., per a run of `run1.sh`)
 and of `30s` per explanation,
 will run experiments specified in `spec/experiments/itp` that match the regex filter `^itp` (e.g. `itp_astrong_bstrong`),
 and will generate the explanations into `explanations/obesity/10-20-10/short/reverse`.
-Additionally, it passes the arguments `--reverse-var` to the underlying script `run1.sh` (i.e., consequently, to `spexplain`).
+It uses the variant `reverse`
+and passes the arguments `--reverse-var` to the underlying script `run1.sh` (i.e., consequently, to `spexplain`).
+
+Example of another variant is
+```
+OPTIONS='--fix-default-sample-neuron-activations all' VARIANT=fix-all ./scripts/run-experiments.sh models/obesity/obesity-10-20-10.nnet datasets/obesity/obesity_short.csv itp '^itp'
+```
+which by default fixes all neuron activations.
 
 
 ## `collect_stats.sh`
