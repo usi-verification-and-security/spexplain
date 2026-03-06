@@ -7,7 +7,7 @@ This folder contains several scripts to automate and simplify experimentation wi
 
 This is a proxy script for the `spexplain` executable that automatically uses some options suitable for running the experiments (e.g. `--quiet`) and automatically adjusts the destination directory for the generated explanations based on the inputs and parameters:
 ```
-USAGE: ./run1.sh <nn_model_fn> <dataset_fn> <exp_strategies_spec> [<name>] [reverse] [<max_samples>] <args>...
+USAGE: ./run1.sh <nn_model_fn> <dataset_fn> <exp_strategies_spec> [<name>] [<max_samples>] <args>...
 ```
 Except of these, it also accepts several environment variables, described below.
 The inputs `<nn_model_fn>`, `<dataset_fn>` and `<exp_strategies_spec>` are just forwarded to `spexplain`.
@@ -18,11 +18,6 @@ It only runs one experiment, that is, produces one output file with explanations
 
 Optional name that describes the used strategies and that will be used as the basename for the generated files.
 If omitted, it will be generated automatically from `<exp_strategies_spec>`.
-
-### `reverse`
-
-If specified, reverses the order of features (refers to option `-R` of `spexplain`).
-Adds `reverse` into the destination directory path.
 
 ### `<max_samples>`
 
@@ -54,6 +49,13 @@ will generate:
 * statistics into `explanations/heart_attack/50/full/default/ucore_itp_astrong_bstrong.stats.txt`,
 * time splits into `explanations/heart_attack/50/full/default/ucore_itp_astrong_bstrong.times.txt`,
 * and total time into `explanations/heart_attack/50/full/default/ucore_itp_astrong_bstrong.time.txt`.
+
+To run a variant with the reversed order of features:
+```
+VARIANT=reverse ./scripts/run1.sh models/heart_attack/heart_attack-50.nnet datasets/heart_attack/heart_attack_full.csv 'itp astrong, bstrong; ucore' --reverse-var
+```
+which generates files into the destination `explanations/heart_attack/50/full/reverse`.
+(The order of features is insignificant for `itp` strategies and has a much higher impact on `abductive` and `trial` strategies.)
 
 ```
 TIMEOUT=2h ./scripts/run1.sh models/heart_attack/heart_attack-50.nnet datasets/heart_attack/heart_attack_quick.csv 'abductive; itp aweaker, bstrong; ucore min' test_name -e phi.txt
@@ -87,7 +89,7 @@ and `1h` for the whole computation of all explanations.
 ## `run-experiments.sh`
 
 ```
-USAGE: ./run-experiments.sh (<nn_model_fn> <dataset_fn>)... <experiments_spec> [consecutive] [[+]reverse] [<max_samples>] [<filter_experiments_regex>] [-h|-n]
+USAGE: ./run-experiments.sh (<nn_model_fn> <dataset_fn>)... <experiments_spec> [consecutive] [<max_samples>] [<filter_experiments_regex>] [-h|-n]
    <experiments_spec> is one of: all base itp
 CONSECUTIVE_EXPERIMENTS are not run unless 'consecutive' is provided
 
@@ -115,12 +117,6 @@ It also accepts `all` as the collection of all available experiments.
 
 If specified, runs `CONSECUTIVE_EXPERIMENTS` instead of those specified in `EXPERIMENT_NAMES`.
 This assumes that the input explanations are already computed; their automatic pre-computation is not supported.
-
-### `reverse`
-
-Refer to the description of `reverse` of the `run1.sh` script above.
-Without `+`, it runs only experiments with reversed order of variables.
-With `+`, it runs both.
 
 ### `<max_samples>`
 
@@ -154,19 +150,19 @@ will run all consecutive experiments specified in `spec/experiments/base`, given
 and using the executable `../build-marabou/spexplain`.
 
 ```
-TIMEOUT=2m TIMEOUT_PER=30s OPTIONS='--filter-samples incorrect' VARIANT=incorrect ./scripts/run-experiments.sh models/obesity/obesity-10-20-10.nnet datasets/obesity/obesity_short.csv itp '^itp'
+TIMEOUT=2m TIMEOUT_PER=30s OPTIONS='--reverse-var' VARIANT=reverse ./scripts/run-experiments.sh models/obesity/obesity-10-20-10.nnet datasets/obesity/obesity_short.csv itp '^itp'
 ```
 will use the timeout of `2m` per experiment (i.e., per a run of `run1.sh`)
 and of `30s` per explanation,
 will run experiments specified in `spec/experiments/itp` that match the regex filter `^itp` (e.g. `itp_astrong_bstrong`),
-and will generate the explanations into `explanations/obesity/10-20-10/short/incorrect`.
-Additionally, it passes the arguments `--filter-samples incorrect` to the underlying script `run1.sh` (i.e., consequently, to `spexplain`).
+and will generate the explanations into `explanations/obesity/10-20-10/short/reverse`.
+Additionally, it passes the arguments `--reverse-var` to the underlying script `run1.sh` (i.e., consequently, to `spexplain`).
 
 
 ## `collect_stats.sh`
 
 ```
-USAGE: ./collect_stats.sh <explanations_dir> <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>] [<OPTIONS>]
+USAGE: ./collect_stats.sh <explanations_dir> <experiments_spec> [[+]consecutive] [<max_samples>] [<filter_regex>] [<OPTIONS>]
 OPTIONS:
    --exclude-column <name>    Exclude given column
    --average [<regex>]     Average columns for all rows [matching the regex] (can be repeated)
@@ -317,7 +313,7 @@ which means that one of the comparisons timed out.
 ## `analyze-experiments.sh`
 
 ```
-USAGE: ./analyze-experiments.sh <action> <explanations_dir>... <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>] [<filter_regex2>] [-h|-f]
+USAGE: ./analyze-experiments.sh <action> <explanations_dir>... <experiments_spec> [[+]consecutive] [<max_samples>] [<filter_regex>] [<filter_regex2>] [-h|-f]
 ACTIONS: check|check-sat|count-fixed|compare-subset
    [<filter_regex2>] is only to be used with binary actions
 ```
