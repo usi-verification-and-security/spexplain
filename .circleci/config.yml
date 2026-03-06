@@ -1,0 +1,184 @@
+version: 2.1
+jobs:
+    formatter:
+        docker:
+            - image: usiverify/verify-env:archlinux
+              auth:
+                  username: mydockerhub-user
+                  password: $DOCKERHUB_PASSWORD
+
+        steps:
+            - checkout
+            - run:
+                  name: run clang formatter
+                  command: ./scripts/check_clang-format.sh
+
+    build-current-gcc-release:
+        docker:
+          - image: usiverify/verify-env:current
+            auth:
+                username: mydockerhub-user
+                password: $DOCKERHUB_PASSWORD
+            environment:
+                CMAKE_BUILD_PARALLEL_LEVEL: 8
+                CMAKE_CXX_COMPILER: g++
+                FLAGS: -Wall -Wextra -Werror
+        steps:
+            - checkout
+            - run:
+                name: Release build gcc
+                command: make
+
+    build-current-gcc-debug:
+        docker:
+          - image: usiverify/verify-env:current
+            auth:
+                username: mydockerhub-user
+                password: $DOCKERHUB_PASSWORD
+            environment:
+                CMAKE_BUILD_PARALLEL_LEVEL: 8
+                CMAKE_CXX_COMPILER: g++
+                FLAGS: -Wall -Wextra -Werror
+        steps:
+            - checkout
+            - run:
+                name: Debug build gcc
+                command: make debug
+
+    build-current-clang-release:
+        docker:
+          - image: usiverify/verify-env:current
+            auth:
+                username: mydockerhub-user
+                password: $DOCKERHUB_PASSWORD
+            environment:
+                CMAKE_BUILD_PARALLEL_LEVEL: 8
+                CMAKE_CXX_COMPILER: clang++
+                FLAGS: -Wall -Wextra -Werror
+        steps:
+            - checkout
+            - run:
+                name: Release build clang
+                command: make
+
+    build-current-clang-debug:
+        docker:
+          - image: usiverify/verify-env:current
+            auth:
+                username: mydockerhub-user
+                password: $DOCKERHUB_PASSWORD
+            environment:
+                CMAKE_BUILD_PARALLEL_LEVEL: 8
+                CMAKE_CXX_COMPILER: clang++
+                FLAGS: -Wall -Wextra -Werror -fsanitize=signed-integer-overflow,address,undefined
+        steps:
+            - checkout
+            - run:
+                name: Debug build clang
+                command: make debug
+
+    build-fedora-release:
+        docker:
+          - image: usiverify/verify-env:fedora
+            auth:
+                username: mydockerhub-user
+                password: $DOCKERHUB_PASSWORD
+            environment:
+                CMAKE_BUILD_PARALLEL_LEVEL: 8
+                FLAGS: -Wall -Wextra -Werror
+        steps:
+            - checkout
+            - run:
+                name: Release build Fedora
+                command: make
+
+    build-fedora-debug:
+        docker:
+          - image: usiverify/verify-env:fedora
+            auth:
+                username: mydockerhub-user
+                password: $DOCKERHUB_PASSWORD
+            environment:
+                CMAKE_BUILD_PARALLEL_LEVEL: 8
+                FLAGS: -Wall -Wextra -Werror
+        steps:
+            - checkout
+            - run:
+                name: Debug build Fedora
+                command: make debug
+
+    build-macos-release:
+        macos:
+            xcode: 15.4.0
+        resource_class: m4pro.medium
+        steps:
+            - run:
+                name: Packages
+                command: |
+                  brew install cmake
+                  brew install gmp
+                  brew install bison
+                  brew install flex
+            - checkout
+            - run:
+                name: Store path
+                command: echo 'export PATH=/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/bison/bin:$PATH' >> $BASH_ENV
+            - run:
+                name: Release build OS X
+                environment:
+                    CMAKE_BUILD_PARALLEL_LEVEL: 8
+                    FLAGS: -Wall -Wextra -Werror
+                command: make
+
+    build-macos-debug:
+        macos:
+            xcode: 15.4.0
+        resource_class: m4pro.medium
+        steps:
+            - run:
+                name: Packages
+                command: |
+                  brew install cmake
+                  brew install gmp
+                  brew install bison
+                  brew install flex
+            - checkout
+            - run:
+                name: Store path
+                command: echo 'export PATH=/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/bison/bin:$PATH' >> $BASH_ENV
+            - run:
+                name: Debug build OS X
+                environment:
+                    CMAKE_BUILD_PARALLEL_LEVEL: 8
+                    FLAGS: -Wall -Wextra -Werror
+                command: make debug
+
+workflows:
+  build-test:
+      jobs:
+        - formatter
+        - build-fedora-debug:
+          filters: &filters-build-test
+            tags:
+              only: /^v.*/
+        - build-fedora-release:
+          filters:
+            <<: *filters-build-test
+        - build-current-gcc-debug:
+          filters:
+            <<: *filters-build-test
+        - build-current-gcc-release:
+          filters:
+            <<: *filters-build-test
+        - build-current-clang-debug:
+          filters:
+            <<: *filters-build-test
+        - build-current-clang-release:
+          filters:
+            <<: *filters-build-test
+        - build-macos-debug:
+          filters:
+            <<: *filters-build-test
+        - build-macos-release:
+          filters:
+            <<: *filters-build-test
