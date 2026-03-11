@@ -33,6 +33,10 @@ maybe_read_max_samples "$1" && shift
 set_cmd
 set_timeout
 
+[[ -n $VARIANT ]] && {
+    maybe_find_options_for_variant "$VARIANT" VAR_OPTIONS
+}
+
 declare -a options
 options=(
     --quiet
@@ -90,4 +94,4 @@ options+=(
     --output-times=\"$times_file\"
 )
 
-exec $TIMEOUT_CMD bash -c "{ time ${CMD} \"$MODEL\" \"$DATASET\" \"$STRATEGIES\" ${options[*]} $OPTIONS "'"$@"'" >\"$out_file\" 2>\"$err_file\" ; } 2>\"$time_file\"" spexplain "$@"
+exec $TIMEOUT_CMD bash -c "{ time ${CMD} \"$MODEL\" \"$DATASET\" \"$STRATEGIES\" ${options[*]} $VAR_OPTIONS $OPTIONS "'"$@"'" >\"$out_file\" 2>\"$err_file\" ; } 2>\"$time_file\"" spexplain "$@"

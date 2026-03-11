@@ -2,6 +2,7 @@
 
 source "$DIRNAME/lib/common"
 source "$DIRNAME/lib/experiments"
+source "$DIRNAME/lib/variants"
 
 function set_model_dataset {
     local model="$1"

@@ -80,15 +80,37 @@ export EXPERIMENT_NAMES_VAR
 
 [[ -n $OPTIONS ]] && export OPTIONS
 
+if [[ -n $VARIANTS_SPEC ]]; then
+    read_variants_spec "$VARIANTS_SPEC" || usage $? >&2
+
+    printf "Variants: %s\n\n" "${VARIANT_NAMES[*]}"
+elif [[ -n $VARIANT ]]; then
+    VARIANT_NAMES=("$VARIANT")
+
+    printf "Variant: %s\n\n" "$VARIANT"
+fi
+
 for idx in ${!MODELS[@]}; do
     model="${MODELS[$idx]}"
     dataset="${DATASETS[$idx]}"
 
+    ## Will be set mainly later in run1 function, here only for printing
     set_output_dir_from_model_dataset "$model" "$dataset" || usage $? >&2
 
     printf "Model: %s\n" "$MODEL"
     printf "Dataset: %s\n" "$DATASET"
-    printf "Output directory: %s\n" "$OUTPUT_DIR"
+
+    if (( ${#VARIANT_NAMES[@]} <= 1 )); then
+        printf "Output directory: %s\n" "$OUTPUT_DIR"
+    else
+        printf "Output directories:\n"
+        for VARIANT in "${VARIANT_NAMES[@]}"; do
+            ## Only to set the OUTPUT_DIR
+            set_output_dir_from_model_dataset "$model" "$dataset" || usage $? >&2
+
+            printf "\t%s\n" "$OUTPUT_DIR"
+        done
+    fi
     printf "\n"
 done
 
@@ -111,7 +133,10 @@ function run1 {
 
     local model="$1"
     local dataset="$2"
-    local exp_idx=$3
+    local variant="$3"
+    local exp_idx=$4
+
+    export VARIANT="$variant"
 
     set_output_dir_from_model_dataset "$model" "$dataset" || return $?
 
@@ -158,9 +183,13 @@ function run1 {
         ;;
     *)
         printf "%s failed!\n" $experiment >&2
+        [[ -n $VARIANT ]] && {
+            maybe_find_options_for_variant "$VARIANT" VAR_OPTIONS
+            printf "Used variant: %s\n" "$VARIANT" >&2
+        }
         printf "Used command: %s\nUsed OPTIONS: %s\n" \
             "SRC_EXPERIMENT=$src_experiment \"$DIRNAME/run1.sh\" \"$MODEL\" \"$DATASET\" \"$experiment_strategies\" $experiment $MAX_SAMPLES &" \
-            "$OPTIONS" \
+            "$VAR_OPTIONS $OPTIONS" \
             >&2
         return 1
         ;;
@@ -173,7 +202,7 @@ export -f run1
 declare -n lEXPERIMENT_NAMES=$EXPERIMENT_NAMES_VAR
 
 if (( ${#lEXPERIMENT_NAMES[@]} )); then
-    parallel --halt soon,fail=1 --line-buffer --jobs ${CPU_PERCENTAGE}% 'run1 {} {} {}' ::: "${MODELS[@]}" :::+ "${DATASETS[@]}" ::: ${!lEXPERIMENT_NAMES[@]}
+    parallel --halt soon,fail=1 --line-buffer --jobs ${CPU_PERCENTAGE}% 'run1 {} {} {} {}' ::: "${MODELS[@]}" :::+ "${DATASETS[@]}" ::: "${VARIANT_NAMES[@]}" ::: ${!lEXPERIMENT_NAMES[@]}
 else
     printf "Nothing to run.\n"
 fi

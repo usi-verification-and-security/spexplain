@@ -1,0 +1,71 @@
+[[ -z $DIRNAME ]] && DIRNAME=$(dirname "$0")
+
+source "$DIRNAME/lib/common"
+
+SPEC_DIR="$DIRNAME/spec"
+VARIANTS_SPEC_DIR="$SPEC_DIR/variants"
+
+function _read_variants_spec_source {
+    local f="$1"
+
+    grep -q '^VARIANT_NAMES=' "$f" &>/dev/null || return 1
+
+    source "$f" && source "$DIRNAME/lib/_set_variants_spec"
+}
+
+function read_variants_spec {
+    local arg="$1"
+
+    [[ -z $arg ]] && {
+        printf "Expected variants spec.\n" >&2
+        return 1
+    }
+
+    export VARIANTS_SPEC="$arg"
+
+    [[ -r $arg ]] && _read_variants_spec_source "$arg" && return 0
+
+    local f="$VARIANTS_SPEC_DIR/$arg"
+    [[ -e $f ]] || {
+        printf "Unrecognized variants spec %s: file %s does not exist!\n" "$arg" "$f" >&2
+        return 1
+    }
+
+    [[ -r $f ]] || {
+        printf "Experiments spec file %s is not readable!\n" "$f" >&2
+        return 1
+    }
+
+    _read_variants_spec_source "$f" && return 0
+
+    printf "Neither %s nor %s is a valid variants spec file!\n" "$arg" "$f" >&2
+    return 1
+}
+
+source "$VARIANTS_SPEC_DIR/all"
+
+ALL_VARIANT_NAMES=("${VARIANT_NAMES[@]}")
+VARIANT_NAMES=()
+
+_check_array_sizes ALL_VARIANT_NAMES VARIANT_OPTIONS
+
+declare -A VARIANT_TO_IDX
+
+## Map variant names to strategies
+for vidx in ${!ALL_VARIANT_NAMES[@]}; do
+    variant="${ALL_VARIANT_NAMES[$vidx]}"
+    VARIANT_TO_IDX[$variant]=$vidx
+done
+
+function maybe_find_options_for_variant {
+    local variant="$1"
+    local -n lvariant_options=$2
+    local vidx=$3
+
+    [[ -z $vidx || $VARIANTS_SPEC != all ]] && vidx=${VARIANT_TO_IDX[$variant]}
+
+    lvariant_options="${VARIANT_OPTIONS[$vidx]}"
+
+    return 0
+}
+export -f maybe_find_options_for_variant
