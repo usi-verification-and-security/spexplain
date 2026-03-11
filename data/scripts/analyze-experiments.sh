@@ -5,8 +5,7 @@ SCRIPT_NAME=$(basename -s .sh "$0")
 
 ANALYZE_SCRIPT="$SCRIPTS_DIR/analyze.sh"
 
-source "$SCRIPTS_DIR/lib/experiments"
-source "$SCRIPTS_DIR/lib/run"
+source "$SCRIPTS_DIR/lib/analyze"
 
 function usage {
     printf "USAGE: %s <action> <explanations_dir>... <experiments_spec> [[+]consecutive] [<max_samples>] [<filter_regex>] [<filter_regex2>] [-h|-f]\n" "$0"
@@ -21,48 +20,10 @@ function usage {
 ACTION=$1
 shift
 
-[[ -z $1 ]] && {
-    printf "Provide phi data directory.\n" >&2
-    usage 1 >&2
-}
+read_explanation_dirs "$@" || usage $? >&2
+shift ${#VARIANTS[@]}
 
-[[ ! $1 =~ / ]] && {
-    printf "Phi data directory does not contain '/': %s\n" "$1" >&2
-    usage 1 >&2
-}
-
-unset EXPLANATIONS_DIR_BASE
-unset PHI_DIR
-EXPLANATIONS_DIRS=()
-VARIANTS=()
-while [[ $1 =~ / ]]; do
-    EXPLANATIONS_DIR=$(realpath --relative-to="$SCRIPTS_DIR/.." "$1")
-    shift
-
-    [[ -d $EXPLANATIONS_DIR && -r $EXPLANATIONS_DIR ]] || {
-        printf "'%s' is not a readable directory.\n" "$EXPLANATIONS_DIR" >&2
-        usage 1 >&2
-    }
-    EXPLANATIONS_DIRS+=("$EXPLANATIONS_DIR")
-
-    explanations_dir_base=$(dirname "$EXPLANATIONS_DIR")
-    #+ do not make this implicit assumption
-    phi_dir=$(dirname "$explanations_dir_base")
-    if [[ -z $EXPLANATIONS_DIR_BASE ]]; then
-        EXPLANATIONS_DIR_BASE="$explanations_dir_base"
-        PHI_DIR="$phi_dir"
-    elif [[ $explanations_dir_base != $EXPLANATIONS_DIR_BASE ]]; then
-        printf "%s is not compatible with %s\n" "$EXPLANATIONS_DIR" "${EXPLANATIONS_DIRS[0]}" >&2
-        exit 2
-    fi
-
-    VARIANT=$(basename "$EXPLANATIONS_DIR")
-    VARIANTS+=("$VARIANT")
-done
-
-_set_max_len VARIANTS MAX_VARIANT_NAMES_LEN
-
-PSI_FILE="$PHI_DIR/psi_"
+PSI_FILE="$PSI_DIR/psi_"
 case $ACTION in
 check*)
     PSI_FILE+=c0
@@ -120,19 +81,9 @@ FORCE_COMPUTE=0
 
 set_timeout
 
-#++ store consecutive cache to separate files to avoid destroying it
-if [[ -z $INCLUDE_CONSECUTIVE ]]; then
-    declare -n lEXPERIMENT_NAMES=EXPERIMENT_NAMES
-    declare -n lMAX_EXPERIMENT_NAMES_LEN=MAX_EXPERIMENT_NAMES_LEN
-elif (( $CONSECUTIVE_ONLY )); then
-    declare -n lEXPERIMENT_NAMES=CONSECUTIVE_EXPERIMENTS_NAMES
-    declare -n lMAX_EXPERIMENT_NAMES_LEN=MAX_CONSECUTIVE_EXPERIMENTS_NAMES_LEN
-else
-    declare -n lEXPERIMENT_NAMES=EXPERIMENT_NAMES_WITH_CONSECUTIVE
-    declare -n lMAX_EXPERIMENT_NAMES_LEN=MAX_EXPERIMENT_NAMES_WITH_CONSECUTIVE_LEN
-fi
+set_experiment_names
 
-MAX_EXPERIMENT_FULL_NAMES_LEN=$(( $MAX_VARIANT_NAMES_LEN + 1 + $lMAX_EXPERIMENT_NAMES_LEN ))
+#++ store consecutive cache to separate files to avoid destroying it
 
 ## Require at least one extra space before the experiment names
 case $ACTION in

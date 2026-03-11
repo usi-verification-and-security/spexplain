@@ -1,0 +1,63 @@
+[[ -z $DIRNAME ]] && DIRNAME=$(dirname "$0")
+
+source "$DIRNAME/lib/common"
+source "$DIRNAME/lib/experiments"
+source "$DIRNAME/lib/run"
+
+function read_explanation_dirs {
+    [[ -z $1 ]] && {
+        printf "Provide explanation data directory.\n" >&2
+        return 1
+    }
+
+    [[ ! $1 =~ / ]] && {
+        printf "Explanation data directory does not contain '/': %s\n" "$1" >&2
+        return 1
+    }
+
+    unset EXPLANATIONS_DIR_BASE
+    unset PSI_DIR
+    EXPLANATIONS_DIRS=()
+    VARIANTS=()
+    while [[ $1 =~ / ]]; do
+        EXPLANATIONS_DIR=$(realpath --relative-to="$DIRNAME/.." "$1")
+        shift
+
+        [[ -d $EXPLANATIONS_DIR && -r $EXPLANATIONS_DIR ]] || {
+            printf "'%s' is not a readable directory.\n" "$EXPLANATIONS_DIR" >&2
+            return 1
+        }
+        EXPLANATIONS_DIRS+=("$EXPLANATIONS_DIR")
+
+        local explanations_dir_base=$(dirname "$EXPLANATIONS_DIR")
+        ##+ do not make this implicit assumption
+        local psi_dir=$(dirname "$explanations_dir_base")
+        if [[ -z $EXPLANATIONS_DIR_BASE ]]; then
+            EXPLANATIONS_DIR_BASE="$explanations_dir_base"
+            PSI_DIR="$psi_dir"
+        elif [[ $explanations_dir_base != $EXPLANATIONS_DIR_BASE ]]; then
+            printf "%s is not compatible with %s\n" "$EXPLANATIONS_DIR" "${EXPLANATIONS_DIRS[0]}" >&2
+            return 2
+        fi
+
+        VARIANT=$(basename "$EXPLANATIONS_DIR")
+        VARIANTS+=("$VARIANT")
+    done
+
+    _set_max_len VARIANTS MAX_VARIANT_NAMES_LEN
+}
+
+function set_experiment_names {
+    if [[ -z $INCLUDE_CONSECUTIVE ]]; then
+        declare -gn lEXPERIMENT_NAMES=EXPERIMENT_NAMES
+        declare -gn lMAX_EXPERIMENT_NAMES_LEN=MAX_EXPERIMENT_NAMES_LEN
+    elif (( $CONSECUTIVE_ONLY )); then
+        declare -gn lEXPERIMENT_NAMES=CONSECUTIVE_EXPERIMENTS_NAMES
+        declare -gn lMAX_EXPERIMENT_NAMES_LEN=MAX_CONSECUTIVE_EXPERIMENTS_NAMES_LEN
+    else
+        declare -gn lEXPERIMENT_NAMES=EXPERIMENT_NAMES_WITH_CONSECUTIVE
+        declare -gn lMAX_EXPERIMENT_NAMES_LEN=MAX_EXPERIMENT_NAMES_WITH_CONSECUTIVE_LEN
+    fi
+
+    MAX_EXPERIMENT_FULL_NAMES_LEN=$(( $MAX_VARIANT_NAMES_LEN + 1 + $lMAX_EXPERIMENT_NAMES_LEN ))
+}
