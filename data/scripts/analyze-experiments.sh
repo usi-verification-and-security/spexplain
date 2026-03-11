@@ -60,6 +60,8 @@ while [[ $1 =~ / ]]; do
     VARIANTS+=("$VARIANT")
 done
 
+_set_max_len VARIANTS MAX_VARIANT_NAMES_LEN
+
 PSI_FILE="$PHI_DIR/psi_"
 case $ACTION in
 check*)
@@ -130,14 +132,16 @@ else
     declare -n lMAX_EXPERIMENT_NAMES_LEN=MAX_EXPERIMENT_NAMES_WITH_CONSECUTIVE_LEN
 fi
 
+MAX_EXPERIMENT_FULL_NAMES_LEN=$(( $MAX_VARIANT_NAMES_LEN + 1 + $lMAX_EXPERIMENT_NAMES_LEN ))
+
 ## Require at least one extra space before the experiment names
 case $ACTION in
 compare-subset)
     VS_STR='vs.'
-    EXPERIMENT_MAX_WIDTH=$(( 1 + ${#VS_STR}+2 + $lMAX_EXPERIMENT_NAMES_LEN*2 ))
+    EXPERIMENT_MAX_WIDTH=$(( 1 + ${#VS_STR}+2 + $MAX_EXPERIMENT_FULL_NAMES_LEN*2 ))
     ;;
 *)
-    EXPERIMENT_MAX_WIDTH=$(( 1 + $lMAX_EXPERIMENT_NAMES_LEN ))
+    EXPERIMENT_MAX_WIDTH=$(( 1 + $MAX_EXPERIMENT_FULL_NAMES_LEN ))
     ;;
 esac
 
