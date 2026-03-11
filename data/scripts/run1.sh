@@ -33,12 +33,15 @@ maybe_read_max_samples "$1" && shift
 set_cmd
 set_timeout
 
-declare -a OPTIONS
-OPTIONS=(--quiet --format=smtlib2)
+declare -a options
+options=(
+    --quiet
+    --format=smtlib2
+)
 
 [[ -n $MAX_SAMPLES ]] && {
     OUTPUT_DIR+=/$MAX_SAMPLES_NAME
-    OPTIONS+=(--shuffle-samples --max-samples=$MAX_SAMPLES)
+    options+=(--shuffle-samples --max-samples=$MAX_SAMPLES)
 }
 
 [[ -n $TIMEOUT_PER ]] && {
@@ -57,7 +60,7 @@ OPTIONS=(--quiet --format=smtlib2)
     fi
     TIMEOUT_PER_MS=${TIMEOUT_PER_MS%.*}
 
-    OPTIONS+=(--time-limit-per=$TIMEOUT_PER_MS)
+    options+=(--time-limit-per=$TIMEOUT_PER_MS)
 }
 
 mkdir -p "$OUTPUT_DIR" >/dev/null || exit $?
@@ -78,13 +81,13 @@ done
 [[ -n $SRC_EXPERIMENT ]] && {
     set_file src_phi_file "$SRC_EXPERIMENT" phi
 
-    OPTIONS+=(--input-explanations=\"$src_phi_file\")
+    options+=(--input-explanations=\"$src_phi_file\")
 }
 
-OPTIONS+=(
+options+=(
     --output-explanations=\"$phi_file\"
     --output-stats=\"$stats_file\"
     --output-times=\"$times_file\"
 )
 
-exec $TIMEOUT_CMD bash -c "{ time ${CMD} \"$MODEL\" \"$DATASET\" \"$STRATEGIES\" ${OPTIONS[*]} "'"$@"'" >\"$out_file\" 2>\"$err_file\" ; } 2>\"$time_file\"" spexplain "$@"
+exec $TIMEOUT_CMD bash -c "{ time ${CMD} \"$MODEL\" \"$DATASET\" \"$STRATEGIES\" ${options[*]} $OPTIONS "'"$@"'" >\"$out_file\" 2>\"$err_file\" ; } 2>\"$time_file\"" spexplain "$@"
