@@ -37,6 +37,18 @@ set_timeout
     maybe_find_options_for_variant "$VARIANT" VAR_OPTIONS
 }
 
+activations="${MODEL/models\//neuron_activations\/}"
+activations="${activations%.*}.txt"
+[[ -r $activations ]] && {
+    for options_var in VAR_OPTIONS OPTIONS; do
+        declare -n lOPTIONS=$options_var
+        for opt in --input-{fix,prefer}-sample-neuron-activations; do
+            [[ $lOPTIONS =~ ${opt}=\"\" ]] || continue
+            lOPTIONS="${lOPTIONS//${opt}=\"\"/${opt}=\"$activations\"}"
+        done
+    done
+}
+
 declare -a options
 options=(
     --quiet
