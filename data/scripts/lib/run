@@ -1,5 +1,6 @@
 [[ -z $DIRNAME ]] && DIRNAME=$(dirname "$0")
 
+source "$DIRNAME/lib/common"
 source "$DIRNAME/lib/experiments"
 
 function set_model_dataset {

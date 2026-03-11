@@ -1,20 +1,9 @@
 [[ -z $DIRNAME ]] && DIRNAME=$(dirname "$0")
 
+source "$DIRNAME/lib/common"
+
 SPEC_DIR="$DIRNAME/spec"
 EXPERIMENTS_SPEC_DIR="$SPEC_DIR/experiments"
-
-function _check_array_sizes {
-    local array_var1=$1
-    local array_var2=$2
-
-    local -n larray1=$array_var1
-    local -n larray2=$array_var2
-
-    (( ${#larray1[@]} == ${#larray2[@]} )) && return 0
-
-    printf "Mismatch of the size of arrays %s and %s: %d != %d\n" $array_var1 $array_var2 ${#larray1[@]} ${#larray2[@]} >&2
-    exit 9
-}
 
 function _read_experiments_spec_source {
     local f="$1"
