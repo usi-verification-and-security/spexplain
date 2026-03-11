@@ -216,19 +216,31 @@ function set_phi_filename {
 }
 
 [[ -n $FILTER ]] && {
-    FILTER_IDXS=()
-    FILTER_IDXS_C=()
-    FILTER_IDXS_SET=()
+    for vidx in ${!VARIANTS[@]}; do
+        variant="${VARIANTS[$vidx]}"
 
+        declare -n lFILTER_IDXS=FILTER_IDXS_${vidx}
+        declare -n lFILTER_IDXS_C=FILTER_IDXS_C_${vidx}
+        declare -n lFILTER_IDXS_SET=FILTER_IDXS_SET_${vidx}
+
+        lFILTER_IDXS=()
+        lFILTER_IDXS_C=()
+        lFILTER_IDXS_SET=()
+
+    ##+ add indentation vvv
     for exp_idx in ${!lEXPERIMENT_NAMES[@]}; do
         experiment=${lEXPERIMENT_NAMES[$exp_idx]}
-        if [[ $experiment =~ $FILTER ]]; then
-            FILTER_IDXS+=($exp_idx)
-            FILTER_IDXS_SET+=(1)
+        experiment_full="${variant}/${experiment}"
+        if [[ $experiment_full =~ $FILTER ]]; then
+            lFILTER_IDXS+=($exp_idx)
+            lFILTER_IDXS_SET+=(1)
         else
-            FILTER_IDXS_C+=($exp_idx)
-            FILTER_IDXS_SET+=(0)
+            lFILTER_IDXS_C+=($exp_idx)
+            lFILTER_IDXS_SET+=(0)
         fi
+    done
+    ##+ add indentation ^^^
+
     done
 
     ## Must not use FILTER2 yet, it can contain backreferences
@@ -241,7 +253,7 @@ function maybe_replace_subexp {
 
     for i in {1..9}; do
         [[ $dst_filter =~ \\$i ]] || continue
-        local match=$(sed -rn "s/^.*${src_filter}.*$/\\$i/p" <<<"$src_str")
+        local match=$(sed -rn "s#^.*${src_filter}.*\$#\\$i#p" <<<"$src_str")
         dst_filter="${dst_filter//\\$i/$match}"
     done
 
@@ -372,6 +384,10 @@ function close_cache {
     variant="${VARIANTS[$vidx]}"
     explanations_dir="${EXPLANATIONS_DIRS[$vidx]}"
 
+    declare -n lFILTER_IDXS=FILTER_IDXS_${vidx}
+    declare -n lFILTER_IDXS_C=FILTER_IDXS_C_${vidx}
+    declare -n lFILTER_IDXS_SET=FILTER_IDXS_SET_${vidx}
+
     ##+ add indentation vvv
     for exp_idx in ${!lEXPERIMENT_NAMES[@]}; do
         experiment=${lEXPERIMENT_NAMES[$exp_idx]}
@@ -382,12 +398,12 @@ function close_cache {
         case $ACTION in
         compare-subset)
             filter2="$FILTER2"
-            maybe_replace_subexp filter2 "$FILTER" $experiment
+            maybe_replace_subexp filter2 "$FILTER" "$experiment_full"
 
             [[ -n $FILTER ]] && {
-                filter_arg1=$(( ${FILTER_IDXS_SET[$exp_idx]} ))
+                filter_arg1=$(( ${lFILTER_IDXS_SET[$exp_idx]} ))
 
-                if [[ $experiment =~ $filter2 ]]; then
+                if [[ $experiment_full =~ $filter2 ]]; then
                     filter2_arg1=1
                 else
                     filter2_arg1=0
@@ -420,7 +436,7 @@ function close_cache {
                 filter_c_post_args=()
                 [[ -n $FILTER ]] && {
                     ## Keep those that are filtered out for caching
-                    for fidx in ${FILTER_IDXS_C[@]}; do
+                    for fidx in ${lFILTER_IDXS_C[@]}; do
                         if (( $fidx < $exp_idx )); then
                             filter_c_pre_args+=("${pre_args[$fidx]}")
                         elif (( $fidx > $exp_idx )); then
@@ -471,14 +487,14 @@ function close_cache {
                 ;;
             esac
 
-            [[ -n $FILTER && ! $experiment =~ $FILTER ]] && {
+            [[ -n $FILTER && ! $experiment_full =~ $FILTER ]] && {
                 get_cache_line cache_line "$experiment_full" "$experiment2_full" && printf "%s\n" "$cache_line" >>"$FILTERED_OUTPUT_CACHE_FILE"
                 continue
             }
 
             case $ACTION in
             compare-subset)
-                [[ -n $filter2 && ! $experiment2 =~ $filter2 ]] && {
+                [[ -n $filter2 && ! $experiment2_full =~ $filter2 ]] && {
                     get_cache_line cache_line "$experiment_full" "$experiment2_full" 1 && printf "%s\n" "$cache_line" >>"$FILTERED_OUTPUT_CACHE_FILE"
                     continue
                 }
@@ -620,27 +636,27 @@ function close_cache {
     for exp_idx in ${!lEXPERIMENT_NAMES[@]}; do
         experiment=${lEXPERIMENT_NAMES[$exp_idx]}
 
-        [[ -n $FILTER && ! $experiment =~ $FILTER ]] && {
-            continue
-        }
+        for vidx in ${!VARIANTS[@]}; do
+            variant="${VARIANTS[$vidx]}"
+            experiment_full="${variant}/${experiment}"
 
-        filter2="$FILTER2"
-        maybe_replace_subexp filter2 "$FILTER" $experiment
-
-        for exp_idx2 in ${!lEXPERIMENT_NAMES[@]}; do
-            experiment2=${lEXPERIMENT_NAMES[$exp_idx2]}
-
-            [[ -n $filter2 && ! $experiment2 =~ $filter2 ]] && {
+            [[ -n $FILTER && ! $experiment_full =~ $FILTER ]] && {
                 continue
             }
 
-            for vidx in ${!VARIANTS[@]}; do
-                variant="${VARIANTS[$vidx]}"
-                experiment_full="${variant}/${experiment}"
+            filter2="$FILTER2"
+            maybe_replace_subexp filter2 "$FILTER" "$experiment_full"
+
+            for exp_idx2 in ${!lEXPERIMENT_NAMES[@]}; do
+                experiment2=${lEXPERIMENT_NAMES[$exp_idx2]}
 
                 for vidx2 in ${!VARIANTS[@]}; do
                     variant2="${VARIANTS[$vidx2]}"
                     experiment2_full="${variant2}/${experiment2}"
+
+                    [[ -n $filter2 && ! $experiment2_full =~ $filter2 ]] && {
+                        continue
+                    }
 
                     [[ $experiment_full == $experiment2_full ]] && continue
 

@@ -139,15 +139,18 @@ function run1 {
     export VARIANT="$variant"
 
     set_output_dir_from_model_dataset "$model" "$dataset" || return $?
+    OUTPUT_DIR="${OUTPUT_DIR%%/}"
 
     local -n lexperiment_names=$EXPERIMENT_NAMES_VAR
 
     local experiment=${lexperiment_names[$exp_idx]}
-    local experiment_full="${OUTPUT_DIR}/${experiment}"
-    experiment_full="${experiment_full#explanations/}"
+    local variant="${OUTPUT_DIR##*/}"
+    local experiment_full="${variant}/${experiment}"
+    local experiment_path="${OUTPUT_DIR}/${experiment}"
+    experiment_path="${experiment_path#explanations/}"
 
-    [[ -n $FILTER && ! $experiment =~ $FILTER ]] && {
-        printf "Skipping: %s\n" "$experiment_full"
+    [[ -n $FILTER && ! $experiment_full =~ $FILTER ]] && {
+        printf "Skipping: %s\n" "$experiment_path"
         return 0
     }
 
@@ -164,7 +167,7 @@ function run1 {
         find_strategies_for_experiment $dst_experiment experiment_strategies
     fi
 
-    printf "Running in the background: %s\n" "$experiment_full"
+    printf "Running in the background: %s\n" "$experiment_path"
 
     (( $DRY_RUN )) && return 0
 
@@ -174,11 +177,11 @@ function run1 {
     wait -n
     case $? in
     0)
-        printf "Finished: %s\n" "$experiment_full"
+        printf "Finished: %s\n" "$experiment_path"
         return 0
         ;;
     $TIMEOUT_STATUS)
-        printf "Timeout: %s\n" "$experiment_full"
+        printf "Timeout: %s\n" "$experiment_path"
         return 0
         ;;
     *)
