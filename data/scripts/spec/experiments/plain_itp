@@ -1,0 +1,7 @@
+EXPERIMENT_NAMES=(
+    itp_astronger_bstrong
+    itp_astrong_bstrong
+    itp_afactor_0.5_bstrong
+    itp_aweak_bstrong
+    itp_aweaker_bstrong
+)
