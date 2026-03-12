@@ -32,10 +32,26 @@ See the description of the environment variable `VARIANT` if you need to store d
 ### Environment variables
 
 * `CMD`: sets the `spexplain` executable (default: `../../build/spexplain`)
-* `VARIANT`: specific identifier for the used options and arguments (default: `default`); the destination directory path depends on `VARIANT`, hence it distinguishes the results when using different configurations
+* `VARIANT`: specific identifier for the used variant (default: `default`); the destination directory path depends on `VARIANT`, hence it distinguishes the results when using different configurations; see the dedicated section below for more details
+* `OPTIONS`: additional arguments passed to `spexplain` but *before* `<args>...`
 * `TIMEOUT`: optional overall timeout for the execution; the duration is a number with an optional suffix: `s` for seconds (default), `m` for minutes, `h` for hours or `d` for days
 * `TIMEOUT_PER`: optional timeout per explanation (refers to option `-t` of `spexplain`); the duration format is the same as in `TIMEOUT`
 * `SRC_EXPERIMENT`: sets already computed explanations with a given name (corresponding to `<name>` at that time) as the input, instead of using the original sample points (refers to option `-E` of `spexplain`)
+
+### Variants
+
+Variants allow to distinguish the results if a different configuration is used.
+In addition,
+it is possible to store specific configurations into the file `spec/variants/all`:
+if the `VARIANT` environment variable matches an entry in the `VARIANT_NAMES` array,
+the corresponding options from the array `VARIANT_OPTIONS` are automatically passed to `spexplain` but *before* `<args>...` and even `OPTIONS`.
+
+All other files in the directory `spec/variants` represent collections of variants,
+which are only used in the `run-experiments.sh` script.
+
+The script also tries to guess filenames for empty arguments in `OPTIONS` or the configured variant options
+for the `--input-(fix|prefer)-sample-neuron-activations` options,
+based on `<nn_model_fn>` and searching in the directory `data/neuron_activations`.
 
 ### Examples
 
@@ -63,6 +79,8 @@ VARIANT=fix-all ./scripts/run1.sh models/heart_attack/heart_attack-50.nnet datas
 ```
 which by default fixes all neuron activations
 and generates files into the destination `explanations/heart_attack/50/full/fix-all`.
+Note that the arguments are redundant here
+because `--fix-default-sample-neuron-activations all` is also fetched automatically from `spec/variants/all`.
 
 To use a timeout of `2h`:
 ```
@@ -98,8 +116,8 @@ and `1h` for the whole computation of all explanations.
 ## `run-experiments.sh`
 
 ```
-USAGE: ./run-experiments.sh (<nn_model_fn> <dataset_fn>)... <experiments_spec> [consecutive] [<max_samples>] [<filter_experiments_regex>] [-h|-n]
-   <experiments_spec> is one of: all base itp
+USAGE: ./run-experiments.sh (<nn_model_fn> <dataset_fn>)... <experiments_spec> [consecutive] [<max_samples>] [<filter_regex>] [-h|-n]
+   <experiments_spec> is one of: all base itp plain_itp
 CONSECUTIVE_EXPERIMENTS are not run unless 'consecutive' is provided
 
 OPTIONS:
@@ -115,6 +133,8 @@ Second, all other files in the directory `spec/experiments` define certain colle
 The arguments `<nn_model_fn>` and `<dataset_fn>` are the same as in `run1.sh`,
 except that here multiple pairs are possible,
 all running in parallel.
+If you want to use the same dataset for all models,
+you can store all the model filenames into a Bash Array `M` and then use `${M[@]/%/ <dataset_fn>}` as the filename arguments (see example below).
 
 ### `<experiments_spec>`
 
@@ -131,16 +151,19 @@ This assumes that the input explanations are already computed; their automatic p
 
 Refer to the description of `<max_samples>` of the `run1.sh` script above.
 
-### `<filter_experiments_regex>`
+### `<filter_regex>`
 
 Only experiments with the name that matches the given regular expression will be run.
-(You can test what would be run using the option `-n`.)
+The experiment idetifiers are in the form `<variant_name>/<experiment_name>`
+(where `<variant_name>` is `default` if no variant has been specified).
+
+You can test what would be run using the option `-n`.
 
 ### Environment variables
 
 * `CPU_PERCENTAGE`: the percentage of used CPUs (default: `60`)
-* `OPTIONS`: additional arguments passed to the `run1.sh` script
-* Variables `CMD`, `VARIANT`, `TIMEOUT` and `TIMEOUT_PER` as described for the `run1.sh` script above
+* `VARIANTS_SPEC`: optional name of the collection of variants to run, corresponding to the basename of the specification files in the `spec/variants` directory (this is currently the only way to run multiple variants), accepting `all` as well (takes precedence over `VARIANT`)
+* Variables `CMD`, `VARIANT`, `OPTIONS`, `TIMEOUT` and `TIMEOUT_PER` as described for the `run1.sh` script above
 
 ### Examples
 
@@ -158,49 +181,68 @@ CMD=../build-marabou/spexplain ./scripts/run-experiments.sh models/heart_attack/
 will run all consecutive experiments specified in `spec/experiments/base`, given that the previous collection above has already been run,
 and using the executable `../build-marabou/spexplain`.
 
+Note that it is often useful to run the script on the background, for example:
 ```
-TIMEOUT=2m TIMEOUT_PER=30s OPTIONS='--reverse-var' VARIANT=reverse ./scripts/run-experiments.sh models/obesity/obesity-10-20-10.nnet datasets/obesity/obesity_short.csv itp '^itp'
+./scripts/run-experiments.sh models/heart_attack/heart_attack-50.nnet datasets/heart_attack/heart_attack_full.csv base >o 2>e &
+disown
+```
+where `disown` also ensures that the script keeps running even if the terminal is closed.
+
+```
+TIMEOUT=2m TIMEOUT_PER=30s OPTIONS='--reverse-var' VARIANT=reverse ./scripts/run-experiments.sh models/obesity/obesity-10-20-10.nnet datasets/obesity/obesity_short.csv itp '/itp'
 ```
 will use the timeout of `2m` per experiment (i.e., per a run of `run1.sh`)
 and of `30s` per explanation,
-will run experiments specified in `spec/experiments/itp` that match the regex filter `^itp` (e.g. `itp_astrong_bstrong`),
+use the variant `reverse`
+and pass the arguments `--reverse-var` to `run1.sh` (i.e., consequently, to `spexplain`),
+and
+will run experiments specified in `spec/experiments/itp` that together with the variant `reverse` match the regex filter `/itp` (e.g. `reverse/itp_astrong_bstrong`),
 and will generate the explanations into `explanations/obesity/10-20-10/short/reverse`.
-It uses the variant `reverse`
-and passes the arguments `--reverse-var` to the underlying script `run1.sh` (i.e., consequently, to `spexplain`).
 
 Example of another variant is
 ```
-OPTIONS='--fix-default-sample-neuron-activations all' VARIANT=fix-all ./scripts/run-experiments.sh models/obesity/obesity-10-20-10.nnet datasets/obesity/obesity_short.csv itp '^itp'
+OPTIONS='--fix-default-sample-neuron-activations all' VARIANT=fix-all ./scripts/run-experiments.sh models/obesity/obesity-10-20-10.nnet datasets/obesity/obesity_short.csv plain_itp
 ```
 which by default fixes all neuron activations.
+In this case, the `OPTIONS` are redundant because they are already defined for the `fix-all` variant in `spec/variants/all`.
+
+To run a series of experiments and also variants while using just one dataset:
+```
+M=(models/heart_attack/heart_attack_50x?.nnet)
+VARIANTS_SPEC=neuron_activations ./scripts/run-experiments.sh ${M[@]/%/ datasets/heart_attack/heart_attack_full.csv} plain_itp
+```
 
 
 ## `collect_stats.sh`
 
 ```
-USAGE: ./collect_stats.sh <explanations_dir> <experiments_spec> [[+]consecutive] [<max_samples>] [<filter_regex>] [<OPTIONS>]
+USAGE: ./collect_stats.sh <explanations_dir>... <experiments_spec> [[+]consecutive] [<max_samples>] [<filter_regex>] [<OPTIONS>]
 OPTIONS:
    --exclude-column <name>    Exclude given column
-   --average [<regex>]     Average columns for all rows [matching the regex] (can be repeated)
+   --average-variant [<regex>]      Average columns for all rows of each variant [matching the regex] (can be repeated)
 ```
+
+Multiple `<explanations_dir>`s are supported as long as they differ only in the variant (cf. `VARIANT`) and nothing else (e.g., dataset or model).
+
+Note that `<filter_regex>` applies also to the variants, while `--average-variant` does not.
 
 ### Examples
 
 In directory `data/`:
 
 ```
-./scripts/collect_stats.sh explanations/heart_attack/50/full/default base '^itp_a' --exclude-column '%features' --exclude-column '%fixed' --exclude-column '#checks'
+./scripts/collect_stats.sh explanations/heart_attack/50/full/default base '/itp_a' --exclude-column '%features' --exclude-column '%fixed' --exclude-column '#checks'
 ```
 
 ```
-./scripts/collect_stats.sh explanations/heart_attack/50/full/default base +consecutive '(abductive|^itp_aweak_bstrong)' --exclude-column '%features' --exclude-column '%fixed'
+./scripts/collect_stats.sh explanations/heart_attack/50/full/default base +consecutive '(abductive|/itp_aweak_bstrong)' --exclude-column '%features' --exclude-column '%fixed'
 ```
 
 ```
 ./scripts/collect_stats.sh explanations/heart_attack/50/full/default itp '(slice_|itp_vars_)' \
    --exclude-column '%features' --exclude-column '%fixed' --exclude-column '%dimension' --exclude-column '#checks' \
-   --average '^itp_vars' --average '^ucore_itp_vars' --average 'ucore_min_itp_vars' \
-   --average 'slice_.*[0-9]_itp_aweak_bstrong' --average 'slice_.*_ucore_itp_aweak_bstrong' --average 'slice_.*_ucore_min_itp_aweak_bstrong'
+   --average-variant '^itp_vars' --average-variant '^ucore_itp_vars' --average-variant 'ucore_min_itp_vars' \
+   --average-variant 'slice_.*[0-9]_itp_aweak_bstrong' --average-variant 'slice_.*_ucore_itp_aweak_bstrong' --average-variant 'slice_.*_ucore_min_itp_aweak_bstrong'
 ```
 
 
@@ -333,12 +375,13 @@ USAGE: ./analyze-experiments.sh <action> <explanations_dir>... <experiments_spec
 ACTIONS: check|check-sat|count-fixed|compare-subset
    [<filter_regex2>] is only to be used with binary actions
 ```
-If `<filter_regex2>` is omitted, it is set to `<filter_regex>`.
-
 This script is built on top of `analyze.sh` and runs an action across a series of phi files.
 Which strategies are used is specified by `<experiments_spec>` that refers to `spec/experiments` (see `run-experiments.sh`).
 
 Multiple `<explanations_dir>`s are supported as long as they differ only in the variant (cf. `VARIANT`) and nothing else (e.g., dataset or model).
+
+Both `<filter_regex>` and `<filter_regex2>` apply also to the variants.
+If `<filter_regex2>` is omitted, it is set to `<filter_regex>`.
 
 ### Examples
 
@@ -372,7 +415,7 @@ Note that this will still result in many pairs.
 The script also supports pairwise pattern matching as done in the `sed` tool.
 For example, to only compare `itp_astrong` with `itp_aweak`, `ucore_itp_astrong` with `ucore_itp_aweak`, and `ucore_min_itp_astrong` with `ucore_min_itp_aweak` (i.e. always the same "ucore category"):
 ```
-./scripts/analyze-experiments.sh compare-subset explanations/heart_attack/50/quick/default itp '^(|ucore(|_min)_)itp_astrong_' '^\1itp_aweak_'
+./scripts/analyze-experiments.sh compare-subset explanations/heart_attack/50/quick/default itp '/(|ucore(|_min)_)itp_astrong_' '/\1itp_aweak_'
 ```
 
 ### Caching
