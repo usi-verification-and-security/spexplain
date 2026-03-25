@@ -202,10 +202,16 @@ export -f run1
 
 [[ -z $CPU_PERCENTAGE ]] && CPU_PERCENTAGE=60
 
+if [[ -z $SLURM_CPUS_PER_TASK ]]; then
+    JOBS=${CPU_PERCENTAGE}%
+else
+    JOBS=$(( ($SLURM_CPUS_PER_TASK*$CPU_PERCENTAGE + 50)/100 ))
+fi
+
 declare -n lEXPERIMENT_NAMES=$EXPERIMENT_NAMES_VAR
 
 if (( ${#lEXPERIMENT_NAMES[@]} )); then
-    parallel --halt soon,fail=1 --line-buffer --jobs ${CPU_PERCENTAGE}% 'run1 {} {} {} {}' ::: "${MODELS[@]}" :::+ "${DATASETS[@]}" ::: "${VARIANT_NAMES[@]}" ::: ${!lEXPERIMENT_NAMES[@]}
+    parallel --halt soon,fail=1 --line-buffer --jobs "${JOBS}" 'run1 {} {} {} {}' ::: "${MODELS[@]}" :::+ "${DATASETS[@]}" ::: "${VARIANT_NAMES[@]}" ::: ${!lEXPERIMENT_NAMES[@]}
 else
     printf "Nothing to run.\n"
 fi
