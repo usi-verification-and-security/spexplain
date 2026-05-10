@@ -130,6 +130,9 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
                          "Encode the internal neurons using (or not) auxiliary variables");
     printUsageLongOptRow(os, "encoding-output-vars", "true|false",
                          "Encode the output neurons using (or not) auxiliary variables");
+    printUsageLongOptRow(
+        os, "encoding-neuron-activation-vars", "true|false",
+        "Encode internal neuron activations using (or not) auxiliary Boolean variables (default: false)");
     printUsageLongOptRow(os, "encoding-relu-lower-bounds", "true|false",
                          "Encode ReLUs using (or not) firm lower bounds");
     printUsageLongOptRow(os, "allow-neuron-vars-in-explanations", "true|false",
@@ -200,6 +203,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     constexpr int inputPreferSampleNeuronActivationsLongOpt = 12;
     constexpr int encodingNeuronVarsLongOpt = 13;
     constexpr int encodingOutputVarsLongOpt = 14;
+    constexpr int encodingNeuronActivationVarsLongOpt = 17;
     constexpr int encodingReluLowerBoundsLongOpt = 15;
     constexpr int allowNeuronVarsInExplanationsLongOpt = 16;
 
@@ -216,6 +220,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
         {"reverse-var", no_argument, nullptr, 'R'},
         {"encoding-neuron-vars", required_argument, &selectedLongOpt, encodingNeuronVarsLongOpt},
         {"encoding-output-vars", required_argument, &selectedLongOpt, encodingOutputVarsLongOpt},
+        {"encoding-neuron-activation-vars", required_argument, &selectedLongOpt, encodingNeuronActivationVarsLongOpt},
         {"encoding-relu-lower-bounds", required_argument, &selectedLongOpt, encodingReluLowerBoundsLongOpt},
         {"allow-neuron-vars-in-explanations", required_argument, &selectedLongOpt,
          allowNeuronVarsInExplanationsLongOpt},
@@ -308,6 +313,10 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                     case encodingOutputVarsLongOpt:
                         assert(hasArgument);
                         config.setEncodingOutputVars(stringViewToBool(optargStr));
+                        break;
+                    case encodingNeuronActivationVarsLongOpt:
+                        assert(hasArgument);
+                        config.setEncodingNeuronActivationVars(stringViewToBool(optargStr));
                         break;
                     case encodingReluLowerBoundsLongOpt:
                         assert(hasArgument);

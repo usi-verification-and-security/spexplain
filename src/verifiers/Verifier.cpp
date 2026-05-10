@@ -25,6 +25,10 @@ bool Verifier::defaultEncodingOutputVars() const {
     return true;
 }
 
+bool Verifier::defaultEncodingNeuronActivationVars() const {
+    return false;
+}
+
 bool Verifier::defaultEncodingReluLowerBounds() const {
     if (not encodingNeuronVars()) { return false; }
 

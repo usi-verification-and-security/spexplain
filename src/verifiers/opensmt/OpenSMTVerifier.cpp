@@ -485,6 +485,7 @@ PTRef OpenSMTVerifier::OpenSMTImpl::encodeNeuron(LayerIndex layer, NodeIndex nod
     };
 
     bool const encodeNeuronVars = verifier.encodingNeuronVars();
+    bool const encodeNeuronActivationVars = verifier.encodingNeuronActivationVars();
     bool const encodeReluLowerBounds = verifier.encodingReluLowerBounds();
     bool const storeNeuronTerms = storingNeuronTerms();
     assert(encodeNeuronVars or storeNeuronTerms);
@@ -529,7 +530,17 @@ PTRef OpenSMTVerifier::OpenSMTImpl::encodeNeuron(LayerIndex layer, NodeIndex nod
     PTRef inactiveCond;
     if (storeNeuronTerms or not(encodeNeuronVars and encodeReluLowerBounds)) {
         activeCond = activeCondF(*logic, condInput, zero);
-        inactiveCond = inactiveCondF(*logic, condInput, zero);
+
+        if (not encodeNeuronActivationVars) {
+            inactiveCond = inactiveCondF(*logic, condInput, zero);
+        } else {
+            auto activeVarName = neuronVarName(layer, node) + "_act";
+            PTRef activeCondVar = logic->mkBoolVar(activeVarName.c_str());
+            addTerm(logic->mkEq(activeCondVar, activeCond));
+
+            activeCond = activeCondVar;
+            inactiveCond = logic->mkNot(activeCondVar);
+        }
     }
 
     PTRef activeLeq;
