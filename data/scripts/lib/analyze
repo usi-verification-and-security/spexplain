@@ -1,8 +1,8 @@
-[[ -z $DIRNAME ]] && DIRNAME=$(dirname "$0")
+[[ -z $SCRIPTS_DIR ]] && SCRIPTS_DIR=$(dirname "$0")
 
-source "$DIRNAME/lib/common"
-source "$DIRNAME/lib/experiments"
-source "$DIRNAME/lib/run"
+source "$SCRIPTS_DIR/lib/common"
+source "$SCRIPTS_DIR/lib/experiments"
+source "$SCRIPTS_DIR/lib/run"
 
 function read_explanation_dirs {
     [[ -z $1 ]] && {
@@ -20,7 +20,7 @@ function read_explanation_dirs {
     EXPLANATIONS_DIRS=()
     VARIANTS=()
     while [[ $1 =~ / ]]; do
-        EXPLANATIONS_DIR=$(realpath --relative-to="$DIRNAME/.." "$1")
+        EXPLANATIONS_DIR=$(realpath --relative-to="$SCRIPTS_DIR/.." "$1")
         shift
 
         [[ -d $EXPLANATIONS_DIR && -r $EXPLANATIONS_DIR ]] || {
