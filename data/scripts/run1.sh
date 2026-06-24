@@ -1,8 +1,8 @@
 #!/bin/bash
 
-DIRNAME=$(dirname "$0")
+SCRIPTS_DIR=$(dirname "$0")
 
-source "$DIRNAME/lib/run"
+source "$SCRIPTS_DIR/lib/run"
 
 function usage {
     printf "USAGE: %s <nn_model_fn> <dataset_fn> <exp_strategies_spec> [<name>] [<max_samples>] <args>...\n" "$0"
