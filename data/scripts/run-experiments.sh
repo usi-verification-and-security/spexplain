@@ -1,8 +1,8 @@
 #!/bin/bash
 
-export DIRNAME=$(dirname "$0")
+export SCRIPTS_DIR=$(dirname "$0")
 
-source "$DIRNAME/lib/run"
+source "$SCRIPTS_DIR/lib/run"
 
 function usage {
     local experiments_spec_ary=($(ls "$EXPERIMENTS_SPEC_DIR"))
@@ -128,7 +128,7 @@ function cleanup {
 trap 'cleanup 9' INT TERM
 
 function run1 {
-    source "$DIRNAME/lib/run"
+    source "$SCRIPTS_DIR/lib/run"
     read_experiments_spec "$EXPERIMENTS_SPEC"
 
     local model="$1"
@@ -172,7 +172,7 @@ function run1 {
     (( $DRY_RUN )) && return 0
 
     ##+ allow running multiple variants
-    SRC_EXPERIMENT=$src_experiment "$DIRNAME/run1.sh" "$MODEL" "$DATASET" "$experiment_strategies" $experiment $MAX_SAMPLES &
+    SRC_EXPERIMENT=$src_experiment "$SCRIPTS_DIR/run1.sh" "$MODEL" "$DATASET" "$experiment_strategies" $experiment $MAX_SAMPLES &
 
     wait -n
     case $? in
@@ -191,7 +191,7 @@ function run1 {
             printf "Used variant: %s\n" "$VARIANT" >&2
         }
         printf "Used command: %s\nUsed OPTIONS: %s\n" \
-            "SRC_EXPERIMENT=$src_experiment \"$DIRNAME/run1.sh\" \"$MODEL\" \"$DATASET\" \"$experiment_strategies\" $experiment $MAX_SAMPLES &" \
+            "SRC_EXPERIMENT=$src_experiment \"$SCRIPTS_DIR/run1.sh\" \"$MODEL\" \"$DATASET\" \"$experiment_strategies\" $experiment $MAX_SAMPLES &" \
             "$VAR_OPTIONS $OPTIONS" \
             >&2
         return 1

@@ -1,8 +1,8 @@
 #!/bin/bash
 
-export DIRNAME=$(dirname "$0")
+export SCRIPTS_DIR=$(dirname "$0")
 
-source "$DIRNAME/lib/run"
+source "$SCRIPTS_DIR/lib/run"
 
 ACTION_REGEX='check|check-sat|count-fixed|compare-subset'
 

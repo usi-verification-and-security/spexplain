@@ -1,8 +1,8 @@
-[[ -z $DIRNAME ]] && DIRNAME=$(dirname "$0")
+[[ -z $SCRIPTS_DIR ]] && SCRIPTS_DIR=$(dirname "$0")
 
-source "$DIRNAME/lib/common"
+source "$SCRIPTS_DIR/lib/common"
 
-SPEC_DIR="$DIRNAME/spec"
+SPEC_DIR="$SCRIPTS_DIR/spec"
 EXPERIMENTS_SPEC_DIR="$SPEC_DIR/experiments"
 
 function _read_experiments_spec_source {
@@ -10,7 +10,7 @@ function _read_experiments_spec_source {
 
     grep -q '^EXPERIMENT_NAMES=' "$f" &>/dev/null || return 1
 
-    source "$f" && source "$DIRNAME/lib/_set_experiments_spec"
+    source "$f" && source "$SCRIPTS_DIR/lib/_set_experiments_spec"
 }
 
 function read_experiments_spec {
