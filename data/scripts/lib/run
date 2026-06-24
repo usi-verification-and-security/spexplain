@@ -81,7 +81,7 @@ function set_cmd {
     export CMD
 }
 
-TIMEOUT_STATUS=124
+export TIMEOUT_STATUS=124
 
 function set_timeout {
     # [[ -z $TIMEOUT ]] && TIMEOUT=30m

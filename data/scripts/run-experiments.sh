@@ -172,9 +172,8 @@ function run1 {
     (( $DRY_RUN )) && return 0
 
     ##+ allow running multiple variants
-    SRC_EXPERIMENT=$src_experiment "$SCRIPTS_DIR/run1.sh" "$MODEL" "$DATASET" "$experiment_strategies" $experiment $MAX_SAMPLES &
+    SRC_EXPERIMENT=$src_experiment "$SCRIPTS_DIR/run1.sh" "$MODEL" "$DATASET" "$experiment_strategies" $experiment $MAX_SAMPLES
 
-    wait -n
     case $? in
     0)
         printf "Finished: %s\n" "$experiment_path"
@@ -191,7 +190,7 @@ function run1 {
             printf "Used variant: %s\n" "$VARIANT" >&2
         }
         printf "Used command: %s\nUsed OPTIONS: %s\n" \
-            "SRC_EXPERIMENT=$src_experiment \"$SCRIPTS_DIR/run1.sh\" \"$MODEL\" \"$DATASET\" \"$experiment_strategies\" $experiment $MAX_SAMPLES &" \
+            "SRC_EXPERIMENT=$src_experiment \"$SCRIPTS_DIR/run1.sh\" \"$MODEL\" \"$DATASET\" \"$experiment_strategies\" $experiment $MAX_SAMPLES" \
             "$VAR_OPTIONS $OPTIONS" \
             >&2
         return 1
