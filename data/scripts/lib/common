@@ -68,3 +68,23 @@ function _set_max_len {
 
     ldst_max_len=$max_len
 }
+
+function _float_to_rat {
+    local float="$1"
+    local -n dst_str=$2
+
+    local int=${float%.*}
+    [[ $int == $float || $float =~ ^[0-9]+\.0*$ ]] && {
+        dst_str=$int
+        return 0
+    }
+
+    local frac=${float#*.}
+    local num=${int}${frac}
+    num=${num##+(0)}
+    local den=$(( 10 ** ${#frac} ))
+
+    dst_str="(/ $num $den)"
+
+    return 0
+}

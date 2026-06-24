@@ -106,6 +106,47 @@ function set_timeout {
     export TIMEOUT_PER_CMD
 }
 
+function time_to {
+    local time="$1"
+    local -n var=$2
+
+    local unit
+    if [[ -n $3 ]]; then
+        unit=$3
+    else
+        unit=s
+    fi
+
+    [[ $unit =~ ^(s|ms)$ ]] || {
+        printf 'Unsupported unit: %s\n' "$unit" >&2
+        return 1
+    }
+
+    [[ $time =~ ^[0-9]+(|\.[0-9]*)(|[smhd])$ ]] || {
+        printf 'Unrecognized time: %s\n' "$time" >&2
+        return 1
+    }
+
+    local times_ms
+    case $unit in
+    ms) times_ms="* 1000";;
+    esac
+
+    if [[ $time =~ d$ ]]; then
+        var=$(bc -l <<<"${time%d} $times_ms * 60 * 60 * 24")
+    elif [[ $time =~ h$ ]]; then
+        var=$(bc -l <<<"${time%h} $times_ms * 60 * 60")
+    elif [[ $time =~ m$ ]]; then
+        var=$(bc -l <<<"${time%m} $times_ms * 60")
+    else
+        var="${time%s}"
+    fi
+
+    case $unit in
+    ms) var=${var%.*};;
+    esac
+}
+
 function set_experiment_name_from_strategies {
     local -n lname=$1
     local strategies="$2"

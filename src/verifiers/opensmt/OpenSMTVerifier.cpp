@@ -722,6 +722,8 @@ void OpenSMTVerifier::OpenSMTImpl::addConstraint(LayerIndex layer, std::vector<s
 
 void OpenSMTVerifier::OpenSMTImpl::addPreference(PTRef const & term) {
     solver->addDecisionPreference(term);
+    //!! hack
+    std::cerr << "(prefer " << solver->getLogic().termToSMT2String(term) << ")" << std::endl;
 }
 
 void OpenSMTVerifier::OpenSMTImpl::push() {
