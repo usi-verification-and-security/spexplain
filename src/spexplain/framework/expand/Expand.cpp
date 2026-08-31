@@ -419,14 +419,19 @@ void Framework::Expand::assertClassification(Network::Classification const & cls
 
     auto const & label = cls.label;
 
+    auto const & config = framework.getConfig();
+    Float const threshold = config.getClassificationThreshold();
+    assert(threshold >= 0);
+
     assert(network.nClasses() >= 2);
     if (network.nClasses() > 2) {
-        verifierPtr->addClassificationConstraint(label, 0);
+        verifierPtr->addClassificationConstraint(label, threshold);
         return;
     }
 
+    //!! experimental results do not seem right - investigate!!
+
     // With single output value, the flip in classification means flipping the value across 0
-    constexpr Float threshold = 0.015625f;
     assert(label == 0 || label == 1);
     if (label == 1) {
         // <= -threshold

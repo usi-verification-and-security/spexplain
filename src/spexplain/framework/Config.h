@@ -32,6 +32,8 @@ public:
     // static inline std::string const defaultVerifierName = "opensmt";
     static inline std::string const defaultExplanationsFileName = "phi.txt";
 
+    static constexpr Float defaultClassificationThreshold{0.015625f};
+
     static constexpr DefaultSampleNeuronActivations defaultFixingOfSampleNeuronActivations{
         DefaultSampleNeuronActivations::none};
     static constexpr DefaultSampleNeuronActivations defaultPreferenceOfSampleNeuronActivations{
@@ -61,6 +63,8 @@ public:
     void setEncodingReluLowerBounds(bool val = true) { _encodingReluLowerBounds = val; }
 
     void allowNeuronVarsInExplanations(bool val = true) { _allowNeuronVarsInExplanations = val; }
+
+    void setClassificationThreshold(Float val) { classificationThreshold = val; }
 
     void fixDefaultSampleNeuronActivations(
         DefaultSampleNeuronActivations sampleNeuronActivations = DefaultSampleNeuronActivations::all) {
@@ -175,6 +179,11 @@ public:
     [[nodiscard]]
     std::optional<bool> allowedNeuronVarsInExplanations() const {
         return _allowNeuronVarsInExplanations;
+    }
+
+    [[nodiscard]]
+    Float getClassificationThreshold() const {
+        return classificationThreshold;
     }
 
     [[nodiscard]]
@@ -302,6 +311,8 @@ protected:
     std::optional<bool> _encodingReluLowerBounds{};
 
     std::optional<bool> _allowNeuronVarsInExplanations{};
+
+    Float classificationThreshold{defaultClassificationThreshold};
 
     DefaultSampleNeuronActivations _fixDefaultSampleNeuronActivations{defaultFixingOfSampleNeuronActivations};
     DefaultSampleNeuronActivations _preferDefaultSampleNeuronActivations{defaultPreferenceOfSampleNeuronActivations};

@@ -134,6 +134,9 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
                          "Encode ReLUs using (or not) firm lower bounds");
     printUsageLongOptRow(os, "allow-neuron-vars-in-explanations", "true|false",
                          "Allow (or not) variables of internal neurons in explanations (regardless of used encoding)");
+    printUsageLongOptRow(os, "classification-threshold", "<float> >= 0",
+                         "Classification threshold to exclude regions too close to the decision boundary (default: "s +
+                             std::to_string(Framework::Config::defaultClassificationThreshold) + ")");
     printUsageLongOptRow(
         os, "fix-default-sample-neuron-activations", "all|none|[in]active",
         "Set default fixing of given sample-based neuron activations (default: "s +
@@ -202,6 +205,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     constexpr int encodingOutputVarsLongOpt = 14;
     constexpr int encodingReluLowerBoundsLongOpt = 15;
     constexpr int allowNeuronVarsInExplanationsLongOpt = 16;
+    constexpr int classificationThresholdLongOpt = 17;
 
     struct ::option longOptions[] = {
         {"help", no_argument, nullptr, 'h'},
@@ -219,6 +223,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
         {"encoding-relu-lower-bounds", required_argument, &selectedLongOpt, encodingReluLowerBoundsLongOpt},
         {"allow-neuron-vars-in-explanations", required_argument, &selectedLongOpt,
          allowNeuronVarsInExplanationsLongOpt},
+        {"classification-threshold", required_argument, &selectedLongOpt, classificationThresholdLongOpt},
         {"fix-default-sample-neuron-activations", required_argument, &selectedLongOpt,
          fixDefaultSampleNeuronActivationsLongOpt},
         {"prefer-default-sample-neuron-activations", required_argument, &selectedLongOpt,
@@ -317,6 +322,11 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                         assert(hasArgument);
                         config.allowNeuronVarsInExplanations(stringViewToBool(optargStr));
                         break;
+                    case classificationThresholdLongOpt: {
+                        auto const threshold = std::stod(optarg);
+                        config.setClassificationThreshold(threshold);
+                        break;
+                    }
                     case fixDefaultSampleNeuronActivationsLongOpt:
                         config.fixDefaultSampleNeuronActivations(
                             spexplain::makeDefaultSampleNeuronActivations(optargStr));
