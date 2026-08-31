@@ -18,10 +18,6 @@ public:
 
     void assertSampleModel() override;
 
-    void addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) override;
-
-    void addLowerBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) override;
-
     void addClassificationConstraint(NodeIndex node, Float threshold) override;
 
     void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, Float rhs) override;
@@ -29,6 +25,11 @@ public:
     void printSmtLib2Query(std::ostream &) const override;
 
 protected:
+    void addUpperBoundImpl(LayerIndex layer, NodeIndex var, Float value, bool strict = false,
+                           bool explanationTerm = false) override;
+    void addLowerBoundImpl(LayerIndex layer, NodeIndex var, Float value, bool strict = false,
+                           bool explanationTerm = false) override;
+
     void pushImpl() override;
     void popImpl() override;
 
