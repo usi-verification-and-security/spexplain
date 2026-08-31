@@ -64,7 +64,11 @@ function maybe_find_options_for_variant {
 
     [[ -z $vidx || $VARIANTS_SPEC != all ]] && vidx=${VARIANT_TO_IDX[$variant]}
 
-    lvariant_options="${VARIANT_OPTIONS[$vidx]}"
+    if [[ -n $vidx ]]; then
+        lvariant_options="${VARIANT_OPTIONS[$vidx]}"
+    else
+        lvariant_options=
+    fi
 
     return 0
 }
