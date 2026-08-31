@@ -159,20 +159,20 @@ public:
         return reverseVarOrder;
     }
 
-    [[maybe_unused]]
+    [[nodiscard]]
     std::optional<bool> encodingNeuronVars() const {
         return _encodingNeuronVars;
     }
-    [[maybe_unused]]
+    [[nodiscard]]
     std::optional<bool> encodingOutputVars() const {
         return _encodingOutputVars;
     }
-    [[maybe_unused]]
+    [[nodiscard]]
     std::optional<bool> encodingReluLowerBounds() const {
         return _encodingReluLowerBounds;
     }
 
-    [[maybe_unused]]
+    [[nodiscard]]
     std::optional<bool> allowedNeuronVarsInExplanations() const {
         return _allowNeuronVarsInExplanations;
     }
