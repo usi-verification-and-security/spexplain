@@ -60,7 +60,7 @@ function read_experiments_spec {
 }
 
 function maybe_read_consecutive {
-    [[ $1 =~ ^(|\+)consecutive$ ]] || return 1
+    [[ $1 =~ ^\+?consecutive$ ]] || return 1
 
     export INCLUDE_CONSECUTIVE=1
     export CONSECUTIVE_ONLY=1
@@ -71,7 +71,7 @@ function maybe_read_consecutive {
 }
 
 function maybe_read_reverse {
-    [[ $1 =~ ^(|\+)reverse$ ]] || return 1
+    [[ $1 =~ ^\+?reverse$ ]] || return 1
 
     export INCLUDE_REVERSE=1
     export REVERSE_ONLY=1

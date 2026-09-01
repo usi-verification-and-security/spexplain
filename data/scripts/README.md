@@ -164,6 +164,74 @@ using the model `models/obesity/obesity-10-20-10.nnet` and dataset `datasets/obe
 Additionally, it passes the arguments `--filter-samples incorrect` to the underlying script `run1.sh` (i.e., consequently, to `spexplain`).
 
 
+## `run1-2.sh` and `run-experiments2.sh` (ONNX)
+
+```
+USAGE: ./run1-2.sh <output_dir> <exp_strategies_spec> [<name>] [reverse] [<max_samples>] <args>...
+USAGE: ./run-experiments2.sh <output_dir> <experiments_spec> [consecutive] [[+]reverse] [<max_samples>] [<filter_experiments_regex>] [<options>...] [-- <spexplain_args>...]
+```
+
+These are the ONNX counterparts of `run1.sh` and `run-experiments.sh`.
+They behave identically, with three differences:
+
+1. `<output_dir>` is looked up in `spec/models_datasets2` (instead of `spec/models_datasets`),
+   which lists `.onnx` models.
+2. The `explain-onnx` action is used instead of the default `explain`.
+3. Because ONNX files carry **no** per-feature input domain (and `Network2` then silently falls back
+   to `[0,1]` for every feature, yielding misleadingly weak explanations), the bounds are taken from
+   the `INPUT_MINS`/`INPUT_MAXS` arrays of `spec/models_datasets2` and passed as
+   `--input-min`/`--input-max`.
+
+`run-experiments2.sh` accepts the following extra options:
+
+* `--onnx <file>`: use this `.onnx` model instead of the one from the spec
+* `--input-min <v1,v2,...>` / `--input-max <v1,v2,...>`: override the spec's input domain bounds
+* `--drop-sigmoid true|false`: passed through to `spexplain` (default `true`, see the main `README.md`)
+* `--no-quiet`: do not pass `--quiet` to `spexplain`
+* `-h`, `-n`: as in `run-experiments.sh`
+
+Any **other** long option, and everything after a `--` separator, is forwarded verbatim to
+`spexplain`. The `OPTIONS` environment variable is still honoured too, so both of these are
+equivalent:
+
+```
+./scripts/run-experiments2.sh explanations2/heart_attack/quick base \
+   --allow-neuron-vars-in-explanations true \
+   --fix-default-sample-neuron-activations all \
+   --prefer-default-sample-neuron-activations active
+```
+
+```
+OPTIONS='--allow-neuron-vars-in-explanations=true' ./scripts/run-experiments2.sh explanations2/heart_attack/quick base
+```
+
+`run1-2.sh` additionally reads the environment variables `ONNX_MODEL_OVERRIDE`,
+`INPUT_MIN_OVERRIDE`, `INPUT_MAX_OVERRIDE`, `DROP_SIGMOID` and `QUIET`, besides the `CMD`,
+`TIMEOUT`, `TIMEOUT_PER` and `SRC_EXPERIMENT` variables described for `run1.sh` above.
+
+### Examples
+
+In directory `data/`:
+
+```
+./scripts/run-experiments2.sh explanations2/heart_attack/full base
+```
+
+```
+CMD=../build-debug/spexplain ./scripts/run1-2.sh explanations2/heart_attack/quick 'abductive' abductive 3
+```
+
+```
+./scripts/run-experiments2.sh explanations2/heart_attack/quick base 20 '^itp' \
+   --onnx models/heart_attack/heart_attack-20-10.onnx \
+   --input-min 29,0,0,94,126,0,0,71,0,0,0,0,0 \
+   --input-max 77,1,3,200,594,1,2,202,1,6.2,2,4,3
+```
+
+Note that these scripts share the limitations of `run-experiments.sh`: they need GNU `parallel` and
+a `bash` new enough for namerefs (`local -n`), i.e. **not** the `bash` 3.2 shipped with macOS.
+
+
 ## `collect_stats.sh`
 
 ```

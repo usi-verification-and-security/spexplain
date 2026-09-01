@@ -5,6 +5,16 @@ set(CMAKE_CXX_STANDARD 20)
 
 option(ENABLE_MARABOU "Enable Marabou verifier" OFF)
 
+# Ensure homebrew tools are found first (for bison 3.x)
+set(CMAKE_PROGRAM_PATH "/opt/homebrew/bin" CACHE PATH "Program search path")
+list(PREPEND CMAKE_PROGRAM_PATH "/opt/homebrew/bin")
+
+# Set BISON_EXECUTABLE to use the correct version (from homebrew)
+set(BISON_EXECUTABLE "/opt/homebrew/bin/bison" CACHE FILEPATH "Bison executable" FORCE)
+
+find_package(Protobuf REQUIRED)
+find_package(absl CONFIG REQUIRED)
+
 include(FetchContent)
 
 # Find OpenSMT2

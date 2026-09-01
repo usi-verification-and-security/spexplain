@@ -8,6 +8,7 @@
 #include <cassert>
 #include <fstream>
 #include <ostream>
+#include <streambuf>
 
 namespace spexplain {
 class Framework::Print {
@@ -44,8 +45,21 @@ protected:
     Print(Print const &) = delete;
     Print & operator=(Print const &) = delete;
 
+    /// Sink that discards everything written to it.
+    /// It must own a real stream buffer: a default-constructed std::ostream leaves the
+    /// basic_ios base uninitialized, so anything reaching the base operators -- `os << std::endl`,
+    /// or any write through an `std::ostream &` parameter -- touches an uninitialized locale
+    /// and segfaults. Hiding operator<< in this class is not enough, because it is only
+    /// visible when the static type is Absorb, and the sink is always used as std::ostream &.
     struct Absorb : std::ostream {
-        std::ostream & operator<<(auto const &) { return *this; }
+        Absorb() : std::ostream{nullptr} { rdbuf(&buf); }
+
+    private:
+        struct NullBuf : std::streambuf {
+            int_type overflow(int_type ch) override { return traits_type::not_eof(ch); }
+        };
+
+        NullBuf buf{};
     };
 
     void setExplanationsFile(std::string_view fileName);

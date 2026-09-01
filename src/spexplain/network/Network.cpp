@@ -1,5 +1,7 @@
 #include "Network.h"
 
+#include "OnnxParser.h"
+
 #include <algorithm>
 #include <cassert>
 #include <fstream>

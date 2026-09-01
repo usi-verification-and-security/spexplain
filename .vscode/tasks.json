@@ -1,0 +1,32 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "cmake",
+            "label": "Build: spexplain (SpEXplAIn-bin)",
+            "command": "build",
+            "targets": ["SpEXplAIn-bin"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "type": "cmake",
+            "label": "Build: onnx-eval",
+            "command": "build",
+            "targets": ["onnx-eval"],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "type": "cmake",
+            "label": "Build: compare-nnet-onnx",
+            "command": "build",
+            "targets": ["compare-nnet-onnx"],
+            "group": "build",
+            "problemMatcher": []
+        }
+    ]
+}

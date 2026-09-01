@@ -1,0 +1,42 @@
+{
+    // --- CMake Tools ---
+    // Reuse the build directory you already have (Unix Makefiles, CMAKE_BUILD_TYPE=Debug,
+    // OpenSMT already fetched/built) instead of making CMake Tools create a fresh one.
+    "cmake.buildDirectory": "${workspaceFolder}/build-debug",
+    "cmake.generator": "Unix Makefiles",
+    "cmake.configureSettings": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+    },
+    "cmake.configureOnOpen": true,
+    "cmake.options.statusBarVisibility": "visible",
+
+    // --- IntelliSense ---
+    // Let CMake Tools feed the C/C++ extension its include paths/defines per-file,
+    // sourced straight from compile_commands.json. No manual include paths to maintain.
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "C_Cpp.formatting": "clangFormat",
+    "C_Cpp.clang_format_style": "file",
+    "C_Cpp.clang_format_fallbackStyle": "none",
+
+    "[cpp]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools",
+        "editor.formatOnSave": true
+    },
+    "[c]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools",
+        "editor.formatOnSave": true
+    },
+
+    // Keep large/generated dirs out of search & file explorer noise.
+    "files.exclude": {
+        "**/cmake-build-debug": true,
+        "**/build-debug/CMakeFiles": true,
+        "**/build-debug/_deps": true,
+        "src/onnx-1.15.0": true
+    },
+    "search.exclude": {
+        "**/cmake-build-debug": true,
+        "**/build-debug": true,
+        "src/onnx-1.15.0": true
+    }
+}

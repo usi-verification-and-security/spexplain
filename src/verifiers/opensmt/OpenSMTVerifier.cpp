@@ -461,6 +461,7 @@ void OpenSMTVerifier::OpenSMTImpl::assertSampleModel() {
     }
 }
 
+
 PTRef OpenSMTVerifier::OpenSMTImpl::encodeNeuron(LayerIndex layer, NodeIndex node, PTRef neuronVar, PTRef varInput,
                                                  PTRef termInput) {
     assert(layer > 0);

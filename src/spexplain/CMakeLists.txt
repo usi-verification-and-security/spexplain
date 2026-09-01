@@ -1,11 +1,24 @@
-add_library(spexplain OBJECT)
+add_library(spexplain OBJECT
+        network/Network2.h
+        network/Network2.cpp)
 
 target_sources(spexplain
 PRIVATE
     common/Bound.cpp
     common/Interval.cpp
+    common/MString.cpp
     common/Print.cpp
+    common/TensorUtils.cpp
     network/Network.cpp
+    ../onnx-1.15.0/onnx.pb.cc
+    network/OnnxParser.cpp
+    network/FCLayer.cpp
+    network/ReLULayer.cpp
+    network/SigmoidLayer.cpp
+    network/CNNLayer.cpp
+    network/TransposeLayer.cpp
+    network/MaxPoolLayer.cpp
+    network/AddLayer.cpp
     network/Dataset.cpp
     framework/Config.cpp
     framework/Framework.cpp
@@ -35,6 +48,7 @@ PUBLIC
 target_include_directories(spexplain SYSTEM PUBLIC
     ${opensmt_SOURCE_DIR}/src
     ${GMP_INCLUDE_DIR}
+    ${PROJECT_SOURCE_DIR}/src
 )
 
 if (ENABLE_MARABOU)
@@ -48,6 +62,15 @@ PRIVATE
     -Wall -Wextra -pedantic -Wshadow
 )
 
+target_link_libraries(spexplain
+PUBLIC
+    protobuf::libprotobuf
+    absl::log
+    absl::check
+    absl::base
+    absl::strings
+)
+
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 target_compile_options(spexplain
 PRIVATE
@@ -55,10 +78,12 @@ PRIVATE
 )
 endif()
 
+
 add_executable(SpEXplAIn-bin
     bin/main.cpp
     ${SOURCE_DIR}/verifiers/Verifier.cpp
     ${SOURCE_DIR}/verifiers/opensmt/OpenSMTVerifier.cpp
+    ${SOURCE_DIR}/verifiers/opensmt/OpenSMTVerifier2.cpp
 )
 
 if (ENABLE_MARABOU)
@@ -83,3 +108,62 @@ if (ENABLE_MARABOU)
         MarabouHelper
     )
 endif()
+
+add_executable(onnx-eval
+    bin/onnx_eval.cpp
+    ${SOURCE_DIR}/verifiers/Verifier.cpp
+    ${SOURCE_DIR}/verifiers/opensmt/OpenSMTVerifier.cpp
+    ${SOURCE_DIR}/verifiers/opensmt/OpenSMTVerifier2.cpp
+)
+
+if (ENABLE_MARABOU)
+    target_sources(onnx-eval PUBLIC
+        ${SOURCE_DIR}/verifiers/marabou/MarabouVerifier.cpp
+    )
+endif()
+
+set_target_properties(onnx-eval
+PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+
+target_link_libraries(onnx-eval PUBLIC
+    spexplain
+    OpenSMT::OpenSMT
+)
+
+if (ENABLE_MARABOU)
+    target_link_libraries(onnx-eval PUBLIC
+        MarabouHelper
+    )
+endif()
+
+add_executable(compare-nnet-onnx
+    bin/compare_nnet_onnx.cpp
+    ${SOURCE_DIR}/verifiers/Verifier.cpp
+    ${SOURCE_DIR}/verifiers/opensmt/OpenSMTVerifier.cpp
+    ${SOURCE_DIR}/verifiers/opensmt/OpenSMTVerifier2.cpp
+)
+
+if (ENABLE_MARABOU)
+    target_sources(compare-nnet-onnx PUBLIC
+        ${SOURCE_DIR}/verifiers/marabou/MarabouVerifier.cpp
+    )
+endif()
+
+set_target_properties(compare-nnet-onnx
+PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+
+target_link_libraries(compare-nnet-onnx PUBLIC
+    spexplain
+    OpenSMT::OpenSMT
+)
+
+if (ENABLE_MARABOU)
+    target_link_libraries(compare-nnet-onnx PUBLIC
+        MarabouHelper
+    )
+endif()
+

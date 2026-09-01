@@ -4,7 +4,6 @@
 #include "Framework.h"
 #include "explanation/IntervalExplanation.h"
 
-#include <spexplain/network/Containers.h>
 #include <spexplain/network/Dataset.h>
 
 #include <cassert>
@@ -38,10 +37,16 @@ public:
         DefaultSampleNeuronActivations::all};
 
     void init(Network const &) noexcept;
+    void init2(Network2 const &) noexcept;
 
     Network const & getNetwork() const {
         assert(networkPtr);
         return *networkPtr;
+    }
+
+    Network2 const & getNetwork2() const {
+        assert(network2Ptr);
+        return *network2Ptr;
     }
 
     void setVerifierName(std::string_view name) { verifierName = name; }
@@ -70,12 +75,8 @@ public:
         DefaultSampleNeuronActivations sampleNeuronActivations = DefaultSampleNeuronActivations::all) {
         _preferDefaultSampleNeuronActivations = sampleNeuronActivations;
     }
-    void fixAllSampleNeuronActivationsAt(HiddenNeuronPosition const & pos) {
-        fixAllSampleNeuronActivationsMap.insertOrAssign(pos.layer, pos.node, not pos.negated);
-    }
-    void preferAllSampleNeuronActivationsAt(HiddenNeuronPosition const & pos) {
-        preferAllSampleNeuronActivationsMap.insertOrAssign(pos.layer, pos.node, not pos.negated);
-    }
+    void fixAllSampleNeuronActivationsAt(HiddenNeuronPosition const &);
+    void preferAllSampleNeuronActivationsAt(HiddenNeuronPosition const &);
     void fixSampleNeuronActivationAt(Sample::Idx, HiddenNeuronPosition const &);
     void preferSampleNeuronActivationAt(Sample::Idx, HiddenNeuronPosition const &);
 
@@ -186,18 +187,18 @@ public:
         return _preferDefaultSampleNeuronActivations;
     }
     [[nodiscard]]
-    std::optional<bool> tryGetFixingOfAllSampleNeuronActivationsAt(std::size_t layer, std::size_t node) const {
-        return fixAllSampleNeuronActivationsMap.tryGetAt(layer, node);
-    }
+    std::optional<bool> tryGetFixingOfAllSampleNeuronActivationsAt(std::size_t layer, std::size_t node) const;
     [[nodiscard]]
-    std::optional<bool> tryGetPreferenceOfAllSampleNeuronActivationsAt(std::size_t layer, std::size_t node) const {
-        return preferAllSampleNeuronActivationsMap.tryGetAt(layer, node);
-    }
+    std::optional<bool> tryGetPreferenceOfAllSampleNeuronActivationsAt(std::size_t layer, std::size_t node) const;
     [[nodiscard]]
     std::optional<bool> tryGetFixingOfSampleNeuronActivationAt(Sample::Idx, std::size_t layer, std::size_t node) const;
     [[nodiscard]]
     std::optional<bool> tryGetPreferenceOfSampleNeuronActivationAt(Sample::Idx, std::size_t layer,
                                                                    std::size_t node) const;
+    [[nodiscard]]
+    std::size_t nHiddenLayers() const;
+    [[nodiscard]]
+    std::size_t hiddenLayerSize(std::size_t layer) const;
 
     [[nodiscard]]
     IntervalExplanation::PrintFormat const & getPrintingIntervalExplanationsFormat() const {
@@ -285,7 +286,11 @@ public:
     }
 
 protected:
+    using ActivationLayerMap = std::unordered_map<std::size_t, bool>;
+    using ActivationMap = std::unordered_map<std::size_t, ActivationLayerMap>;
+
     Network const * networkPtr{};
+    Network2 const * network2Ptr{};
 
     std::string_view verifierName{};
 
@@ -305,10 +310,10 @@ protected:
 
     DefaultSampleNeuronActivations _fixDefaultSampleNeuronActivations{defaultFixingOfSampleNeuronActivations};
     DefaultSampleNeuronActivations _preferDefaultSampleNeuronActivations{defaultPreferenceOfSampleNeuronActivations};
-    NetworkMap<bool> fixAllSampleNeuronActivationsMap{};
-    NetworkMap<bool> preferAllSampleNeuronActivationsMap{};
-    std::unordered_map<Sample::Idx, NetworkMap<bool>> fixSampleNeuronActivationMaps{};
-    std::unordered_map<Sample::Idx, NetworkMap<bool>> preferSampleNeuronActivationMaps{};
+    ActivationMap fixAllSampleNeuronActivationsMap{};
+    ActivationMap preferAllSampleNeuronActivationsMap{};
+    std::unordered_map<Sample::Idx, ActivationMap> fixSampleNeuronActivationMaps{};
+    std::unordered_map<Sample::Idx, ActivationMap> preferSampleNeuronActivationMaps{};
 
     IntervalExplanation::PrintFormat intervalExplanationPrintFormat{IntervalExplanation::PrintFormat::bounds};
 
@@ -322,6 +327,11 @@ protected:
     std::optional<Network::Classification::Label> optFilterSamplesOfExpectedClass{};
 
     std::chrono::milliseconds timeLimitPerExplanation{};
+
+private:
+    static std::optional<bool> tryGetActivation(ActivationMap const &, std::size_t layer, std::size_t node);
+    static void setActivation(ActivationMap &, HiddenNeuronPosition const &);
+    void validateHiddenNeuronPosition(HiddenNeuronPosition const &) const;
 };
 
 Framework::Config::DefaultSampleNeuronActivations makeDefaultSampleNeuronActivations(std::string_view);

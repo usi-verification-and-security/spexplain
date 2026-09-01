@@ -1,0 +1,356 @@
+/*********************                                                        */
+/*! \file Vector.h
+ ** \verbatim
+ ** Top contributors (to current version):
+ **   Guy Katz
+ ** This file is part of the Marabou project.
+ ** Copyright (c) 2017-2024 by the authors listed in the file AUTHORS
+ ** in the top-level source directory) and their institutional affiliations.
+ ** All rights reserved. See the file COPYING in the top-level source
+ ** directory for licensing informationp=o9=.\endverbatim
+ **
+ ** [[ Add lengthier description here ]]
+
+ **/
+
+#ifndef __Vector_h__
+#define __Vector_h__
+
+// #include "CommonError.h"
+
+#include <algorithm>
+#include <cstdio>
+#include <random>
+#include <stdexcept>
+#include <vector>
+
+template <class T> class Vector
+{
+    typedef std::vector<T> Super;
+
+public:
+    typedef typename Super::iterator iterator;
+    typedef typename Super::const_iterator const_iterator;
+
+    typedef typename Super::const_reverse_iterator const_reverse_iterator;
+
+    Vector()
+    {
+    }
+
+    Vector( const Vector &rhs ) = default;
+
+    Vector( const std::initializer_list<T> &initializerList )
+        : _container( initializerList )
+    {
+    }
+
+    Vector( unsigned size )
+        : _container( size )
+    {
+    }
+
+    Vector( unsigned size, T value )
+        : _container( size, value )
+    {
+    }
+
+    template <class InputIt>
+    Vector( InputIt begin, InputIt end )
+        : _container( begin, end )
+    {
+    }
+
+    virtual void assign( unsigned size, T value )
+    {
+        _container.assign( size, value );
+    }
+
+    virtual void append( T value )
+    {
+        _container.push_back( value );
+    }
+
+    void insert( iterator &it, T value )
+    {
+        _container.insert( it, value );
+    }
+
+    void insertAt( unsigned index, T value )
+    {
+        if ( index >= size() )
+            // throw CommonError( CommonError::VECTOR_OUT_OF_BOUNDS );
+            throw std::out_of_range( "Vector index out of bounds" );
+
+        iterator it = _container.begin();
+
+        while ( index > 0 )
+        {
+            ++it;
+            --index;
+        }
+
+        _container.insert( it, value );
+    }
+
+    virtual void insertHead( T value )
+    {
+        _container.insert( _container.begin(), value );
+    }
+
+    virtual ~Vector()
+    {
+    }
+
+    T *data()
+    {
+        return _container.data();
+    }
+
+    const T *data() const
+    {
+        return _container.data();
+    }
+
+    T get( int index ) const
+    {
+        return _container.at( index );
+    }
+
+    T &operator[]( int index )
+    {
+        return _container[index];
+    }
+
+    const T &operator[]( int index ) const
+    {
+        return _container[index];
+    }
+
+    bool empty() const
+    {
+        return size() == 0;
+    }
+
+    unsigned size() const
+    {
+        return _container.size();
+    }
+
+    bool exists( const T &value ) const
+    {
+        for ( unsigned i = 0; i < size(); ++i )
+        {
+            if ( get( i ) == value )
+                return true;
+        }
+
+        return false;
+    }
+
+    void erase( const T &value )
+    {
+        for ( iterator it = _container.begin(); it != _container.end(); ++it )
+        {
+            if ( ( *it ) == value )
+            {
+                _container.erase( it );
+                return;
+            }
+        }
+
+        // throw CommonError( CommonError::VALUE_DOESNT_EXIST_IN_VECTOR );
+        throw std::out_of_range( "Value does not exist in vector" );
+    }
+
+    void eraseByValue( T value )
+    {
+        for ( iterator it = _container.begin(); it != _container.end(); ++it )
+        {
+            if ( ( *it ) == value )
+            {
+                _container.erase( it );
+                return;
+            }
+        }
+
+        // throw CommonError( CommonError::VALUE_DOESNT_EXIST_IN_VECTOR );
+        throw std::out_of_range( "Value does not exist in vector" );
+    }
+
+    iterator begin()
+    {
+        return _container.begin();
+    }
+
+    iterator end()
+    {
+        return _container.end();
+    }
+
+    const_iterator begin() const
+    {
+        return _container.begin();
+    }
+
+    const_iterator end() const
+    {
+        return _container.cend();
+    }
+
+    const_reverse_iterator rbegin() const
+    {
+        return _container.rbegin();
+    }
+
+    const_reverse_iterator rend() const
+    {
+        return _container.rend();
+    }
+
+    void erase( iterator &it )
+    {
+        _container.erase( it );
+    }
+
+    void eraseAt( unsigned index )
+    {
+        if ( index >= size() )
+            // throw CommonError( CommonError::VECTOR_OUT_OF_BOUNDS );
+            throw std::out_of_range( "Vector index out of bounds" );
+
+        iterator it = _container.begin();
+
+        while ( index > 0 )
+        {
+            ++it;
+            --index;
+        }
+
+        _container.erase( it );
+    }
+
+    void clear()
+    {
+        _container.clear();
+    }
+
+    void shuffle()
+    {
+        std::random_device rd;
+        std::mt19937 g( rd() );
+
+        std::shuffle( _container.begin(), _container.end(), g );
+    }
+
+    Vector operator+( const Vector &other )
+    {
+        Vector output;
+
+        for ( unsigned i = 0; i < this->size(); ++i )
+            output.append( ( *this )[i] );
+
+        for ( unsigned i = 0; i < other.size(); ++i )
+            output.append( other.get( i ) );
+
+        return output;
+    }
+
+    Vector &operator+=( const Vector &other )
+    {
+        ( *this ) = ( *this ) + other;
+        return *this;
+    }
+
+    T popFirst()
+    {
+        if ( size() == 0 )
+            // throw CommonError( CommonError::POPPING_FROM_EMPTY_VECTOR );
+            throw std::underflow_error( "Popping from empty vector" );
+
+        T value = _container[0];
+        eraseAt( 0 );
+        return value;
+    }
+
+    T first() const
+    {
+        if ( empty() )
+            // throw CommonError( CommonError::VECTOR_OUT_OF_BOUNDS );
+            throw std::out_of_range( "Vector index out of bounds" );
+
+        return get( 0 );
+    }
+
+    T last() const
+    {
+        if ( empty() )
+            // throw CommonError( CommonError::VECTOR_OUT_OF_BOUNDS );
+            throw std::out_of_range( "Vector index out of bounds" );
+
+        return get( size() - 1 );
+    }
+
+    T pop()
+    {
+        if ( size() == 0 )
+            // throw CommonError( CommonError::POPPING_FROM_EMPTY_VECTOR );
+            throw std::underflow_error( "Popping from empty vector" );
+
+        T value = last();
+        eraseAt( size() - 1 );
+        return value;
+    }
+
+    bool operator==( const Vector &other ) const
+    {
+        if ( size() != other.size() )
+            return false;
+
+        Vector copyOfOther = other;
+
+        for ( unsigned i = 0; i < size(); ++i )
+        {
+            if ( !copyOfOther.exists( get( i ) ) )
+                return false;
+
+            copyOfOther.erase( get( i ) );
+        }
+
+        return true;
+    }
+
+    bool operator!=( const Vector &other ) const
+    {
+        return !( *this == other );
+    }
+
+    Vector &operator=( const Vector &other )
+    {
+        _container = other._container;
+        return *this;
+    }
+
+    void sort()
+    {
+        std::sort( _container.begin(), _container.end() );
+    }
+
+    Super getContainer() const
+    {
+        return _container;
+    }
+
+protected:
+    Super _container;
+};
+
+#endif // __Vector_h__
+
+//
+// Local Variables:
+// compile-command: "make -C ../.. "
+// tags-file-name: "../../TAGS"
+// c-basic-offset: 4
+// End:
+//

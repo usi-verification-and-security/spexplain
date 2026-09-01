@@ -1,0 +1,20 @@
+_network.input().size: 1
+_network.initializer().size: 6
+_network.output().size: 1
+_terminalNames.size: 0
+network.input_size: 1
+ONNX LOG: Found initialiser 'conv1.weight'
+ONNX LOG: Found initialiser 'conv1.bias'
+ONNX LOG: Found initialiser 'conv2.weight'
+ONNX LOG: Found initialiser 'conv2.bias'
+ONNX LOG: Found initialiser 'fc.weight'
+ONNX LOG: Found initialiser 'fc.bias'
+ONNX LOG: Found input 'input'
+ONNX LOG: Found output 'output'
+ONNX LOG: Processing node '/conv1/Conv' of type 'Conv'
+ONNX LOG: Processing node '/Relu' of type 'Relu'
+ONNX LOG: Processing node '/conv2/Conv' of type 'Conv'
+ONNX LOG: Processing node '/Relu_1' of type 'Relu'
+ONNX LOG: Processing node '/pool/MaxPool' of type 'MaxPool'
+ONNX LOG: Processing node '/flatten/Flatten' of type 'Flatten'
+ONNX LOG: Processing node '/fc/Gemm' of type 'Gemm'

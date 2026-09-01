@@ -118,10 +118,13 @@ Using the `./build` build directory, running `./build/spexplain` with no argumen
 
 ```
 USAGE: ./build/spexplain [<action>] <args> [<options>]
-ACTIONS: [explain] dump-psi
+ACTIONS: [explain] explain-onnx dump-psi encode-onnx read-onnx
 ARGS:
-    explain:    <nn_model_fn> <dataset_fn> [<exp_strategies_spec>]
-    dump-psi:   <nn_model_fn>
+    explain:        <nn_model_fn> <dataset_fn> [<exp_strategies_spec>]
+    explain-onnx:   <onnx_model_fn> <dataset_fn> [<exp_strategies_spec>]
+    dump-psi:       <nn_model_fn>
+    encode-onnx:    <onnx_model_fn>
+    read-onnx:      <onnx_model_fn>
 STRATEGIES SPEC: '<spec1>[; <spec2>]...'
 Each spec: '<name>[ <param>[, <param>]...]'
 Strategies and possible parameters:
@@ -137,8 +140,8 @@ OPTIONS:
     ...
 ```
 
-The tool currently supports two actions:
-`explain` (default), and `dump-psi`.
+The tool currently supports the default `explain` flow for `.nnet` and `.onnx` models,
+plus `explain-onnx`, `dump-psi`, `encode-onnx`, and `read-onnx`.
 
 ### `explain`
 
@@ -149,8 +152,9 @@ provided by the option `--input-explanations`.
 
 The action requires the following arguments:
 * `<nn_model_fn>`:
-Filename to the model, that is, a neural network classifier. The only supported file format is currently [NNet](https://github.com/sisl/NNet) that specifies a fully connected feedforward ReLU network.
-An example can be found in `./data/models/toy.nnet`.
+Filename to the model, that is, a neural network classifier. `explain` accepts the legacy
+[NNet](https://github.com/sisl/NNet) format and also `.onnx` models through `Network2`.
+Examples can be found in `./data/models/toy.nnet` and `./data/models/heart_attack/heart_attack-50.onnx`.
 * `<dataset_fn>`:
 Filename to the dataset, that is, a collection of sample points, optionally with the expected classification outcome, in the CSV format.
 An example can be found in `./data/datasets/toy.csv`.
@@ -179,6 +183,48 @@ The action requires the following arguments:
 Same as in the `explain` action.
 
 It is recommended to also apply the sed script `./data/scripts/polish_psi.sed` to the produced encodings (use the sed option `-i` to apply the changes inline on the files).
+
+### `explain-onnx`, `encode-onnx`, and `read-onnx`
+
+These actions use the layer-based `Network2` pipeline for ONNX models.
+`explain-onnx` mirrors `explain`, `encode-onnx` mirrors `dump-psi`, and `read-onnx` only parses the ONNX file and reports basic information.
+
+Unlike `.nnet` files, ONNX models carry no per-feature input domain information, so `Network2`
+falls back to a `[0,1]` bound for every feature unless told otherwise. This can make explanation
+strategies (`abductive`, `itp`, ...) produce misleadingly weak explanations, since freeing a
+feature only lets it range over `[0,1]` instead of its real domain. Use `--input-min <v1,v2,...>`
+and `--input-max <v1,v2,...>` (comma-separated, one value per input feature, in the model's input
+order) to supply the real per-feature bounds, e.g. for `heart_attack-50.onnx`:
+```
+./build-debug/spexplain explain-onnx data/models/heart_attack/heart_attack-50.onnx \
+    data/datasets/heart_attack/heart_attack_quick.csv abductive \
+    --input-min 29,0,0,94,126,0,0,71,0,0,0,0,0 \
+    --input-max 77,1,3,200,594,1,2,202,1,6.2,2,4,3
+```
+These two options are only recognized by `explain-onnx` and `encode-onnx` (i.e. the actions that
+accept an ONNX model); they are rejected for `.nnet` models, whose input domain is read from the
+file itself.
+
+#### Trailing sigmoid layers (`--drop-sigmoid`)
+
+Keras/PyTorch binary classifiers usually end with a `Sigmoid`, whereas `.nnet` models store the raw
+logit and classify with `output < 0 ? 0 : 1`. A sigmoid is also not encodable in linear arithmetic.
+
+Because a sigmoid is strictly monotone, `sigmoid(z) >= 0.5` iff `z >= 0`, so dropping a *trailing*
+sigmoid never changes the classification. `Network2` therefore **drops trailing sigmoid layers by
+default**, both when evaluating and when encoding, and the network output is the raw logit — exactly
+matching the NNet semantics.
+
+```
+--drop-sigmoid true|false     (default: true)
+```
+
+Keeping the sigmoid (`--drop-sigmoid false`) is only useful for inspecting raw probabilities with
+`read-onnx`: the model then cannot be encoded, and `explain-onnx`/`encode-onnx` fail with
+`Unsupported layer type: sigmoid`. Note that with the sigmoid kept, `computeClassification` would
+compare a value in `(0,1)` against the logit threshold `0`, so every sample is classified as class 1.
+
+Like `--input-min`/`--input-max`, this option is ONNX-only and rejected for `.nnet` models.
 
 ### Strategies and their parameters
 

@@ -1,0 +1,9 @@
+name,tokens,pixel_domain,input_min,input_max,relu_neurons,maxpool_windows,params,test_accuracy,train_seconds,onnx_rel_diff,onnx
+c4s2k5-fc,c4s2k5,unit,0,1,576,0,5874,n/a,0,9.89e-07,c4s2k5-fc.onnx
+c8s2k5-fc,c8s2k5,unit,0,1,1152,0,11738,n/a,0,1.50e-06,c8s2k5-fc.onnx
+c4s2k4-c8s2-fc,c4s2k4 c8s2,unit,0,1,964,0,3254,n/a,0,3.57e-07,c4s2k4-c8s2-fc.onnx
+c4s2k4-c8s2-p-fc,c4s2k4 c8s2 p,unit,0,1,964,72,1094,n/a,0,1.31e-06,c4s2k4-c8s2-p-fc.onnx
+c8-p-c16-p-fc,c8 p c16 p,unit,0,1,7344,1752,5258,n/a,0,2.62e-06,c8-p-c16-p-fc.onnx
+c8s2k4-c16-p-f64-fc,c8s2k4 c16 p f64,unit,0,1,3352,400,27618,n/a,0,3.60e-06,c8s2k4-c16-p-f64-fc.onnx
+c16-p-c32-p-f128-fc,c16 p c32 p f128,unit,0,1,14816,3504,108618,n/a,0,3.08e-06,c16-p-c32-p-f128-fc.onnx
+c16-c32-p-c32-p-f128-fc,c16 c32 p c32 p f128,unit,0,1,32576,5408,117866,n/a,0,3.40e-06,c16-c32-p-c32-p-f128-fc.onnx

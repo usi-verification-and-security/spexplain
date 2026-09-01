@@ -35,3 +35,9 @@ venv/
 build*/
 
 *cache/
+
+cmake-build-debug/*
+
+AGENTS.md
+CLAUDE.md
+.gitignore

@@ -1,0 +1,9 @@
+name,tokens,relu_neurons,maxpool_windows,params,test_accuracy,train_seconds,onnx_rel_diff,onnx
+c4s2k5-fc,c4s2k5,576,0,5874,0.9558,8,1.53e-06,c4s2k5-fc.onnx
+c8s2k5-fc,c8s2k5,1152,0,11738,0.9705,8,1.25e-06,c8s2k5-fc.onnx
+c4s2k4-c8s2-fc,c4s2k4 c8s2,964,0,3254,0.9482,11,4.59e-07,c4s2k4-c8s2-fc.onnx
+c4s2k4-c8s2-p-fc,c4s2k4 c8s2 p,964,72,1094,0.9327,12,1.30e-06,c4s2k4-c8s2-p-fc.onnx
+c8-p-c16-p-fc,c8 p c16 p,7344,1752,5258,0.9773,16,2.50e-06,c8-p-c16-p-fc.onnx
+c8s2k4-c16-p-f64-fc,c8s2k4 c16 p f64,3352,400,27618,0.9812,14,2.68e-06,c8s2k4-c16-p-f64-fc.onnx
+c16-p-c32-p-f128-fc,c16 p c32 p f128,14816,3504,108618,0.9864,23,2.56e-06,c16-p-c32-p-f128-fc.onnx
+c16-c32-p-c32-p-f128-fc,c16 c32 p c32 p f128,32576,5408,117866,0.9842,48,2.80e-06,c16-c32-p-c32-p-f128-fc.onnx

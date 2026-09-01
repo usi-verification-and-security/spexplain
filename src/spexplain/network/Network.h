@@ -41,6 +41,7 @@ public:
     class Dataset;
 
     static std::unique_ptr<Network> fromNNetFile(std::string_view filename);
+    // static std::unique_ptr<Network> fromONNXFile(std::string_view filename);
 
     std::size_t nInputs() const { return numInputs; }
     std::size_t nOutputs() const { return numOutputs; }

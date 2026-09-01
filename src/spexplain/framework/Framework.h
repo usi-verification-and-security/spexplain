@@ -5,6 +5,7 @@
 #include <spexplain/common/Interval.h>
 #include <spexplain/common/Var.h>
 #include <spexplain/network/Network.h>
+#include <spexplain/network/Network2.h>
 
 #include <cassert>
 #include <iosfwd>
@@ -41,6 +42,8 @@ public:
     Framework(Config const &);
     // Calls setNetwork, setStrategies and setVerifier
     Framework(Config const &, std::unique_ptr<Network>, std::istream & expandStrategiesSpec);
+    Framework(Config const &, std::unique_ptr<Network2>, std::istream & expandStrategiesSpec);
+
     ~Framework();
 
     void setConfig(Config const &);
@@ -51,10 +54,18 @@ public:
     }
 
     void setNetwork(std::unique_ptr<Network>);
+    void setNetwork2(std::unique_ptr<Network2>);
 
     Network const & getNetwork() const {
         assert(networkPtr);
         return *networkPtr;
+    }
+
+    bool hasNetwork2() const { return network2Ptr != nullptr; }
+
+    Network2 const & getNetwork2() const {
+        assert(network2Ptr);
+        return *network2Ptr;
     }
 
     // Using the default
@@ -116,6 +127,7 @@ protected:
     std::unique_ptr<Config const> configPtr;
 
     std::unique_ptr<Network> networkPtr{};
+    std::unique_ptr<Network2> network2Ptr{};
     VarNames varNames{};
     std::vector<Interval> domainIntervals{};
 

@@ -1,0 +1,59 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug spexplain (no args)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build-debug/spexplain",
+            "args": [],
+            "cwd": "${workspaceFolder}/build-debug",
+            "preLaunchTask": "Build: spexplain (SpEXplAIn-bin)",
+            "sourceLanguages": ["cpp"]
+        },
+        {
+            // Replicates the CLion "parse-onnx" run configuration
+            // (PROGRAM_PARAMS="read-onnx ../data/models/onnx/fc1.onnx").
+            "name": "Debug spexplain: read-onnx fc1.onnx",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build-debug/spexplain",
+            "args": ["read-onnx", "../data/models/onnx/fc1.onnx"],
+            "cwd": "${workspaceFolder}/build-debug",
+            "preLaunchTask": "Build: spexplain (SpEXplAIn-bin)",
+            "sourceLanguages": ["cpp"]
+        },
+        {
+            "name": "Debug onnx-eval",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build-debug/onnx-eval",
+            "args": [],
+            "cwd": "${workspaceFolder}/build-debug",
+            "preLaunchTask": "Build: onnx-eval",
+            "sourceLanguages": ["cpp"]
+        },
+        {
+            "name": "Debug compare-nnet-onnx",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build-debug/compare-nnet-onnx",
+            "args": [],
+            "cwd": "${workspaceFolder}/build-debug",
+            "preLaunchTask": "Build: compare-nnet-onnx",
+            "sourceLanguages": ["cpp"]
+        },
+        {
+            // Generic: debugs whatever target you've selected as the active
+            // CMake Tools launch target (bottom status bar), with editable args.
+            "name": "Debug active CMake target",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}",
+            "args": [],
+            "cwd": "${command:cmake.launchTargetDirectory}",
+            "preLaunchTask": "CMake: build",
+            "sourceLanguages": ["cpp"]
+        }
+    ]
+}

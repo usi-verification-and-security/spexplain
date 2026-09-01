@@ -29,6 +29,14 @@ Framework::Framework(Config const & config, std::unique_ptr<Network> networkPtr_
     setVerifier();
 }
 
+Framework::Framework(Config const & config, std::unique_ptr<Network2> networkPtr_, std::istream & expandStrategiesSpec)
+    : Framework(config) {
+    setNetwork2(std::move(networkPtr_));
+    setStrategies(expandStrategiesSpec);
+    setVerifier();
+}
+
+
 Framework::~Framework() = default;
 
 void Framework::setConfig(Config const & config) {
@@ -46,6 +54,20 @@ void Framework::setNetwork(std::unique_ptr<Network> networkPtr_) {
     for (VarIdx idx = 0; idx < nVars; ++idx) {
         varNames.emplace_back(makeVarName(idx));
         domainIntervals.emplace_back(network.getInputLowerBound(idx), network.getInputUpperBound(idx));
+    }
+}
+
+void Framework::setNetwork2(std::unique_ptr<Network2> network2Ptr_) {
+    assert(network2Ptr_);
+    network2Ptr = std::move(network2Ptr_);
+
+    auto & network2 = *network2Ptr;
+    std::size_t const nVars = network2.nInputs();
+    varNames.reserve(nVars);
+    domainIntervals.reserve(nVars);
+    for (VarIdx idx = 0; idx < nVars; ++idx) {
+        varNames.emplace_back(makeVarName(idx));
+        domainIntervals.emplace_back(network2.getInputLowerBound(idx), network2.getInputUpperBound(idx));
     }
 }
 

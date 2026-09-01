@@ -1,0 +1,112 @@
+## ONNX counterpart of `lib/run`.
+##
+## Loads the ONNX model/dataset spec (`spec/models_datasets2`) instead of `spec/models_datasets`,
+## and re-defines `read_output_dir` so that it also resolves the per-feature input domain bounds
+## that ONNX models do not carry themselves.
+##
+## Everything else (experiments spec handling, `set_timeout`, `set_experiment_name_from_strategies`,
+## ...) is inherited unchanged from `lib/run`.
+
+[[ -z $DIRNAME ]] && DIRNAME=$(dirname "$0")
+
+source "$DIRNAME/lib/run"
+
+MODELS_DATASETS2_SPEC="$SPEC_DIR/models_datasets2"
+
+## Re-read the ONNX spec, overwriting OUTPUT_DIRS/MODELS/DATASETS from `spec/models_datasets`.
+source "$MODELS_DATASETS2_SPEC"
+
+_check_array_sizes OUTPUT_DIRS MODELS
+_check_array_sizes OUTPUT_DIRS DATASETS
+[[ -n ${INPUT_MINS+x} ]] && _check_array_sizes OUTPUT_DIRS INPUT_MINS
+[[ -n ${INPUT_MAXS+x} ]] && _check_array_sizes OUTPUT_DIRS INPUT_MAXS
+
+## Same contract as `read_output_dir` in lib/run, but resolves an ONNX model and its input bounds.
+## `ONNX_MODEL_OVERRIDE` (set by `--onnx <file>`) takes precedence over the spec entry.
+## `INPUT_MIN_OVERRIDE` / `INPUT_MAX_OVERRIDE` (set by `--input-min` / `--input-max`) likewise.
+function read_output_dir {
+    export OUTPUT_DIR="$1"
+
+    OUTPUT_DIR="${OUTPUT_DIR%%/}"
+    OUTPUT_DIR="${OUTPUT_DIR##./}"
+    unset OUTPUT_DIR_IDX
+    for odir_idx in ${!OUTPUT_DIRS[@]}; do
+        odir="${OUTPUT_DIRS[$odir_idx]}"
+        [[ $odir == $OUTPUT_DIR ]] || continue
+        OUTPUT_DIR_IDX=$odir_idx
+        break
+    done
+
+    [[ -z $OUTPUT_DIR_IDX ]] && {
+        printf "Unrecognized output directory: %s\n" "$OUTPUT_DIR" >&2
+        printf "Expected one of: %s\n" "${OUTPUT_DIRS[*]}" >&2
+        return 1
+    }
+
+    [[ -d $OUTPUT_DIR && -w $OUTPUT_DIR ]] || mkdir -p "$OUTPUT_DIR" >/dev/null || {
+        printf "Could not create output directory %s.\n" "$OUTPUT_DIR" >&2
+        return 2
+    }
+
+    if [[ -n $ONNX_MODEL_OVERRIDE ]]; then
+        export MODEL="$ONNX_MODEL_OVERRIDE"
+    else
+        export MODEL="${MODELS[$OUTPUT_DIR_IDX]}"
+    fi
+    export DATASET="${DATASETS[$OUTPUT_DIR_IDX]}"
+
+    [[ $MODEL == *.onnx ]] || {
+        printf "Expected an ONNX model, got: %s\n" "$MODEL" >&2
+        printf "Use run-experiments.sh for .nnet models.\n" >&2
+        return 2
+    }
+
+    [[ -r $MODEL ]] || {
+        printf "Model file %s is not readable.\n" "$MODEL" >&2
+        return 2
+    }
+
+    [[ -r $DATASET ]] || {
+        printf "Dataset file %s is not readable.\n" "$DATASET" >&2
+        return 2
+    }
+
+    if [[ -n $INPUT_MIN_OVERRIDE ]]; then
+        export INPUT_MIN="$INPUT_MIN_OVERRIDE"
+    else
+        export INPUT_MIN="${INPUT_MINS[$OUTPUT_DIR_IDX]}"
+    fi
+
+    if [[ -n $INPUT_MAX_OVERRIDE ]]; then
+        export INPUT_MAX="$INPUT_MAX_OVERRIDE"
+    else
+        export INPUT_MAX="${INPUT_MAXS[$OUTPUT_DIR_IDX]}"
+    fi
+
+    [[ -z $INPUT_MIN || -z $INPUT_MAX ]] && {
+        printf "WARNING: no input domain bounds for %s.\n" "$MODEL" >&2
+        printf "         ONNX models carry no input domain, so every feature defaults to [0,1],\n" >&2
+        printf "         which usually yields misleadingly weak explanations.\n" >&2
+        printf "         Provide --input-min/--input-max or add them to %s.\n" "$MODELS_DATASETS2_SPEC" >&2
+    }
+
+    return 0
+}
+
+## Appends the ONNX-only options to the array named by $1.
+function append_onnx_options {
+    local -n lopts=$1
+
+    [[ -n $INPUT_MIN ]] && lopts+=(--input-min="$INPUT_MIN")
+    [[ -n $INPUT_MAX ]] && lopts+=(--input-max="$INPUT_MAX")
+    ## Only pass --drop-sigmoid when explicitly requested; the default (true) is what we want.
+    [[ -n $DROP_SIGMOID ]] && lopts+=(--drop-sigmoid="$DROP_SIGMOID")
+
+    return 0
+}
+
+## `explain-onnx` is the ONNX counterpart of the default `explain` action.
+function set_action {
+    [[ -z $ACTION ]] && ACTION=explain-onnx
+    export ACTION
+}

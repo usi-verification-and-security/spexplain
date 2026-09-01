@@ -7,11 +7,13 @@
 #include "strategy/Factory.h"
 #include "strategy/Strategies.h"
 
+#include <iostream>
 #include <spexplain/common/Core.h>
 #include <spexplain/common/String.h>
 
 #include <verifiers/Verifier.h>
 #include <verifiers/opensmt/OpenSMTVerifier.h>
+#include <verifiers/opensmt/OpenSMTVerifier2.h>
 #ifdef MARABOU
 #include <verifiers/marabou/MarabouVerifier.h>
 #endif
@@ -26,6 +28,30 @@
 #include <string>
 
 namespace spexplain {
+namespace {
+bool isActivationLayerType(std::string const & type) {
+    if (type == "sigmoid") {
+        //make a warning that the sigmoid should be discarded
+        std::cerr << "Warning: Sigmoid activation layer detected. It is recommended to discard sigmoid layers." << std::endl;
+    }
+    return type == "relu" || type == "sigmoid";
+}
+
+bool activatedHiddenNeuron(Network::Output::Values const & values, std::size_t nodeIndex) {
+    assert(nodeIndex < values.size());
+    Float const value = values[nodeIndex];
+    assert(value >= 0);
+    return value > Float{0};
+}
+
+bool unstableHiddenNeuron(Network::Output::Values const & values, std::size_t nodeIndex) {
+    static constexpr Float epsilon = 1e-3;
+    assert(nodeIndex < values.size());
+    Float const value = values[nodeIndex];
+    return value >= -epsilon and value <= epsilon;
+}
+} // namespace
+
 Framework::Expand::Expand(Framework & fw) : framework{fw} {}
 
 void Framework::Expand::setStrategies() {
@@ -67,6 +93,7 @@ std::unique_ptr<xai::verifiers::Verifier> Framework::Expand::makeVerifier(std::s
 #endif
 
     if (name.empty() or toLower(name) == "opensmt") {
+        if (framework.hasNetwork2()) { return std::make_unique<xai::verifiers::OpenSMTVerifier2>(); }
         return std::make_unique<xai::verifiers::OpenSMTVerifier>();
 #ifdef MARABOU
     } else if (toLower(name) == "marabou") {
@@ -152,8 +179,8 @@ void Framework::Expand::dumpClassificationsAsSmtLib2Queries() {
     auto & print = framework.getPrint();
     auto & cinfo = print.info();
 
-    auto & network = framework.getNetwork();
-    std::size_t const nClasses = network.nClasses();
+    std::size_t const nClasses =
+        framework.hasNetwork2() ? framework.getNetwork2().nClasses() : framework.getNetwork().nClasses();
 
     for (Network::Classification::Label l = 0; l < nClasses; ++l) {
         Network::Classification cls{.label = l};
@@ -320,8 +347,11 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
 
 void Framework::Expand::initVerifier() {
     assert(verifierPtr);
-    auto & network = framework.getNetwork();
-    verifierPtr->init(network);
+    if (framework.hasNetwork2()) {
+        verifierPtr->init(framework.getNetwork2());
+    } else {
+        verifierPtr->init(framework.getNetwork());
+    }
 
     auto const & config = framework.getConfig();
     if (auto optEncodingNeuronVars = config.encodingNeuronVars()) {
@@ -346,7 +376,6 @@ void Framework::Expand::preprocessGroundModel(Network::Dataset const &) {
 void Framework::Expand::preprocessSampleModel(Sample::Idx idx, Network::Output const & output) {
     assert(verifierPtr);
     auto & verifier = *verifierPtr;
-    auto & network = framework.getNetwork();
 
     using DefaultSampleNeuronActivations = Config::DefaultSampleNeuronActivations;
     auto const & config = framework.getConfig();
@@ -355,15 +384,14 @@ void Framework::Expand::preprocessSampleModel(Sample::Idx idx, Network::Output c
     DefaultSampleNeuronActivations const defaultPreferenceOfSampleNeuronActivations =
         config.getDefaultPreferenceOfSampleNeuronActivations();
 
-    xai::verifiers::LayerIndex const nHiddenLayers = network.nHiddenLayers();
-    assert(nHiddenLayers == network.nLayers() - 2);
-    for (xai::verifiers::LayerIndex layer = 1; layer < nHiddenLayers + 1; ++layer) {
-        xai::verifiers::NodeIndex const nNodes = network.getLayerSize(layer);
+    auto processLayer = [&](xai::verifiers::LayerIndex layer, Network::Output::Values const & inputValues,
+                            Network::Output::Values const & outputValues) {
+        assert(inputValues.size() == outputValues.size());
+        xai::verifiers::NodeIndex const nNodes = inputValues.size();
         for (xai::verifiers::NodeIndex node = 0; node < nNodes; ++node) {
-            bool const unstable = unstableHiddenNeuron(output, layer, node);
-            bool const activated = activatedHiddenNeuron(output, layer, node);
+            bool const unstable = unstableHiddenNeuron(inputValues, node);
+            bool const activated = activatedHiddenNeuron(outputValues, node);
 
-            // Prefer even on unstable neurons
             if (auto optPreferOne = config.tryGetPreferenceOfSampleNeuronActivationAt(idx, layer, node)) {
                 if (*optPreferOne) { verifier.preferNeuronActivation(layer, node, activated); }
             } else if (auto optPreferAll = config.tryGetPreferenceOfAllSampleNeuronActivationsAt(layer, node)) {
@@ -372,7 +400,6 @@ void Framework::Expand::preprocessSampleModel(Sample::Idx idx, Network::Output c
                 verifier.tryPreferNeuronActivation(layer, node, activated);
             }
 
-            // Do not fix unstable neurons
             if (unstable) { continue; }
 
             if (auto optFixOne = config.tryGetFixingOfSampleNeuronActivationAt(idx, layer, node)) {
@@ -383,6 +410,37 @@ void Framework::Expand::preprocessSampleModel(Sample::Idx idx, Network::Output c
                 verifier.tryFixNeuronActivation(layer, node, activated);
             }
         }
+    };
+
+    if (framework.hasNetwork2()) {
+        auto const & network2 = framework.getNetwork2();
+        std::size_t activationLayerIdx = 0;
+        xai::verifiers::LayerIndex reluLayerIndex = 1;
+        for (auto const & layerPtr : network2.getLayers()) {
+            if (!layerPtr) { continue; }
+
+            std::string const & type = layerPtr->getType();
+            if (!isActivationLayerType(type)) { continue; }
+
+            assert(activationLayerIdx < output.hiddenNeuronInputValues.size());
+            assert(activationLayerIdx < output.hiddenNeuronOutputValues.size());
+
+            if (type == "relu") {
+                processLayer(reluLayerIndex, output.hiddenNeuronInputValues[activationLayerIdx],
+                             output.hiddenNeuronOutputValues[activationLayerIdx]);
+                ++reluLayerIndex;
+            }
+
+            ++activationLayerIdx;
+        }
+        return;
+    }
+
+    auto const & network = framework.getNetwork();
+    xai::verifiers::LayerIndex const nHiddenLayers = network.nHiddenLayers();
+    assert(nHiddenLayers == network.nLayers() - 2);
+    for (xai::verifiers::LayerIndex layer = 1; layer < nHiddenLayers + 1; ++layer) {
+        processLayer(layer, output.hiddenNeuronInputValues[layer - 1], output.hiddenNeuronOutputValues[layer - 1]);
     }
 }
 
@@ -414,13 +472,25 @@ void Framework::Expand::resetVerifier() {
 void Framework::Expand::assertClassification(Network::Classification const & cls) {
     verifierPtr->push();
 
-    auto & network = framework.getNetwork();
-    auto const outputLayerIndex = network.nLayers() - 1;
+    auto const [outputLayerIndex, nClasses] = [this]() -> std::pair<std::size_t, std::size_t> {
+        if (framework.hasNetwork2()) {
+            auto & network2 = framework.getNetwork2();
+            // layerSizes in the verifier are [input, hidden..., output], so the output layer index
+            // equals the number of ReLU-activated hidden layers plus one.
+            std::size_t nHidden = 0;
+            for (auto const & layer : network2.getLayers()) {
+                if (layer and layer->getType() == "relu") { ++nHidden; }
+            }
+            return {nHidden + 1, network2.nClasses()};
+        }
+        auto & network = framework.getNetwork();
+        return {network.nLayers() - 1, network.nClasses()};
+    }();
 
     auto const & label = cls.label;
 
-    assert(network.nClasses() >= 2);
-    if (network.nClasses() > 2) {
+    assert(nClasses >= 2);
+    if (nClasses > 2) {
         verifierPtr->addClassificationConstraint(label, 0);
         return;
     }

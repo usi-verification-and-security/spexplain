@@ -7,11 +7,14 @@
 #include <chrono>
 #include <memory>
 #include <optional>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace spexplain {
 class Explanation;
 class Framework;
+class Network2;
 } // namespace spexplain
 
 //++ move into spexplain namespace
@@ -54,6 +57,8 @@ public:
 
     std::optional<bool> getFixedNeuronActivation(LayerIndex, NodeIndex) const;
     std::optional<bool> getPreferredNeuronActivation(LayerIndex, NodeIndex) const;
+    bool hasFixedNeuronActivations() const;
+    bool hasPreferredNeuronActivations() const;
 
     virtual void assertGroundModel() {}
     virtual void assertSampleModel() = 0;
@@ -73,6 +78,8 @@ public:
     virtual void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, Float rhs) = 0;
 
     virtual void init(spexplain::Network const &);
+    // Intermediate overload: allows verifiers (e.g. OpenSMTVerifier2) to work with the layer-based Network2.
+    virtual void init(spexplain::Network2 const &);
 
     virtual void push() { pushImpl(); }
     virtual void pop() { popImpl(); }
@@ -101,16 +108,28 @@ public:
     virtual void printSmtLib2Query(std::ostream &) const = 0;
 
 protected:
+    struct NeuronActivationKeyHash {
+        std::size_t operator()(std::pair<LayerIndex, NodeIndex> const & key) const {
+            return std::hash<LayerIndex>{}(key.first) ^ (std::hash<NodeIndex>{}(key.second) << 1);
+        }
+    };
+    using NeuronActivationMap = std::unordered_map<std::pair<LayerIndex, NodeIndex>, bool, NeuronActivationKeyHash>;
+
     spexplain::Network const & getNetwork() const;
+    // Only valid when the verifier was initialized with a Network2 (see init(Network2 const &)).
+    spexplain::Network2 const & getNetwork2() const;
 
     virtual bool defaultEncodingNeuronVars() const;
     virtual bool defaultEncodingOutputVars() const;
     virtual bool defaultEncodingReluLowerBounds() const;
 
     virtual void initImpl(spexplain::Network const &);
+    virtual void initImpl(spexplain::Network2 const &);
 
     spexplain::NetworkMap<bool> fixedNeuronActivations;
     spexplain::NetworkMap<bool> preferredNeuronActivations;
+    NeuronActivationMap fixedNeuronActivations2{};
+    NeuronActivationMap preferredNeuronActivations2{};
 
     std::size_t checksCount{};
 
@@ -121,6 +140,7 @@ private:
     virtual Answer checkImpl() = 0;
 
     spexplain::Network const * networkPtr;
+    spexplain::Network2 const * network2Ptr{};
 
     std::optional<bool> _encodingNeuronVars;
     std::optional<bool> _encodingOutputVars;

@@ -52,7 +52,7 @@ OPTIONS=(--quiet --format=smtlib2)
 }
 
 [[ -n $TIMEOUT_PER ]] && {
-    [[ $TIMEOUT_PER =~ ^[0-9]+(|\.[0-9]*)(|[smhd])$ ]] || {
+    [[ $TIMEOUT_PER =~ ^[0-9]+(\.[0-9]*)?[smhd]?$ ]] || {
         printf "Unrecognized timeout per explanations: %s\n" "$TIMEOUT_PER" >&2
         usage 1 >&2
     }

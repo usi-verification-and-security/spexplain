@@ -9,28 +9,115 @@ using namespace std::string_literals;
 namespace spexplain {
 void Framework::Config::init(Network const & network) noexcept {
     networkPtr = &network;
+    network2Ptr = nullptr;
+    fixAllSampleNeuronActivationsMap.clear();
+    preferAllSampleNeuronActivationsMap.clear();
+    fixSampleNeuronActivationMaps.clear();
+    preferSampleNeuronActivationMaps.clear();
+}
 
-    fixAllSampleNeuronActivationsMap.init(network);
-    preferAllSampleNeuronActivationsMap.init(network);
+void Framework::Config::init2(Network2 const & network2) noexcept {
+    networkPtr = nullptr;
+    network2Ptr = &network2;
+    fixAllSampleNeuronActivationsMap.clear();
+    preferAllSampleNeuronActivationsMap.clear();
+    fixSampleNeuronActivationMaps.clear();
+    preferSampleNeuronActivationMaps.clear();
+}
+
+void Framework::Config::setActivation(ActivationMap & activations, HiddenNeuronPosition const & pos) {
+    activations[pos.layer].insert_or_assign(pos.node, not pos.negated);
+}
+
+std::optional<bool> Framework::Config::tryGetActivation(ActivationMap const & activations, std::size_t layer,
+                                                        std::size_t node) {
+    if (auto layerIt = activations.find(layer); layerIt != activations.end()) {
+        if (auto nodeIt = layerIt->second.find(node); nodeIt != layerIt->second.end()) { return nodeIt->second; }
+    }
+    return std::nullopt;
+}
+
+std::size_t Framework::Config::nHiddenLayers() const {
+    if (network2Ptr) {
+        std::size_t reluLayers = 0;
+        for (auto const & layerPtr : getNetwork2().getLayers()) {
+            if (layerPtr and layerPtr->getType() == "relu") { ++reluLayers; }
+        }
+        return reluLayers;
+    }
+    return getNetwork().nHiddenLayers();
+}
+
+std::size_t Framework::Config::hiddenLayerSize(std::size_t layer) const {
+    using namespace std::string_literals;
+
+    if (layer == 0) { throw std::out_of_range{"Hidden layer is out of range: 0"}; }
+
+    if (network2Ptr) {
+        std::size_t reluLayer = 0;
+        for (auto const & layerPtr : getNetwork2().getLayers()) {
+            if (not layerPtr || layerPtr->getType() != "relu") { continue; }
+            ++reluLayer;
+            if (reluLayer == layer) { return layerPtr->getOutputSize(); }
+        }
+        throw std::out_of_range{"Hidden layer is out of range: "s + std::to_string(layer) + " > " +
+                                std::to_string(reluLayer)};
+    }
+
+    return getNetwork().getLayerSize(layer);
+}
+
+void Framework::Config::validateHiddenNeuronPosition(HiddenNeuronPosition const & pos) const {
+    using namespace std::string_literals;
+
+    std::size_t const nHidden = nHiddenLayers();
+    if (pos.layer == 0 || pos.layer > nHidden) {
+        throw std::out_of_range{"Hidden layer is out of range: "s + std::to_string(pos.layer) + " > " +
+                                std::to_string(nHidden)};
+    }
+
+    std::size_t const layerSize = hiddenLayerSize(pos.layer);
+    if (pos.node >= layerSize) {
+        throw std::out_of_range{"Node is out of range: "s + std::to_string(pos.node) + " >= " +
+                                std::to_string(layerSize)};
+    }
+}
+
+void Framework::Config::fixAllSampleNeuronActivationsAt(HiddenNeuronPosition const & pos) {
+    validateHiddenNeuronPosition(pos);
+    setActivation(fixAllSampleNeuronActivationsMap, pos);
+}
+
+void Framework::Config::preferAllSampleNeuronActivationsAt(HiddenNeuronPosition const & pos) {
+    validateHiddenNeuronPosition(pos);
+    setActivation(preferAllSampleNeuronActivationsMap, pos);
 }
 
 void Framework::Config::fixSampleNeuronActivationAt(Sample::Idx idx, HiddenNeuronPosition const & pos) {
-    auto & map = fixSampleNeuronActivationMaps[idx];
-    map.setNetwork(getNetwork());
-    map.insertOrAssign(pos.layer, pos.node, not pos.negated);
+    validateHiddenNeuronPosition(pos);
+    setActivation(fixSampleNeuronActivationMaps[idx], pos);
 }
 
 void Framework::Config::preferSampleNeuronActivationAt(Sample::Idx idx, HiddenNeuronPosition const & pos) {
-    auto & map = preferSampleNeuronActivationMaps[idx];
-    map.setNetwork(getNetwork());
-    map.insertOrAssign(pos.layer, pos.node, not pos.negated);
+    validateHiddenNeuronPosition(pos);
+    setActivation(preferSampleNeuronActivationMaps[idx], pos);
+}
+
+std::optional<bool> Framework::Config::tryGetFixingOfAllSampleNeuronActivationsAt(std::size_t layer,
+                                                                                  std::size_t node) const {
+    return tryGetActivation(fixAllSampleNeuronActivationsMap, layer, node);
+}
+
+std::optional<bool> Framework::Config::tryGetPreferenceOfAllSampleNeuronActivationsAt(std::size_t layer,
+                                                                                      std::size_t node) const {
+    return tryGetActivation(preferAllSampleNeuronActivationsMap, layer, node);
 }
 
 [[nodiscard]]
 std::optional<bool> Framework::Config::tryGetFixingOfSampleNeuronActivationAt(Sample::Idx idx, std::size_t layer,
                                                                               std::size_t node) const {
     if (auto mapIt = fixSampleNeuronActivationMaps.find(idx); mapIt != fixSampleNeuronActivationMaps.end()) {
-        return mapIt->second.tryGetAt(layer, node);
+        return tryGetActivation(mapIt->second, layer, node);
     }
 
     return std::nullopt;
@@ -40,7 +127,7 @@ std::optional<bool> Framework::Config::tryGetFixingOfSampleNeuronActivationAt(Sa
 std::optional<bool> Framework::Config::tryGetPreferenceOfSampleNeuronActivationAt(Sample::Idx idx, std::size_t layer,
                                                                                   std::size_t node) const {
     if (auto mapIt = preferSampleNeuronActivationMaps.find(idx); mapIt != preferSampleNeuronActivationMaps.end()) {
-        return mapIt->second.tryGetAt(layer, node);
+        return tryGetActivation(mapIt->second, layer, node);
     }
 
     return std::nullopt;
@@ -160,8 +247,7 @@ namespace {
             throw std::ifstream::failure{"Could not open sample neuron activations file: "s + std::string{fileName}};
         }
 
-        auto const & network = config.getNetwork();
-        std::size_t const nHiddenLayers = network.nHiddenLayers();
+        std::size_t const nHiddenLayers = config.nHiddenLayers();
 
         long parsedSampleIdx;
         long lastParsedSampleIdx = -1;
