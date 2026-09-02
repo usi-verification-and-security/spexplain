@@ -51,13 +51,28 @@ if (FETCH_PROTOBUF)
     set(protobuf_WITH_ZLIB OFF CACHE INTERNAL "")
     set(protobuf_BUILD_PROTOC_BINARIES ON CACHE INTERNAL "")
 
-    FetchContent_Declare(
-        protobuf
-        GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
-        GIT_TAG v3.21.12
-        GIT_SHALLOW true
-        GIT_PROGRESS true
-    )
+    # Fetched as a source tarball rather than a git clone: CMake downloads it with its own
+    # bundled libcurl, which sidesteps environments where `git clone https://` is broken (a
+    # frequent case in HPC containers, where host libraries injected via LD_LIBRARY_PATH shadow
+    # the container's libcurl/libnghttp2).
+    #
+    # Offline / restricted-network escape hatches:
+    #   -DPROTOBUF_SOURCE_DIR=/path/to/protobuf-21.12   already-extracted sources, no download
+    #   -DPROTOBUF_URL=/path/to/protobuf-v21.12.tar.gz  a local tarball, or a mirror URL
+    set(PROTOBUF_URL "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v21.12.tar.gz"
+        CACHE STRING "URL or local path of the protobuf source archive")
+    set(PROTOBUF_URL_HASH "SHA256=22fdaf641b31655d4b2297f9981fa5203b2866f8332d3c6333f6b0107bb320de"
+        CACHE STRING "Expected hash of PROTOBUF_URL; set to empty to skip the check")
+    set(PROTOBUF_SOURCE_DIR "" CACHE PATH "Pre-extracted protobuf sources; skips downloading")
+
+    if (PROTOBUF_SOURCE_DIR)
+        message(STATUS "Using protobuf sources from ${PROTOBUF_SOURCE_DIR}")
+        FetchContent_Declare(protobuf SOURCE_DIR "${PROTOBUF_SOURCE_DIR}")
+    elseif (PROTOBUF_URL_HASH)
+        FetchContent_Declare(protobuf URL "${PROTOBUF_URL}" URL_HASH "${PROTOBUF_URL_HASH}")
+    else()
+        FetchContent_Declare(protobuf URL "${PROTOBUF_URL}")
+    endif()
     message(STATUS "Building protobuf from source (FETCH_PROTOBUF=ON); this takes a few minutes")
     FetchContent_MakeAvailable(protobuf)
     set(SPEXPLAIN_FETCHED_PROTOBUF ON)
@@ -92,13 +107,28 @@ SET(OPENSMT_HOME CACHE STRING "OpenSMT installation directory")
 
 # if (OpenSMT_FOUND)
 # else(OpenSMT_FOUND)
-    FetchContent_Declare(
-        OpenSMT
-        GIT_REPOSITORY https://github.com/usi-verification-and-security/opensmt.git
-        GIT_TAG origin/spexplain
-        GIT_SHALLOW true
-        GIT_PROGRESS true
-    )
+    # Same escape hatches as protobuf, for environments where `git clone https://` is broken:
+    #   -DOPENSMT_SOURCE_DIR=/path/to/opensmt   already-extracted sources, no download
+    #   -DOPENSMT_URL=<url-or-local-tarball>    fetch a tarball with CMake's downloader, not git
+    # No hash is pinned because the default URL tracks a branch, whose content changes.
+    set(OPENSMT_URL "" CACHE STRING "URL or local path of an OpenSMT source archive (branch tarball)")
+    set(OPENSMT_SOURCE_DIR "" CACHE PATH "Pre-extracted OpenSMT sources; skips downloading")
+
+    if (OPENSMT_SOURCE_DIR)
+        message(STATUS "Using OpenSMT sources from ${OPENSMT_SOURCE_DIR}")
+        FetchContent_Declare(OpenSMT SOURCE_DIR "${OPENSMT_SOURCE_DIR}")
+    elseif (OPENSMT_URL)
+        message(STATUS "Fetching OpenSMT from ${OPENSMT_URL}")
+        FetchContent_Declare(OpenSMT URL "${OPENSMT_URL}")
+    else()
+        FetchContent_Declare(
+            OpenSMT
+            GIT_REPOSITORY https://github.com/usi-verification-and-security/opensmt.git
+            GIT_TAG origin/spexplain
+            GIT_SHALLOW true
+            GIT_PROGRESS true
+        )
+    endif()
     set(BUILD_EXECUTABLES OFF CACHE INTERNAL "")
     set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "")
     set(BUILD_STATIC_LIBS ON CACHE INTERNAL "")
