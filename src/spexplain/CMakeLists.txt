@@ -4,8 +4,10 @@ add_library(spexplain OBJECT
 
 # onnx.pb.{h,cc}: either the checked-in copies (pinned to one exact protobuf version by an
 # `#if PROTOBUF_VERSION != ...` / `#error` guard) or freshly generated ones. Generated output goes
-# to ${CMAKE_BINARY_DIR}/onnx-1.15.0/ so that the existing `#include <onnx-1.15.0/onnx.pb.h>`
-# keeps resolving, with the binary dir searched ahead of the source tree.
+# to <build>/generated/onnx-1.15.0/ so the existing `#include <onnx-1.15.0/onnx.pb.h>` keeps
+# resolving. That directory must be added with BEFORE and *without* SYSTEM: system include paths
+# are searched after normal ones, so marking it SYSTEM would let the stale checked-in header under
+# ${SOURCE_DIR} win and the build would fail with a protobuf version mismatch.
 set(ONNX_PROTO_DIR "${PROJECT_SOURCE_DIR}/src/onnx-1.15.0")
 if (REGENERATE_ONNX_PROTO)
     if (TARGET protobuf::protoc)
@@ -16,7 +18,8 @@ if (REGENERATE_ONNX_PROTO)
         message(FATAL_ERROR "REGENERATE_ONNX_PROTO=ON but no protoc was found alongside protobuf")
     endif()
 
-    set(ONNX_PB_OUT_DIR "${CMAKE_BINARY_DIR}/onnx-1.15.0")
+    set(ONNX_PB_INCLUDE_DIR "${CMAKE_BINARY_DIR}/generated")
+    set(ONNX_PB_OUT_DIR "${ONNX_PB_INCLUDE_DIR}/onnx-1.15.0")
     file(MAKE_DIRECTORY "${ONNX_PB_OUT_DIR}")
     add_custom_command(
         OUTPUT "${ONNX_PB_OUT_DIR}/onnx.pb.cc" "${ONNX_PB_OUT_DIR}/onnx.pb.h"
@@ -72,8 +75,11 @@ PRIVATE
 PUBLIC
 )
 
+if (REGENERATE_ONNX_PROTO)
+    target_include_directories(spexplain BEFORE PUBLIC ${ONNX_PB_INCLUDE_DIR})
+endif()
+
 target_include_directories(spexplain SYSTEM PUBLIC
-    ${CMAKE_BINARY_DIR}
     ${opensmt_SOURCE_DIR}/src
     ${GMP_INCLUDE_DIR}
     ${PROJECT_SOURCE_DIR}/src
@@ -93,11 +99,17 @@ PRIVATE
 target_link_libraries(spexplain
 PUBLIC
     protobuf::libprotobuf
-    absl::log
-    absl::check
-    absl::base
-    absl::strings
 )
+
+if (absl_FOUND)
+    target_link_libraries(spexplain
+    PUBLIC
+        absl::log
+        absl::check
+        absl::base
+        absl::strings
+    )
+endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 target_compile_options(spexplain

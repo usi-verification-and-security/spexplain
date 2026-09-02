@@ -15,32 +15,76 @@ if (APPLE)
     endif()
 endif()
 
-# Protobuf >= 22 ships a CMake config package and depends on abseil, so prefer CONFIG mode and
-# fall back to the FindProtobuf module for older installs. If neither is on the default search
-# path (typical on a cluster), point CMake at the install with
-#   cmake -B build -DCMAKE_PREFIX_PATH=/path/to/prefix
-find_package(protobuf CONFIG QUIET)
-if (NOT protobuf_FOUND)
-    find_package(Protobuf MODULE QUIET)
-endif()
-if (NOT protobuf_FOUND AND NOT Protobuf_FOUND)
-    message(FATAL_ERROR
-        "Could not find Protobuf.\n"
-        "Install it and re-run with -DCMAKE_PREFIX_PATH=<prefix>, e.g. for a conda env:\n"
-        "  conda install -c conda-forge libprotobuf abseil-cpp\n"
-        "  cmake -B build -DCMAKE_PREFIX_PATH=$ENV{CONDA_PREFIX}\n"
-        "The vendored src/onnx-1.15.0/onnx.pb.cc is pinned to one exact protobuf version; if the\n"
-        "one you install differs, also pass -DREGENERATE_ONNX_PROTO=ON to regenerate it.")
-endif()
+# Protobuf. Three ways to get it, in order of preference:
+#   1. installed on the system         -> found below (CONFIG mode first: protobuf >= 22 ships a
+#                                         config package and depends on abseil; MODULE mode is the
+#                                         fallback for older installs)
+#   2. installed in a custom prefix    -> cmake -DCMAKE_PREFIX_PATH=<prefix>
+#   3. not available at all            -> -DFETCH_PROTOBUF=ON builds it from source into the build
+#                                         tree, needing nothing installed on the machine. This is
+#                                         the option for a fixed container image with no root.
+option(FETCH_PROTOBUF "Download and build protobuf from source instead of using a system install" OFF)
 
-find_package(absl CONFIG REQUIRED)
-
-# The checked-in onnx.pb.{h,cc} carry `#if PROTOBUF_VERSION != <n>` + `#error`, so they compile
-# against exactly one protobuf release. Regenerating from onnx.proto with the local protoc removes
-# that coupling; needed whenever the available protobuf is not the one the files were generated with.
-option(REGENERATE_ONNX_PROTO "Regenerate onnx.pb.{h,cc} from onnx.proto using the local protoc" OFF)
+if (NOT FETCH_PROTOBUF)
+    find_package(protobuf CONFIG QUIET)
+    if (NOT protobuf_FOUND)
+        find_package(Protobuf MODULE QUIET)
+    endif()
+    if (NOT protobuf_FOUND AND NOT Protobuf_FOUND)
+        message(FATAL_ERROR
+            "Could not find Protobuf.\n"
+            "Either point CMake at an install with -DCMAKE_PREFIX_PATH=<prefix>, or build it from\n"
+            "source with -DFETCH_PROTOBUF=ON (needs no system packages and no root).")
+    endif()
+endif()
 
 include(FetchContent)
+
+if (FETCH_PROTOBUF)
+    # v3.21.12 is the last release before protobuf took on its abseil dependency, which keeps this
+    # build small and self-contained. Its own CMake minimum is modern enough for CMake 4.x.
+    set(protobuf_BUILD_TESTS OFF CACHE INTERNAL "")
+    set(protobuf_BUILD_EXAMPLES OFF CACHE INTERNAL "")
+    set(protobuf_INSTALL OFF CACHE INTERNAL "")
+    set(protobuf_BUILD_SHARED_LIBS OFF CACHE INTERNAL "")
+    # We only parse a serialised model; gzip streams are unused, so do not require zlib.
+    set(protobuf_WITH_ZLIB OFF CACHE INTERNAL "")
+    set(protobuf_BUILD_PROTOC_BINARIES ON CACHE INTERNAL "")
+
+    FetchContent_Declare(
+        protobuf
+        GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
+        GIT_TAG v3.21.12
+        GIT_SHALLOW true
+        GIT_PROGRESS true
+    )
+    message(STATUS "Building protobuf from source (FETCH_PROTOBUF=ON); this takes a few minutes")
+    FetchContent_MakeAvailable(protobuf)
+    set(SPEXPLAIN_FETCHED_PROTOBUF ON)
+endif()
+
+# Abseil is only needed because protobuf >= 22 depends on it; nothing in this project includes
+# absl headers itself. Distro protobuf 3.x and the fetched v3.21.12 both predate that dependency,
+# so do not hard-require abseil -- link it only when it is actually present.
+if (SPEXPLAIN_FETCHED_PROTOBUF)
+    # The fetched v3.21.12 predates the abseil dependency; a system abseil found here would be
+    # linked in for nothing and could even mismatch, so do not look for it at all.
+    message(STATUS "Skipping abseil: the fetched protobuf does not need it")
+else()
+    find_package(absl CONFIG QUIET)
+    if (absl_FOUND)
+        message(STATUS "Abseil found; linking it alongside protobuf")
+    else()
+        message(STATUS "Abseil not found; assuming a protobuf that does not require it")
+    endif()
+endif()
+
+option(REGENERATE_ONNX_PROTO "Regenerate onnx.pb.{h,cc} from onnx.proto using the local protoc" OFF)
+if (SPEXPLAIN_FETCHED_PROTOBUF AND NOT REGENERATE_ONNX_PROTO)
+    # The checked-in gencode is pinned to one exact protobuf release and cannot match a fetched one.
+    message(STATUS "Enabling REGENERATE_ONNX_PROTO: the fetched protobuf differs from the pinned gencode")
+    set(REGENERATE_ONNX_PROTO ON)
+endif()
 
 # Find OpenSMT2
 SET(OPENSMT_HOME CACHE STRING "OpenSMT installation directory")
