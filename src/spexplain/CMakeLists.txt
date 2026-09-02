@@ -2,6 +2,33 @@ add_library(spexplain OBJECT
         network/Network2.h
         network/Network2.cpp)
 
+# onnx.pb.{h,cc}: either the checked-in copies (pinned to one exact protobuf version by an
+# `#if PROTOBUF_VERSION != ...` / `#error` guard) or freshly generated ones. Generated output goes
+# to ${CMAKE_BINARY_DIR}/onnx-1.15.0/ so that the existing `#include <onnx-1.15.0/onnx.pb.h>`
+# keeps resolving, with the binary dir searched ahead of the source tree.
+set(ONNX_PROTO_DIR "${PROJECT_SOURCE_DIR}/src/onnx-1.15.0")
+if (REGENERATE_ONNX_PROTO)
+    if (TARGET protobuf::protoc)
+        set(_protoc $<TARGET_FILE:protobuf::protoc>)
+    elseif (Protobuf_PROTOC_EXECUTABLE)
+        set(_protoc "${Protobuf_PROTOC_EXECUTABLE}")
+    else()
+        message(FATAL_ERROR "REGENERATE_ONNX_PROTO=ON but no protoc was found alongside protobuf")
+    endif()
+
+    set(ONNX_PB_OUT_DIR "${CMAKE_BINARY_DIR}/onnx-1.15.0")
+    file(MAKE_DIRECTORY "${ONNX_PB_OUT_DIR}")
+    add_custom_command(
+        OUTPUT "${ONNX_PB_OUT_DIR}/onnx.pb.cc" "${ONNX_PB_OUT_DIR}/onnx.pb.h"
+        COMMAND ${_protoc} -I "${ONNX_PROTO_DIR}" --cpp_out "${ONNX_PB_OUT_DIR}" onnx.proto
+        DEPENDS "${ONNX_PROTO_DIR}/onnx.proto"
+        COMMENT "Regenerating onnx.pb.{h,cc} with the local protoc"
+        VERBATIM)
+    set(ONNX_PB_SOURCE "${ONNX_PB_OUT_DIR}/onnx.pb.cc")
+else()
+    set(ONNX_PB_SOURCE "${ONNX_PROTO_DIR}/onnx.pb.cc")
+endif()
+
 target_sources(spexplain
 PRIVATE
     common/Bound.cpp
@@ -10,7 +37,7 @@ PRIVATE
     common/Print.cpp
     common/TensorUtils.cpp
     network/Network.cpp
-    ../onnx-1.15.0/onnx.pb.cc
+    ${ONNX_PB_SOURCE}
     network/OnnxParser.cpp
     network/FCLayer.cpp
     network/ReLULayer.cpp
@@ -46,6 +73,7 @@ PUBLIC
 )
 
 target_include_directories(spexplain SYSTEM PUBLIC
+    ${CMAKE_BINARY_DIR}
     ${opensmt_SOURCE_DIR}/src
     ${GMP_INCLUDE_DIR}
     ${PROJECT_SOURCE_DIR}/src

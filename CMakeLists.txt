@@ -5,15 +5,40 @@ set(CMAKE_CXX_STANDARD 20)
 
 option(ENABLE_MARABOU "Enable Marabou verifier" OFF)
 
-# Ensure homebrew tools are found first (for bison 3.x)
-set(CMAKE_PROGRAM_PATH "/opt/homebrew/bin" CACHE PATH "Program search path")
-list(PREPEND CMAKE_PROGRAM_PATH "/opt/homebrew/bin")
+# macOS ships bison 2.3, which OpenSMT's parser cannot be built with; Homebrew has 3.x.
+# This must stay guarded: on Linux the path does not exist, and FORCE-ing it into the cache
+# makes the OpenSMT build fail with a missing bison.
+if (APPLE)
+    list(PREPEND CMAKE_PROGRAM_PATH "/opt/homebrew/bin")
+    if (EXISTS "/opt/homebrew/bin/bison")
+        set(BISON_EXECUTABLE "/opt/homebrew/bin/bison" CACHE FILEPATH "Bison executable" FORCE)
+    endif()
+endif()
 
-# Set BISON_EXECUTABLE to use the correct version (from homebrew)
-set(BISON_EXECUTABLE "/opt/homebrew/bin/bison" CACHE FILEPATH "Bison executable" FORCE)
+# Protobuf >= 22 ships a CMake config package and depends on abseil, so prefer CONFIG mode and
+# fall back to the FindProtobuf module for older installs. If neither is on the default search
+# path (typical on a cluster), point CMake at the install with
+#   cmake -B build -DCMAKE_PREFIX_PATH=/path/to/prefix
+find_package(protobuf CONFIG QUIET)
+if (NOT protobuf_FOUND)
+    find_package(Protobuf MODULE QUIET)
+endif()
+if (NOT protobuf_FOUND AND NOT Protobuf_FOUND)
+    message(FATAL_ERROR
+        "Could not find Protobuf.\n"
+        "Install it and re-run with -DCMAKE_PREFIX_PATH=<prefix>, e.g. for a conda env:\n"
+        "  conda install -c conda-forge libprotobuf abseil-cpp\n"
+        "  cmake -B build -DCMAKE_PREFIX_PATH=$ENV{CONDA_PREFIX}\n"
+        "The vendored src/onnx-1.15.0/onnx.pb.cc is pinned to one exact protobuf version; if the\n"
+        "one you install differs, also pass -DREGENERATE_ONNX_PROTO=ON to regenerate it.")
+endif()
 
-find_package(Protobuf REQUIRED)
 find_package(absl CONFIG REQUIRED)
+
+# The checked-in onnx.pb.{h,cc} carry `#if PROTOBUF_VERSION != <n>` + `#error`, so they compile
+# against exactly one protobuf release. Regenerating from onnx.proto with the local protoc removes
+# that coupling; needed whenever the available protobuf is not the one the files were generated with.
+option(REGENERATE_ONNX_PROTO "Regenerate onnx.pb.{h,cc} from onnx.proto using the local protoc" OFF)
 
 include(FetchContent)
 

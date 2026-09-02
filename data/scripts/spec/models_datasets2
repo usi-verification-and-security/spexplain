@@ -13,6 +13,7 @@
 ## MNIST pixels are stored raw (0-255) and flat (784 columns) in the CSV, so the bounds are the
 ## full pixel range for every feature. The model's ONNX input is image-shaped ([1,1,28,28]); the
 ## flat CSV columns land on it in row-major order, which is the order the CSV already uses.
+
 MNIST_PIXEL_MIN=$(printf '0,%.0s' $(seq 1 783))0
 MNIST_PIXEL_MAX=$(printf '255,%.0s' $(seq 1 783))255
 
@@ -20,6 +21,7 @@ MNIST_PIXEL_MAX=$(printf '255,%.0s' $(seq 1 783))255
 ## expects already-scaled pixels and pairs with datasets/mnist/mnist_s100_scaled.csv ([0,1]).
 ## The unfolded (raw 0-255) copies in models/mnist/cnn/ pair with mnist_quick/mnist_short instead;
 ## crossing the two silently produces garbage predictions, not an error.
+
 MNIST_UNIT_MIN=$(printf '0,%.0s' $(seq 1 783))0
 MNIST_UNIT_MAX=$(printf '1,%.0s' $(seq 1 783))1
 
@@ -27,8 +29,6 @@ OUTPUT_DIRS=(
     explanations2/heart_attack/full
     explanations2/heart_attack/short
     explanations2/heart_attack/quick
-
-    explanations2/mnist/quick
 
     explanations2/mnist/cnn/c4s2k5-fc
     explanations2/mnist/cnn/c8s2k5-fc
@@ -45,8 +45,6 @@ MODELS=(
     models/heart_attack/heart_attack-50.onnx
     models/heart_attack/heart_attack-50.onnx
 
-    models/mnist/mnist_cnn.onnx
-
     models/mnist/cnn/unit/c4s2k5-fc.onnx
     models/mnist/cnn/unit/c8s2k5-fc.onnx
     models/mnist/cnn/unit/c4s2k4-c8s2-fc.onnx
@@ -61,8 +59,6 @@ DATASETS=(
     datasets/heart_attack/heart_attack_full.csv
     datasets/heart_attack/heart_attack_short.csv
     datasets/heart_attack/heart_attack_quick.csv
-
-    datasets/mnist/mnist_quick.csv
 
     datasets/mnist/mnist_s100_scaled.csv
     datasets/mnist/mnist_s100_scaled.csv
@@ -80,8 +76,6 @@ INPUT_MINS=(
     29,0,0,94,126,0,0,71,0,0,0,0,0
     29,0,0,94,126,0,0,71,0,0,0,0,0
 
-    "$MNIST_PIXEL_MIN"
-
     "$MNIST_UNIT_MIN"
     "$MNIST_UNIT_MIN"
     "$MNIST_UNIT_MIN"
@@ -96,8 +90,6 @@ INPUT_MAXS=(
     77,1,3,200,594,1,2,202,1,6.2,2,4,3
     77,1,3,200,594,1,2,202,1,6.2,2,4,3
     77,1,3,200,594,1,2,202,1,6.2,2,4,3
-
-    "$MNIST_PIXEL_MAX"
 
     "$MNIST_UNIT_MAX"
     "$MNIST_UNIT_MAX"
