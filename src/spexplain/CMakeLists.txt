@@ -9,15 +9,8 @@ add_library(spexplain OBJECT
 # are searched after normal ones, so marking it SYSTEM would let the stale checked-in header under
 # ${SOURCE_DIR} win and the build would fail with a protobuf version mismatch.
 set(ONNX_PROTO_DIR "${PROJECT_SOURCE_DIR}/src/onnx-1.15.0")
-if (REGENERATE_ONNX_PROTO)
-    if (TARGET protobuf::protoc)
-        set(_protoc $<TARGET_FILE:protobuf::protoc>)
-    elseif (Protobuf_PROTOC_EXECUTABLE)
-        set(_protoc "${Protobuf_PROTOC_EXECUTABLE}")
-    else()
-        message(FATAL_ERROR "REGENERATE_ONNX_PROTO=ON but no protoc was found alongside protobuf")
-    endif()
-
+if (SPEXPLAIN_REGENERATE_ONNX)
+    set(_protoc "${SPEXPLAIN_PROTOC}")
     set(ONNX_PB_INCLUDE_DIR "${CMAKE_BINARY_DIR}/generated")
     set(ONNX_PB_OUT_DIR "${ONNX_PB_INCLUDE_DIR}/onnx-1.15.0")
     file(MAKE_DIRECTORY "${ONNX_PB_OUT_DIR}")
@@ -75,7 +68,7 @@ PRIVATE
 PUBLIC
 )
 
-if (REGENERATE_ONNX_PROTO)
+if (SPEXPLAIN_REGENERATE_ONNX)
     target_include_directories(spexplain BEFORE PUBLIC ${ONNX_PB_INCLUDE_DIR})
 endif()
 

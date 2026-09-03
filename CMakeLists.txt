@@ -23,24 +23,55 @@ endif()
 #   3. not available at all            -> -DFETCH_PROTOBUF=ON builds it from source into the build
 #                                         tree, needing nothing installed on the machine. This is
 #                                         the option for a fixed container image with no root.
-option(FETCH_PROTOBUF "Download and build protobuf from source instead of using a system install" OFF)
+# AUTO (default): use a system protobuf when there is one, otherwise build it from source.
+#                 This is what makes a plain `make` work both on a developer machine with
+#                 protobuf installed and in a bare container with nothing installed.
+# ON            : always build from source, ignoring any system install.
+# OFF           : require a system install and fail if it is missing.
+# Earlier revisions declared these with option(), i.e. as BOOL. A stale BOOL cache entry would now
+# be read with the new meaning (OFF = "forbid building from source"), which is not what it meant
+# then, so migrate any such entry back to AUTO instead of failing on an existing build directory.
+foreach (_var FETCH_PROTOBUF REGENERATE_ONNX_PROTO)
+    get_property(_type CACHE ${_var} PROPERTY TYPE)
+    if (_type STREQUAL "BOOL")
+        message(STATUS "Migrating stale boolean ${_var} cache entry to AUTO")
+        unset(${_var} CACHE)
+    endif()
+endforeach()
 
-if (NOT FETCH_PROTOBUF)
+set(FETCH_PROTOBUF "AUTO" CACHE STRING "Build protobuf from source: AUTO, ON or OFF")
+set_property(CACHE FETCH_PROTOBUF PROPERTY STRINGS AUTO ON OFF)
+
+if (NOT FETCH_PROTOBUF STREQUAL "ON")
     find_package(protobuf CONFIG QUIET)
     if (NOT protobuf_FOUND)
         find_package(Protobuf MODULE QUIET)
     endif()
-    if (NOT protobuf_FOUND AND NOT Protobuf_FOUND)
-        message(FATAL_ERROR
-            "Could not find Protobuf.\n"
-            "Either point CMake at an install with -DCMAKE_PREFIX_PATH=<prefix>, or build it from\n"
-            "source with -DFETCH_PROTOBUF=ON (needs no system packages and no root).")
-    endif()
+endif()
+
+set(SPEXPLAIN_HAVE_SYSTEM_PROTOBUF FALSE)
+if (protobuf_FOUND OR Protobuf_FOUND)
+    set(SPEXPLAIN_HAVE_SYSTEM_PROTOBUF TRUE)
+endif()
+
+if (FETCH_PROTOBUF STREQUAL "OFF" AND NOT SPEXPLAIN_HAVE_SYSTEM_PROTOBUF)
+    message(FATAL_ERROR
+        "Could not find Protobuf, and FETCH_PROTOBUF=OFF forbids building it.\n"
+        "Point CMake at an install with -DCMAKE_PREFIX_PATH=<prefix>, or drop FETCH_PROTOBUF=OFF\n"
+        "to let it be built from source automatically.")
 endif()
 
 include(FetchContent)
 
-if (FETCH_PROTOBUF)
+if (FETCH_PROTOBUF STREQUAL "ON")
+    message(STATUS "Building protobuf from source (FETCH_PROTOBUF=ON; any system install is ignored)")
+elseif (SPEXPLAIN_HAVE_SYSTEM_PROTOBUF)
+    message(STATUS "Using the system protobuf")
+else()
+    message(STATUS "No system protobuf found; building it from source")
+endif()
+
+if (NOT SPEXPLAIN_HAVE_SYSTEM_PROTOBUF OR FETCH_PROTOBUF STREQUAL "ON")
     # v3.21.12 is the last release before protobuf took on its abseil dependency, which keeps this
     # build small and self-contained. Its own CMake minimum is modern enough for CMake 4.x.
     set(protobuf_BUILD_TESTS OFF CACHE INTERNAL "")
@@ -79,11 +110,47 @@ else()
     endif()
 endif()
 
-option(REGENERATE_ONNX_PROTO "Regenerate onnx.pb.{h,cc} from onnx.proto using the local protoc" OFF)
-if (SPEXPLAIN_FETCHED_PROTOBUF AND NOT REGENERATE_ONNX_PROTO)
-    # The checked-in gencode is pinned to one exact protobuf release and cannot match a fetched one.
-    message(STATUS "Enabling REGENERATE_ONNX_PROTO: the fetched protobuf differs from the pinned gencode")
-    set(REGENERATE_ONNX_PROTO ON)
+# The checked-in src/onnx-1.15.0/onnx.pb.{h,cc} carry `#if PROTOBUF_VERSION != <n>` + `#error`,
+# so they compile against exactly one protobuf release and break against any other. Regenerating
+# them from onnx.proto with whatever protoc is at hand removes that coupling entirely, which is why
+# AUTO (the default) regenerates whenever a protoc is available.
+set(REGENERATE_ONNX_PROTO "AUTO" CACHE STRING
+    "Regenerate onnx.pb.{h,cc} from onnx.proto: AUTO (whenever protoc is available), ON or OFF")
+set_property(CACHE REGENERATE_ONNX_PROTO PROPERTY STRINGS AUTO ON OFF)
+
+if (TARGET protobuf::protoc)
+    set(SPEXPLAIN_PROTOC $<TARGET_FILE:protobuf::protoc>)
+elseif (Protobuf_PROTOC_EXECUTABLE)
+    set(SPEXPLAIN_PROTOC "${Protobuf_PROTOC_EXECUTABLE}")
+else()
+    set(SPEXPLAIN_PROTOC "")
+endif()
+
+if (REGENERATE_ONNX_PROTO STREQUAL "OFF")
+    set(SPEXPLAIN_REGENERATE_ONNX FALSE)
+elseif (REGENERATE_ONNX_PROTO STREQUAL "ON")
+    if (NOT SPEXPLAIN_PROTOC)
+        message(FATAL_ERROR "REGENERATE_ONNX_PROTO=ON but no protoc was found alongside protobuf")
+    endif()
+    set(SPEXPLAIN_REGENERATE_ONNX TRUE)
+else()
+    if (SPEXPLAIN_PROTOC)
+        set(SPEXPLAIN_REGENERATE_ONNX TRUE)
+    else()
+        set(SPEXPLAIN_REGENERATE_ONNX FALSE)
+        if (SPEXPLAIN_FETCHED_PROTOBUF)
+            message(FATAL_ERROR "Built protobuf from source but protoc is missing; cannot continue")
+        endif()
+        message(WARNING
+            "No protoc found: falling back to the checked-in onnx.pb.{h,cc}, which only compile "
+            "against one exact protobuf version and will fail if yours differs.")
+    endif()
+endif()
+
+if (SPEXPLAIN_REGENERATE_ONNX)
+    message(STATUS "onnx.pb.{h,cc} will be regenerated with the local protoc")
+else()
+    message(STATUS "Using the checked-in onnx.pb.{h,cc}")
 endif()
 
 # Find OpenSMT2
