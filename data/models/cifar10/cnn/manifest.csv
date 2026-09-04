@@ -1,0 +1,9 @@
+name,tokens,dataset,input_shape,num_classes,input_min,input_max,relu_neurons,maxpool_windows,params,test_accuracy,train_seconds,onnx_rel_diff,onnx
+c8s2k5-fc,c8s2k5,cifar10,3x32x32,10,0,1,1568,0,16298,0.5433,35,2.57e-06,c8s2k5-fc.onnx
+c16s2k5-fc,c16s2k5,cifar10,3x32x32,10,0,1,3136,0,32586,0.5608,37,1.97e-06,c16s2k5-fc.onnx
+c8s2k4-c16s2-fc,c8s2k4 c16s2,cifar10,3x32x32,10,0,1,2584,0,9410,0.5520,48,1.91e-06,c8s2k4-c16s2-fc.onnx
+c8s2k4-c16s2-p-fc,c8s2k4 c16s2 p,cifar10,3x32x32,10,0,1,2584,144,3010,0.5051,48,7.75e-07,c8s2k4-c16s2-p-fc.onnx
+c16s2k4-c32-p-f128-fc,c16s2k4 c32 p f128,cifar10,3x32x32,10,0,1,9136,1152,154298,0.6468,71,5.30e-06,c16s2k4-c32-p-f128-fc.onnx
+c16-p-c32-p-fc,c16 p c32 p,cifar10,3x32x32,10,0,1,19808,4752,16618,0.6449,82,3.99e-06,c16-p-c32-p-fc.onnx
+c32-p-c64-p-f128-fc,c32 p c64 p f128,cifar10,3x32x32,10,0,1,39744,9504,315722,0.6898,135,4.87e-06,c32-p-c64-p-f128-fc.onnx
+c32-c64-p-c64-p-f256-fc,c32 c64 p c64 p f256,cifar10,3x32x32,10,0,1,88448,14848,648970,0.7231,385,1.74e-05,c32-c64-p-c64-p-f256-fc.onnx

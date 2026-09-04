@@ -1,0 +1,35 @@
+Dataset size: 4
+Number of variables: 16
+------------------------------------------------------------
+
+sample [1/4]: 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+expected output: 1
+computed output: 1
+#checks: 16
+#features: 8/16
+#fixed features: 0/16
+#terms: 8
+
+sample [2/4]: 3,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0
+expected output: 0
+computed output: 0
+#checks: 16
+#features: 2/16
+#fixed features: 0/16
+#terms: 2
+
+sample [3/4]: 3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+expected output: 0
+computed output: 0
+#checks: 16
+#features: 2/16
+#fixed features: 0/16
+#terms: 2
+
+sample [4/4]: 2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+expected output: 1
+computed output: 1
+#checks: 16
+#features: 8/16
+#fixed features: 0/16
+#terms: 8
