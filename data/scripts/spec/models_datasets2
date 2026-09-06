@@ -25,10 +25,22 @@ MNIST_PIXEL_MAX=$(printf '255,%.0s' $(seq 1 783))255
 MNIST_UNIT_MIN=$(printf '0,%.0s' $(seq 1 783))0
 MNIST_UNIT_MAX=$(printf '1,%.0s' $(seq 1 783))1
 
+## VeriX (github.com/NeuralNetworkVerification/VeriX) MNIST/GTSRB models, used unmodified.
+## OnnxParser previously had no case for the generic Reshape op these models use to flatten
+## before their first dense layer (mnist-cnn also uses one, harmlessly, to relabel NHWC to NCHW
+## before its first Conv); OnnxParser::reshape()/ReshapeLayer now handle it directly (see
+## ReshapeLayer.h), verified against onnxruntime on the original files (Network2 vs onnxruntime,
+## real _s100_scaled rows: float32-level agreement, 0 argmax mismatches). Datasets are pre-scaled
+## to [0,1], matching these bounds.
+GTSRB_UNIT_MIN=$(printf '0,%.0s' $(seq 1 3071))0
+GTSRB_UNIT_MAX=$(printf '1,%.0s' $(seq 1 3071))1
+
 OUTPUT_DIRS=(
     explanations2/heart_attack/full
     explanations2/heart_attack/short
     explanations2/heart_attack/quick
+
+    explanations2/mnist/quick
 
     explanations2/mnist/cnn/c4s2k5-fc
     explanations2/mnist/cnn/c8s2k5-fc
@@ -38,12 +50,19 @@ OUTPUT_DIRS=(
     explanations2/mnist/cnn/c8s2k4-c16-p-f64-fc
     explanations2/mnist/cnn/c16-p-c32-p-f128-fc
     explanations2/mnist/cnn/c16-c32-p-c32-p-f128-fc
+
+    explanations2/verix/mnist-fc
+    explanations2/verix/mnist-cnn
+    explanations2/verix/gtsrb-fc
+    explanations2/verix/gtsrb-cnn
 )
 
 MODELS=(
     models/heart_attack/heart_attack-50.onnx
     models/heart_attack/heart_attack-50.onnx
     models/heart_attack/heart_attack-50.onnx
+
+    models/mnist/mnist_cnn.onnx
 
     models/mnist/cnn/unit/c4s2k5-fc.onnx
     models/mnist/cnn/unit/c8s2k5-fc.onnx
@@ -53,6 +72,11 @@ MODELS=(
     models/mnist/cnn/unit/c8s2k4-c16-p-f64-fc.onnx
     models/mnist/cnn/unit/c16-p-c32-p-f128-fc.onnx
     models/mnist/cnn/unit/c16-c32-p-c32-p-f128-fc.onnx
+
+    models/Verix_models/mnist-fc.onnx
+    models/Verix_models/mnist-cnn.onnx
+    models/Verix_models/gtsrb-fc.onnx
+    models/Verix_models/gtsrb-cnn.onnx
 )
 
 DATASETS=(
@@ -60,6 +84,8 @@ DATASETS=(
     datasets/heart_attack/heart_attack_short.csv
     datasets/heart_attack/heart_attack_quick.csv
 
+    datasets/mnist/mnist_quick.csv
+
     datasets/mnist/mnist_s100_scaled.csv
     datasets/mnist/mnist_s100_scaled.csv
     datasets/mnist/mnist_s100_scaled.csv
@@ -68,6 +94,11 @@ DATASETS=(
     datasets/mnist/mnist_s100_scaled.csv
     datasets/mnist/mnist_s100_scaled.csv
     datasets/mnist/mnist_s100_scaled.csv
+
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/mnist/mnist_s100_scaled.csv
+    datasets/gtsrb/gtsrb_s100_scaled.csv
+    datasets/gtsrb/gtsrb_s100_scaled.csv
 )
 
 ## age,sex,cp,trtbps,chol,fbs,restecg,thalachh,exng,oldpeak,slp,caa,thall
@@ -76,6 +107,8 @@ INPUT_MINS=(
     29,0,0,94,126,0,0,71,0,0,0,0,0
     29,0,0,94,126,0,0,71,0,0,0,0,0
 
+    "$MNIST_PIXEL_MIN"
+
     "$MNIST_UNIT_MIN"
     "$MNIST_UNIT_MIN"
     "$MNIST_UNIT_MIN"
@@ -84,6 +117,11 @@ INPUT_MINS=(
     "$MNIST_UNIT_MIN"
     "$MNIST_UNIT_MIN"
     "$MNIST_UNIT_MIN"
+
+    "$MNIST_UNIT_MIN"
+    "$MNIST_UNIT_MIN"
+    "$GTSRB_UNIT_MIN"
+    "$GTSRB_UNIT_MIN"
 )
 
 INPUT_MAXS=(
@@ -91,6 +129,8 @@ INPUT_MAXS=(
     77,1,3,200,594,1,2,202,1,6.2,2,4,3
     77,1,3,200,594,1,2,202,1,6.2,2,4,3
 
+    "$MNIST_PIXEL_MAX"
+
     "$MNIST_UNIT_MAX"
     "$MNIST_UNIT_MAX"
     "$MNIST_UNIT_MAX"
@@ -99,4 +139,9 @@ INPUT_MAXS=(
     "$MNIST_UNIT_MAX"
     "$MNIST_UNIT_MAX"
     "$MNIST_UNIT_MAX"
+
+    "$MNIST_UNIT_MAX"
+    "$MNIST_UNIT_MAX"
+    "$GTSRB_UNIT_MAX"
+    "$GTSRB_UNIT_MAX"
 )

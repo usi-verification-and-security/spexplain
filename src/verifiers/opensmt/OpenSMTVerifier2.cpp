@@ -665,8 +665,9 @@ OpenSMTVerifier2::OpenSMTImpl::makeLayerEncoder(spexplain::NetworkLayer const & 
         return std::make_unique<AffineEncoder>(addRows(dynamic_cast<spexplain::AddLayer const &>(layer)));
     }
     if (type == "relu") { return std::make_unique<ReLUEncoder>(); }
-    if (type == "flatten") {
-        // Flatten is a no-op re-indexing (identity map).
+    if (type == "flatten" || type == "reshape") {
+        // Both are no-op re-indexing (identity map): neither permutes data, only regroups
+        // dimensions while preserving row-major order (unlike Transpose, which does permute).
         // TODO:Faezeh - just need to make sure it is flattened the same way.
         std::vector<std::size_t> identity(layer.getOutputSize());
         for (std::size_t i = 0; i < identity.size(); ++i) { identity[i] = i; }

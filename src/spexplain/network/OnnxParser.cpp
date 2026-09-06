@@ -10,6 +10,7 @@
 #include "CNNLayer.h"
 #include "TransposeLayer.h"
 #include "FlattenLayer.h"
+#include "ReshapeLayer.h"
 #include "MaxPoolLayer.h"
 #include "AddLayer.h"
 #include <spexplain/common/MStringf.h>
@@ -954,9 +955,7 @@ void OnnxParser::makeNodeObjects( onnx::NodeProto &node, bool makeEquations )
     }
     else if ( strcmp( nodeType, "Reshape" ) == 0 )
     {
-        // reshape( node );
-        std::cout << "Calling reshape function" << std::endl;
-        std::cout << node.name() << ": reshape function not implemented!" << std::endl;
+        reshape( node );
     }
     else if ( strcmp( nodeType, "Flatten" ) == 0 )
     {
@@ -1211,6 +1210,13 @@ void OnnxParser::reshape( onnx::NodeProto &node )
 
     // Transfer constants/variables
     transferValues( inputNodeName, outputNodeName );
+
+    if ( _net && !isConstantNode( inputNodeName ) )
+    {
+        NetworkLayer::Shape inShape = toLayerShape( oldShape, /*stripBatch=*/true );
+        NetworkLayer::Shape outShape = toLayerShape( newShape, /*stripBatch=*/true );
+        _net->addLayer( std::make_unique<ReshapeLayer>( std::move( inShape ), std::move( outShape ) ) );
+    }
 }
 
 /**

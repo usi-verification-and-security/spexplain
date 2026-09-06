@@ -331,7 +331,16 @@ function set_input_output_file {
     eval $ifiles_var'+=($lifile)'
     eval $ofiles_var'+=($lofile)'
 
-    cp "$psi_file" $lifile
+    ## psi files are complete, standalone SMT-LIB2 scripts (dumped by spexplain's
+    ## dump-psi/encode-onnx via OpenSMT's dumpChecksatToFile, ending in their own
+    ## "(check-sat)"/"(exit)"), but here they are reused as an *assertion prefix* onto which
+    ## further "(assert ...)"/"(check-sat)" pairs get appended below. A solver that honours
+    ## "(exit)" (both opensmt and z3 do) stops at the psi file's own check-sat/exit and never
+    ## sees anything appended after it -- silently making every solve answer the trivial
+    ## "is the psi file alone satisfiable?" question instead of the one actually being asked.
+    ## Strip those two lines (present verbatim, one per line, with nothing else on them) so the
+    ## copy is a bare assertion prefix.
+    grep -v -x -E '\(check-sat\)|\(exit\)' "$psi_file" >$lifile
 }
 
 function exec_solver {
@@ -433,7 +442,10 @@ while true; do
             printf "(declare-fun C1 () Real)\n" >>$ifile
             printf "(declare-fun C2 () Real)\n" >>$ifile
 
-            sed -n '/assert/,$p' <"$psi_file" | sed -r "${sed_str}" >>$ifile
+            ## Same premature-(check-sat)/(exit) issue as in set_input_output_file (see the
+            ## comment there): this second copy of the domain assertions, with $var renamed,
+            ## is read from the psi file directly rather than from the already-stripped $ifile.
+            sed -n '/assert/,$p' <"$psi_file" | grep -v -x -E '\(check-sat\)|\(exit\)' | sed -r "${sed_str}" >>$ifile
 
             printf "(assert %s)\n(assert %s)\n" "$line" "$line2" >>$ifile
             printf "(assert (and (= %s C1) (= %s C2) (not (= C1 C2))))\n" $var $var2 >>$ifile

@@ -498,6 +498,7 @@ void Framework::Expand::assertClassification(Network::Classification const & cls
     // With single output value, the flip in classification means flipping the value across 0
     constexpr Float threshold = 0.015625f;
     assert(label == 0 || label == 1);
+    //TODO: ask Tomas: shouldn't this be >= threshold for label 1 and <= -threshold for label 0? I think the current implementation is flipped
     if (label == 1) {
         // <= -threshold
         verifierPtr->addUpperBound(outputLayerIndex, 0, -threshold);
