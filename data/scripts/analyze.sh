@@ -331,16 +331,7 @@ function set_input_output_file {
     eval $ifiles_var'+=($lifile)'
     eval $ofiles_var'+=($lofile)'
 
-    ## psi files are complete, standalone SMT-LIB2 scripts (dumped by spexplain's
-    ## dump-psi/encode-onnx via OpenSMT's dumpChecksatToFile, ending in their own
-    ## "(check-sat)"/"(exit)"), but here they are reused as an *assertion prefix* onto which
-    ## further "(assert ...)"/"(check-sat)" pairs get appended below. A solver that honours
-    ## "(exit)" (both opensmt and z3 do) stops at the psi file's own check-sat/exit and never
-    ## sees anything appended after it -- silently making every solve answer the trivial
-    ## "is the psi file alone satisfiable?" question instead of the one actually being asked.
-    ## Strip those two lines (present verbatim, one per line, with nothing else on them) so the
-    ## copy is a bare assertion prefix.
-    grep -v -x -E '\(check-sat\)|\(exit\)' "$psi_file" >$lifile
+    cp "$psi_file" $lifile
 }
 
 function exec_solver {
