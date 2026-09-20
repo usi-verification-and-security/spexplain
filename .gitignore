@@ -40,3 +40,6 @@ build*/
 *.tar.gz
 *.rar
 *.7z
+
+# macOS
+.DS_Store

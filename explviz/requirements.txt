@@ -1,0 +1,11 @@
+# explviz runtime dependencies.
+# Requires Python >= 3.9.
+#
+#   python3 -m pip install -r explviz/requirements.txt
+
+numpy>=1.21
+scipy>=1.7           # linprog(method="highs"), spatial.ConvexHull
+pyparsing>=3.0       # SMT2 s-expression grammar
+pandas>=1.3          # reading the dataset CSVs
+matplotlib>=3.5      # all drawing
+torch>=1.10          # evaluating the model for class-region backgrounds
