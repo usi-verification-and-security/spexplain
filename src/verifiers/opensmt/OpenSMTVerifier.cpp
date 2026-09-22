@@ -83,7 +83,7 @@ public:
 
     std::unique_ptr<spexplain::Explanation> getSampleModelRestrictions(spexplain::Framework const &);
 
-    UnsatCore getUnsatCore() const;
+    std::unique_ptr<UnsatCore> getUnsatCore() const;
 
     opensmt::MainSolver const & getSolver() const { return *solver; }
     opensmt::MainSolver & getSolver() { return *solver; }
@@ -245,7 +245,7 @@ std::unique_ptr<spexplain::Explanation> OpenSMTVerifier::getSampleModelRestricti
     return pimpl->getSampleModelRestrictions(fw);
 }
 
-UnsatCore OpenSMTVerifier::getUnsatCore() const {
+std::unique_ptr<UnsatCore> OpenSMTVerifier::getUnsatCore() const {
     return pimpl->getUnsatCore();
 }
 
@@ -784,8 +784,10 @@ OpenSMTVerifier::OpenSMTImpl::getSampleModelRestrictions(spexplain::Framework co
     return MAKE_UNIQUE(std::move(cexplanation));
 }
 
-UnsatCore OpenSMTVerifier::OpenSMTImpl::getUnsatCore() const {
+std::unique_ptr<UnsatCore> OpenSMTVerifier::OpenSMTImpl::getUnsatCore() const {
     auto const unsatCore = solver->getUnsatCore();
+    if (not unsatCore) { return {}; }
+
     auto const & unsatCoreTerms = unsatCore->getTerms();
 
     assert(unsatCoreTerms.size() > 0 or not unsatCoreNodeFilter.empty());
@@ -860,7 +862,7 @@ UnsatCore OpenSMTVerifier::OpenSMTImpl::getUnsatCore() const {
     std::ranges::sort(equalities);
     std::ranges::sort(intervals);
 
-    return unsatCoreRes;
+    return MAKE_UNIQUE(std::move(unsatCoreRes));
 }
 
 void OpenSMTVerifier::OpenSMTImpl::printSmtLib2Query(std::ostream & os) const {

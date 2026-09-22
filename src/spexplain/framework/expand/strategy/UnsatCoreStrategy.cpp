@@ -63,9 +63,8 @@ void Framework::Expand::UnsatCoreStrategy::executeBody(ConjunctExplanation & cex
     [[maybe_unused]] bool const ok = checkFormsExplanation();
     assert(ok);
 
-    auto & verifier = getVerifier();
-
-    xai::verifiers::UnsatCore unsatCore = verifier.getUnsatCore();
+    auto unsatCorePtr = getUnsatCorePtr();
+    auto & unsatCore = *unsatCorePtr;
     assert(cexplanation.validSize() == unsatCore.includedIndices.size() + unsatCore.excludedIndices.size());
 
     // Every particular assertion corresponds to one explanation of the conjunction
@@ -108,9 +107,9 @@ void Framework::Expand::UnsatCoreStrategy::executeBody(IntervalExplanation & iex
     assert(ok);
 
     auto & fw = expand.getFramework();
-    auto & verifier = getVerifier();
 
-    xai::verifiers::UnsatCore unsatCore = verifier.getUnsatCore();
+    auto unsatCorePtr = getUnsatCorePtr();
+    auto & unsatCore = *unsatCorePtr;
 
     IntervalExplanation newExplanation{fw};
 
@@ -139,5 +138,11 @@ void Framework::Expand::UnsatCoreStrategy::executeBody(IntervalExplanation & iex
     }
 
     iexplanation.swap(newExplanation);
+}
+
+std::unique_ptr<xai::verifiers::UnsatCore> Framework::Expand::UnsatCoreStrategy::getUnsatCorePtr() {
+    auto unsatCorePtr = getVerifier().getUnsatCore();
+    if (not unsatCorePtr) { throwUnknownResultInternalException(); }
+    return unsatCorePtr;
 }
 } // namespace spexplain

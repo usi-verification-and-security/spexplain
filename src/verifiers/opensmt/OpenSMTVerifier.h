@@ -52,7 +52,7 @@ public:
     void resetSample() override;
     void resetSampleModel() override;
 
-    UnsatCore getUnsatCore() const override;
+    std::unique_ptr<UnsatCore> getUnsatCore() const override;
 
     //+ remove from API
     opensmt::MainSolver const & getSolver() const;

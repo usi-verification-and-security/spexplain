@@ -4,6 +4,7 @@
 #include "Strategy.h"
 
 namespace xai::verifiers {
+struct UnsatCore;
 class UnsatCoreVerifier;
 }
 
@@ -38,6 +39,8 @@ protected:
     void executeBody(Explanations &, Network::Dataset const &, Sample::Idx) override;
     virtual void executeBody(ConjunctExplanation &);
     virtual void executeBody(IntervalExplanation &);
+
+    virtual std::unique_ptr<xai::verifiers::UnsatCore> getUnsatCorePtr();
 
     Config config{};
 };
