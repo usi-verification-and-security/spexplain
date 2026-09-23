@@ -1,0 +1,8 @@
+model,status,seconds,psi_c0_MB,n_files
+mnist/P8,ok,108,113,11
+mnist/S8,ok,97,81,11
+gtsrb/P8,ok,791,177,44
+cifar10/P8,ok,186,177,11
+cifar10/S8,ok,149,113,11
+imagenette/P8,ok,859,785,11
+imagenette/S8,ok,702,433,11

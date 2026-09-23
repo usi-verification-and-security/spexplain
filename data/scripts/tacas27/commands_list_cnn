@@ -1,0 +1,106 @@
+## Examples for the CNN (ONNX) runs; see ./common-cnn for all env. variables.
+## Models:      MODEL_IDS="S1 P1 ..." (default: all 12), or ids/paths as arguments
+## Variants:    VARIANTS="naive guide-all ..." (names from spec/variants/all), or VARIANTS_SPEC=<collection>
+## Samples:     MAX_SAMPLES=<n> processes <n> shuffled samples instead of all 100; results go to
+##              an extra Sn<n>/ subdirectory, e.g. explanations/mnist/cnn-bench/S1/s100_scaled/naive/Sn10/
+## Timeouts:    TIMEOUT_PER=<t> per explanation (defaults: MN 10m, CIF 10m, GTS 14m, IMN 1h),
+##              TIMEOUT=<t> per experiment, TIMEOUT_ALL=<HH:MM:SS> for the whole run (default 23:55:00)
+
+## Max samples: first 10 shuffled samples of every model, default variants and timeouts
+NAME=MNCNN-Sn10  MAX_SAMPLES=10 WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=CIFCNN-Sn10 MAX_SAMPLES=10 WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=GTSCNN-Sn10 MAX_SAMPLES=10 WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=IMNCNN-Sn10 MAX_SAMPLES=10 WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+
+## Max samples with a custom per-explanation timeout
+NAME=MNCNN-Sn20-t5m  MAX_SAMPLES=20 TIMEOUT_PER=5m  WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=GTSCNN-Sn20-t30m MAX_SAMPLES=20 TIMEOUT_PER=30m WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+
+## Max samples for selected models and variants
+NAME=CIFCNN-d1d2-Sn5 MAX_SAMPLES=5 MODEL_IDS="S1 P1 S2 P2" VARIANTS="naive fix-all" WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=MNCNN-P1-Sn50  MAX_SAMPLES=50 VARIANTS=guide-all WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh P1
+
+## Dry run: what would be run for two models and two variants
+DRY_RUN=1 MODEL_IDS="S1 P1" VARIANTS="naive guide-all" ./data/scripts/tacas27/MN-CNN.sh
+
+## Shallow half of the family, all neuron-activation variants, 20 shuffled samples
+NAME=MNCNN-shallow MODEL_IDS="S1 P1 S2 P2 S3 P3" MAX_SAMPLES=20 WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=GTSCNN-shallow MODEL_IDS="S1 P1 S2 P2 S3 P3" MAX_SAMPLES=20 WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=CIFCNN-shallow MODEL_IDS="S1 P1 S2 P2 S3 P3" MAX_SAMPLES=20 WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=IMNCNN-shallow MODEL_IDS="S1 P1 S2 P2" MAX_SAMPLES=20 WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+
+## Deep half, only the prefer (guide-all) variant, one experiment
+NAME=MNCNN-deep-prefer MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS=guide-all EXPERIMENTS_SPEC=plain_itp FILTER='/itp_aweak_bstrong$' WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+
+## Strided vs. pooled twins at depth 2, fix-all and hybrid
+NAME=CIFCNN-d2-fix_hybrid VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh S2 P2
+
+## Longer per-explanation timeout
+NAME=GTSCNN-S1 TIMEOUT_PER=1h WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh S1
+
+
+## ===================================================================================
+## Full runs: shallow (S1-P3) and deep (S4-P8) models x naive_only, fix_hybrid, prefer_only
+##   Mode 1 (full):  all 100 samples, default per-explanation timeouts (MN 10m, CIF 10m, GTS 14m, IMN 1h)
+##   Mode 2 (Sn20):  20 shuffled samples, TIMEOUT_PER=1h
+## ===================================================================================
+
+## ---------- Mode 1: whole dataset, default timeouts ----------
+
+NAME=MNCNN-shallow-naive_only-full MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-shallow-fix_hybrid-full MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-shallow-prefer_only-full MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-deep-naive_only-full MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-deep-fix_hybrid-full MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-deep-prefer_only-full MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+
+NAME=CIFCNN-shallow-naive_only-full MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-shallow-fix_hybrid-full MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-shallow-prefer_only-full MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-deep-naive_only-full MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-deep-fix_hybrid-full MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-deep-prefer_only-full MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+
+NAME=GTSCNN-shallow-naive_only-full MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-shallow-fix_hybrid-full MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-shallow-prefer_only-full MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-deep-naive_only-full MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-deep-fix_hybrid-full MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-deep-prefer_only-full MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+
+NAME=IMNCNN-shallow-naive_only-full MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-shallow-fix_hybrid-full MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-shallow-prefer_only-full MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-deep-naive_only-full MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-deep-fix_hybrid-full MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-deep-prefer_only-full MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+
+## ---------- Mode 2: 20 samples, timeout 1h per explanation ----------
+
+NAME=MNCNN-shallow-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-shallow-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-shallow-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-deep-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-deep-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-deep-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+
+NAME=CIFCNN-shallow-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-shallow-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-shallow-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-deep-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-deep-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-deep-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+
+NAME=GTSCNN-shallow-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-shallow-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-shallow-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-deep-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-deep-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-deep-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+
+NAME=IMNCNN-shallow-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-shallow-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-shallow-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S1 P1 S2 P2 S3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-deep-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-deep-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-deep-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="S4 P4 S6 P6 S8 P8" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh

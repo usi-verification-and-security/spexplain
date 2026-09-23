@@ -1,0 +1,31 @@
+_network.input().size: 1
+_network.initializer().size: 6
+_network.output().size: 1
+_terminalNames.size: 0
+network.input_size: 1
+ONNX LOG: Found initialiser 'net.0.weight'
+ONNX LOG: Found initialiser 'net.0.bias'
+ONNX LOG: Found initialiser 'net.3.weight'
+ONNX LOG: Found initialiser 'net.3.bias'
+ONNX LOG: Found initialiser 'net.5.weight'
+ONNX LOG: Found initialiser 'net.5.bias'
+ONNX LOG: Found input 'input'
+ONNX LOG: Found output 'output'
+ONNX LOG: Processing node '/net/net.0/Conv' of type 'Conv'
+ONNX LOG: Processing node '/net/net.1/Relu' of type 'Relu'
+ONNX LOG: Processing node '/net/net.2/Flatten' of type 'Flatten'
+ONNX LOG: Processing node '/net/net.3/Gemm' of type 'Gemm'
+ONNX LOG: Processing node '/net/net.4/Relu' of type 'Relu'
+ONNX LOG: Processing node '/net/net.5/Gemm' of type 'Gemm'
+Writing explanations to: /Users/labbaf/Documents/NN_Explainability/spexplain/neuron-activation/spexplain/data/models/cnn-bench-explain-smoke/mnist/S1/itp.phi.txt
+Writing statistics to: /Users/labbaf/Documents/NN_Explainability/spexplain/neuron-activation/spexplain/data/models/cnn-bench-explain-smoke/mnist/S1/itp.stats.txt
+
+Dataset size: 100
+Number of variables: 784
+Limited number of samples: 1
+------------------------------------------------------------
+sample [1/100] ... done
+
+Done.
+
+--- stderr ---

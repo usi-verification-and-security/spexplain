@@ -1,0 +1,6 @@
+model,strategy,relu_neurons,pool_windows,status,seconds,features,checks,soundness
+mnist/S1,itp,1600,0,done,1118,784/784,1,
+mnist/P1,itp,1600,392,timeout,3600,,,
+gtsrb/S1,itp,2080,0,done,6170,3072/3072,1,
+cifar10/S1,itp,2080,0,done,5871,3072/3072,1,
+imagenette/S1,itp,8224,0,timeout,7200,,,

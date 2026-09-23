@@ -1,12 +1,3 @@
-# 1 - input string
-#<2>- array var. name to write into
-#(3)- field separator to use
-function _split_string {
-    [[ -n $3 ]] && local IFS=$3
-    local -n larray=$2
-    larray=($1)
-}
-
 function _split_consecutive_experiments {
     local array_var=$1
     local dst_array_of_src_var=$2
@@ -40,41 +31,9 @@ _split_consecutive_experiments CONSECUTIVE_EXPERIMENTS CONSECUTIVE_EXPERIMENTS_S
 
 _check_array_sizes CONSECUTIVE_EXPERIMENTS_SRC_NAMES CONSECUTIVE_EXPERIMENTS_DST_NAMES
 
-function __contains {
-    local array_var=$1
-    local elem="$2"
-
-    local -n larray=$array_var
-
-    local e
-    for e in "${larray[@]}"; do
-        [[ $e == $elem ]] && return 0
-    done
-
-    return 1
-}
-
-function _includes {
-    local array_var1=$1
-    local array_var2=$2
-
-    local -n larray1=$array_var1
-    local -n larray2=$array_var2
-
-    local e
-    for e in "${larray2[@]}"; do
-        __contains $array_var1 "$e" && continue
-
-        printf "Element '%s' of array %s is not included in array %s\n" "$e" $array_var2 $array_var1 >&2
-        exit 9
-    done
-
-    return 0
-}
-
-_includes ALL_EXPERIMENT_NAMES EXPERIMENT_NAMES
-_includes ALL_EXPERIMENT_NAMES CONSECUTIVE_EXPERIMENTS_SRC_NAMES
-_includes ALL_EXPERIMENT_NAMES CONSECUTIVE_EXPERIMENTS_DST_NAMES
+_check_includes ALL_EXPERIMENT_NAMES EXPERIMENT_NAMES
+_check_includes ALL_EXPERIMENT_NAMES CONSECUTIVE_EXPERIMENTS_SRC_NAMES
+_check_includes ALL_EXPERIMENT_NAMES CONSECUTIVE_EXPERIMENTS_DST_NAMES
 
 CONSECUTIVE_EXPERIMENTS_NAMES=()
 for exp_idx in ${!CONSECUTIVE_EXPERIMENTS_SRC_NAMES[@]}; do
@@ -89,23 +48,6 @@ _check_array_sizes CONSECUTIVE_EXPERIMENTS_NAMES CONSECUTIVE_EXPERIMENTS_SRC_NAM
 
 EXPERIMENT_NAMES_WITH_CONSECUTIVE=("${EXPERIMENT_NAMES[@]}" "${CONSECUTIVE_EXPERIMENTS_NAMES[@]}")
 
-function _max_len {
-    local array_var=$1
-    local dst_max_len_var=$2
-
-    local -n larray=$array_var
-    local -n ldst_max_len=$dst_max_len_var
-
-    local max_len=0
-    for e in "${larray[@]}"; do
-        local len=${#e}
-        (( $len <= $max_len )) && continue
-        max_len=$len
-    done
-
-    ldst_max_len=$max_len
-}
-
-_max_len EXPERIMENT_NAMES MAX_EXPERIMENT_NAMES_LEN
-_max_len CONSECUTIVE_EXPERIMENTS_NAMES MAX_CONSECUTIVE_EXPERIMENTS_NAMES_LEN
-_max_len EXPERIMENT_NAMES_WITH_CONSECUTIVE MAX_EXPERIMENT_NAMES_WITH_CONSECUTIVE_LEN
+_set_max_len EXPERIMENT_NAMES MAX_EXPERIMENT_NAMES_LEN
+_set_max_len CONSECUTIVE_EXPERIMENTS_NAMES MAX_CONSECUTIVE_EXPERIMENTS_NAMES_LEN
+_set_max_len EXPERIMENT_NAMES_WITH_CONSECUTIVE MAX_EXPERIMENT_NAMES_WITH_CONSECUTIVE_LEN

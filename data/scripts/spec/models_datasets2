@@ -1,5 +1,8 @@
 ## ONNX models and datasets that correspond to the output directories.
-## This is the ONNX counterpart of `models_datasets`, used by `run-experiments2.sh` / `run1-2.sh`.
+## This is the ONNX counterpart of `models_datasets`.
+## `run-experiments2.sh` / `run1-2.sh` now take (model, dataset) pairs like `run-experiments.sh` and only
+## consult this file (via `lib/run2`, overridable with MODELS_DATASETS2_SPEC) for the INPUT_MINS/INPUT_MAXS
+## of a model, when INPUT_MIN/INPUT_MAX are not given.
 
 ## It expects psi files to be located at the common directory of the variants (e.g. explanations/heart_attack)
 #? do not make this assumption but make it explicit

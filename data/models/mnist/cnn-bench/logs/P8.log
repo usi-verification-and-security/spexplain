@@ -1,0 +1,16 @@
+mnist/P8 tokens=c8s2 c8 c8 p c16 c16 c16 p c32 c32 p epochs=15 lr=0.002 wd=0.0005 batch=128 seed=0 device=mps
+epoch   1/15  loss 1.5892  train 0.9376  test 0.9445  lr 3.05e-04  3.2s
+epoch   2/15  loss 0.5016  train 0.9704  test 0.9755  lr 8.74e-04  3.2s
+epoch   3/15  loss 0.4150  train 0.9745  test 0.9752  lr 1.52e-03  3.4s
+epoch   4/15  loss 0.3859  train 0.9839  test 0.9868  lr 1.94e-03  3.3s
+epoch   5/15  loss 0.3704  train 0.9865  test 0.9892  lr 1.99e-03  3.2s
+epoch   6/15  loss 0.3592  train 0.9859  test 0.9881  lr 1.90e-03  3.2s
+epoch   7/15  loss 0.3517  train 0.9880  test 0.9912  lr 1.73e-03  3.3s
+epoch   8/15  loss 0.3483  train 0.9917  test 0.9885  lr 1.50e-03  3.2s
+epoch   9/15  loss 0.3427  train 0.9925  test 0.9918  lr 1.22e-03  3.2s
+epoch  10/15  loss 0.3364  train 0.9918  test 0.9918  lr 9.25e-04  3.2s
+epoch  11/15  loss 0.3338  train 0.9950  test 0.9929  lr 6.34e-04  3.2s
+epoch  12/15  loss 0.3301  train 0.9949  test 0.9940  lr 3.76e-04  4.6s
+epoch  13/15  loss 0.3274  train 0.9953  test 0.9943  lr 1.73e-04  5.3s
+epoch  14/15  loss 0.3253  train 0.9966  test 0.9945  lr 4.42e-05  4.4s
+epoch  15/15  loss 0.3239  train 0.9963  test 0.9942  lr 8.20e-09  3.5s

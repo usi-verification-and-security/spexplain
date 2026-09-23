@@ -1,0 +1,140 @@
+## Shared driver for the per-benchmark TACAS'27 run scripts.
+## Each <KEYWORD>.sh sets NAME, WIDTH and TIMEOUT_PER and then sources this file.
+##
+## USAGE: ./<KEYWORD>.sh [<nn_model_fn>...] [-n]
+##
+## Bare arguments replace the default models; '-' arguments are forwarded to
+## run-experiments.sh. Every model is paired with the benchmark's dataset,
+## because run-experiments.sh links the two lists positionally.
+##
+## Environment variables (all optional):
+##   EXPERIMENTS_SPEC  experiments collection (default: plain_itp)
+##   VARIANTS_SPEC     variants collection (default: neuron_activations)
+##   FILTER            regex over '<variant>/<experiment>' identifiers
+##   MODEL_IDXS        <WIDTH>x<idx> models to use (default: 1 2 4 6 8 10 12 14)
+##   WIDTH             neurons per layer, i.e. the <WIDTH>x prefix (default: 50)
+##   TIMEOUT_PER       per-explanation timeout (default: per benchmark)
+##   TIMEOUT           per-experiment timeout (GNU timeout interval, e.g. 30m)
+##   TIMEOUT_ALL       whole-run timeout, HH:MM:SS or MM:SS or a GNU timeout
+##                     interval (default: 23:55:00); 'none' disables it
+##   CPU_PERCENTAGE    percentage of CPUs to use (default: 80)
+##   DRY_RUN=1         only print what would have been run
+##   WRAPPER           prefix for the call, e.g. a path to sbatch.sh
+
+[[ -n $NAME ]] || {
+    printf "NAME is not set - do not run 'common' directly.\n" >&2
+    exit 1
+}
+
+[[ -z $WIDTH ]] && WIDTH=50
+
+## realpath before dirname, so that the script works from any directory
+SCRIPTS_DIR=$(dirname "$(dirname "$(realpath "$0")")")
+DATA_DIR=$(dirname "$SCRIPTS_DIR")
+
+RUN_SCRIPT="$SCRIPTS_DIR/run-experiments.sh"
+
+[[ -x $RUN_SCRIPT ]] || {
+    printf "Not an executable run script: %s\n" "$RUN_SCRIPT" >&2
+    exit 1
+}
+
+export CPU_PERCENTAGE=${CPU_PERCENTAGE:-50}
+export EXPERIMENTS_SPEC=${EXPERIMENTS_SPEC:-plain_itp}
+export VARIANTS_SPEC=${VARIANTS_SPEC:-neuron_activations}
+export TIMEOUT_PER
+
+## Whole-run timeout. run-experiments.sh only knows TIMEOUT, which run1.sh
+## applies to every experiment separately, so the batch is bounded here instead.
+[[ -z $TIMEOUT_ALL ]] && TIMEOUT_ALL=23:55:00
+
+TIMEOUT_CMD=()
+if [[ $TIMEOUT_ALL != none ]]; then
+    ## GNU timeout takes NUMBER[smhd], so convert the Slurm-like formats
+    if [[ $TIMEOUT_ALL =~ ^([0-9]+):([0-5][0-9]):([0-5][0-9])$ ]]; then
+        timeout_secs=$(( 10#${BASH_REMATCH[1]}*3600 + 10#${BASH_REMATCH[2]}*60 + 10#${BASH_REMATCH[3]} ))
+    elif [[ $TIMEOUT_ALL =~ ^([0-9]+):([0-5][0-9])$ ]]; then
+        timeout_secs=$(( 10#${BASH_REMATCH[1]}*60 + 10#${BASH_REMATCH[2]} ))
+    elif [[ $TIMEOUT_ALL =~ ^[0-9]+(\.[0-9]*)?[smhd]?$ ]]; then
+        timeout_secs="$TIMEOUT_ALL"
+    else
+        printf "Unrecognized whole-run timeout: %s\n" "$TIMEOUT_ALL" >&2
+        exit 1
+    fi
+    TIMEOUT_CMD=(timeout "$timeout_secs")
+fi
+
+## Split the arguments into models and options forwarded to run-experiments.sh
+MODELS=()
+OPTS=()
+for arg; do
+    if [[ $arg =~ ^- ]]; then
+        OPTS+=("$arg")
+    else
+        MODELS+=("$arg")
+    fi
+done
+
+[[ $DRY_RUN == 1 ]] && OPTS+=(-n)
+[[ -n $FILTER ]] && OPTS=("$FILTER" "${OPTS[@]}")
+
+## Default model set. Indices without a model file are skipped, because the
+## smaller benchmarks do not provide the deeper networks.
+[[ -z $MODEL_IDXS ]] && MODEL_IDXS="1 2 3 4 6 8 10 12 14"
+
+(( ${#MODELS[@]} )) || {
+    skipped=()
+    for idx in $MODEL_IDXS; do
+        model="$DATA_DIR/models/$NAME/${NAME}_${WIDTH}x$idx.nnet"
+        if [[ -r $model ]]; then
+            MODELS+=("$model")
+        else
+            skipped+=("${WIDTH}x$idx")
+        fi
+    done
+
+    (( ${#skipped[@]} )) && printf "Skipping absent models: %s\n" "${skipped[*]}" >&2
+
+    (( ${#MODELS[@]} )) || {
+        printf "No models found for %s in %s\n" "$NAME" "$DATA_DIR/models/$NAME" >&2
+        exit 1
+    }
+}
+
+DATASET="$DATA_DIR/datasets/$NAME/${NAME}_s100_scaled.csv"
+
+[[ -r $DATASET ]] || {
+    printf "Cannot read the dataset: %s\n" "$DATASET" >&2
+    exit 1
+}
+
+ARGS=()
+for model in "${MODELS[@]}"; do
+    [[ -r $model ]] || {
+        printf "Cannot read the model: %s\n" "$model" >&2
+        exit 1
+    }
+    ARGS+=("$model" "$DATASET")
+done
+
+printf "Benchmark:   %s (%sx)\n" "$NAME" "$WIDTH"
+printf "Models:      %s\n" "${MODELS[*]##*/}"
+printf "Dataset:     %s\n" "${DATASET##*/}"
+printf "Experiments: %s\n" "$EXPERIMENTS_SPEC"
+printf "Variants:    %s\n" "$VARIANTS_SPEC"
+printf "Timeout per: %s\n" "$TIMEOUT_PER"
+printf "Timeout all: %s\n\n" "$TIMEOUT_ALL"
+
+## The timeout goes after WRAPPER, so that under sbatch it bounds the work on
+## the compute node rather than the submission itself
+$WRAPPER "${TIMEOUT_CMD[@]}" "$RUN_SCRIPT" "${ARGS[@]}" "$EXPERIMENTS_SPEC" "${OPTS[@]}"
+status=$?
+
+(( $status == 124 )) && {
+    printf "\nTimeout after %s: %s\n" "$TIMEOUT_ALL" "$NAME" >&2
+    exit $status
+}
+
+exit $status
+
+

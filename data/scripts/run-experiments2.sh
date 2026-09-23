@@ -2,53 +2,56 @@
 
 ## ONNX counterpart of `run-experiments.sh`.
 ##
-## Takes exactly the same positional arguments and forwards exactly the same spexplain options
-## (e.g. --allow-neuron-vars-in-explanations, --fix-default-sample-neuron-activations,
-## --prefer-default-sample-neuron-activations), but runs the `explain-onnx` action on an ONNX model
-## resolved through `spec/models_datasets2` instead of the `explain` action on a `.nnet` model.
+## Same arguments and environment (EXPERIMENTS_SPEC names, VARIANTS_SPEC/VARIANT, OPTIONS, TIMEOUT,
+## TIMEOUT_PER, CPU_PERCENTAGE, SLURM_CPUS_PER_TASK, ...) and the same output layout, but every
+## experiment is run by `run1-2.sh`, i.e. with the `explain-onnx` action on an ONNX model.
 ##
-## Because ONNX files carry no per-feature input domain, the bounds come from INPUT_MINS/INPUT_MAXS
-## in `spec/models_datasets2`, or from --input-min/--input-max on the command line.
+## ONNX files carry no per-feature input domain. The bounds come from INPUT_MIN/INPUT_MAX (a single
+## number applies to every feature), or from the model's entry in MODELS_DATASETS2_SPEC
+## (default: spec/models_datasets2); otherwise spexplain falls back to [0,1] for every feature.
 
-export DIRNAME=$(dirname "$0")
+export SCRIPTS_DIR=$(dirname "$0")
 
-source "$DIRNAME/lib/run2"
+source "$SCRIPTS_DIR/lib/run2"
 
 function usage {
     local experiments_spec_ary=($(ls "$EXPERIMENTS_SPEC_DIR"))
 
-    printf "USAGE: %s <output_dir> <experiments_spec> [consecutive] [[+]reverse] [<max_samples>] [<filter_experiments_regex>] [<options>...] [-- <spexplain_args>...]\n" "$0"
-    printf "\t<output_dir> must be specified in %s\n" "$MODELS_DATASETS2_SPEC"
+    ##+ it is still not possible to run multiple variants (different options)
+    printf "USAGE: %s (<onnx_model_fn> <dataset_fn>)... <experiments_spec> [consecutive] [<max_samples>] [<filter_experiments_regex>] [-h|-n]\n" "$0"
     printf "\t<experiments_spec> is one of: %s\n" "${experiments_spec_ary[*]}"
     printf "CONSECUTIVE_EXPERIMENTS are not run unless 'consecutive' is provided\n"
     printf "\nOPTIONS:\n"
-    printf "\t-h\t\t\tDisplay help message and exit\n"
-    printf "\t-n\t\t\tDry mode - only print what would have been run\n"
-    printf "\t--onnx <file>\t\tUse this .onnx model instead of the one from the spec\n"
-    printf "\t--input-min <v1,v2,...>\tPer-feature input domain minimums (overrides the spec)\n"
-    printf "\t--input-max <v1,v2,...>\tPer-feature input domain maximums (overrides the spec)\n"
-    printf "\t--drop-sigmoid true|false\n"
-    printf "\t\t\t\tDrop trailing sigmoid layer(s) (default: true)\n"
-    printf "\t--no-quiet\t\tDo not pass --quiet to spexplain\n"
-    printf "\nAny other option, and anything after '--', is forwarded verbatim to spexplain, e.g.\n"
-    printf "\t--allow-neuron-vars-in-explanations true\n"
-    printf "\t--fix-default-sample-neuron-activations all\n"
-    printf "\t--prefer-default-sample-neuron-activations active\n"
-    printf "The OPTIONS environment variable is still honoured, as in run-experiments.sh.\n"
+    printf "\t-h\t\tDisplay help message and exit\n"
+    printf "\t-n\t\tDry mode - only print what would have been run\n"
+    printf "\nONNX-SPECIFIC ENVIRONMENT:\n"
+    printf "\tINPUT_MIN, INPUT_MAX\tInput domain bounds: one number for all features, or one value per\n"
+    printf "\t\t\t\tfeature (comma-separated). Default: the entry of the model in\n"
+    printf "\t\t\t\tMODELS_DATASETS2_SPEC (%s), else [0,1]\n" "$MODELS_DATASETS2_SPEC"
+    printf "\tDROP_SIGMOID\t\ttrue|false, passed as --drop-sigmoid (default: unset, i.e. true)\n"
+    printf "\tQUIET\t\t\tSet to 0 to omit --quiet (default: 1)\n"
 
     [[ -n $1 ]] && exit $1
 }
 
-[[ -z $1 ]] && usage 1 >&2
+[[ -z $1 || -z $2 ]] && usage 1 >&2
+[[ ! $1 =~ / ]] && {
+    printf "Model filename does not contain '/': %s\n" "$1" >&2
+    usage 1 >&2
+}
 
-read_output_dir_arg="$1"
-shift
+MODELS=()
+DATASETS=()
+while [[ $1 =~ / ]]; do
+    MODELS+=("$1")
+    DATASETS+=("$2")
+    shift 2
+done
 
 read_experiments_spec "$1" || usage $? >&2
 shift
 
 maybe_read_consecutive "$1" && shift
-maybe_read_reverse "$1" && shift
 maybe_read_max_samples "$1" && shift
 
 [[ -n $1 && ! $1 =~ ^- ]] && {
@@ -57,87 +60,29 @@ maybe_read_max_samples "$1" && shift
 }
 
 export DRY_RUN=0
-declare -a PASSTHROUGH_OPTIONS
-PASSTHROUGH_OPTIONS=()
-
-while [[ -n $1 ]]; do
-    case "$1" in
-    -h)
-        ## `read_output_dir` has not run yet, but usage only needs the spec paths.
-        usage 0
-        ;;
-    -n)
+[[ $1 =~ ^- ]] && {
+    if [[ $1 == -n ]]; then
         DRY_RUN=1
-        shift
-        ;;
-    --onnx)
-        [[ -z $2 ]] && { printf "Expected a file after %s\n" "$1" >&2; usage 1 >&2; }
-        export ONNX_MODEL_OVERRIDE="$2"
-        shift 2
-        ;;
-    --onnx=*)
-        export ONNX_MODEL_OVERRIDE="${1#*=}"
-        shift
-        ;;
-    --input-min)
-        [[ -z $2 ]] && { printf "Expected a value list after %s\n" "$1" >&2; usage 1 >&2; }
-        export INPUT_MIN_OVERRIDE="$2"
-        shift 2
-        ;;
-    --input-min=*)
-        export INPUT_MIN_OVERRIDE="${1#*=}"
-        shift
-        ;;
-    --input-max)
-        [[ -z $2 ]] && { printf "Expected a value list after %s\n" "$1" >&2; usage 1 >&2; }
-        export INPUT_MAX_OVERRIDE="$2"
-        shift 2
-        ;;
-    --input-max=*)
-        export INPUT_MAX_OVERRIDE="${1#*=}"
-        shift
-        ;;
-    --drop-sigmoid)
-        [[ -z $2 ]] && { printf "Expected true|false after %s\n" "$1" >&2; usage 1 >&2; }
-        export DROP_SIGMOID="$2"
-        shift 2
-        ;;
-    --drop-sigmoid=*)
-        export DROP_SIGMOID="${1#*=}"
-        shift
-        ;;
-    --no-quiet)
-        export QUIET=0
-        shift
-        ;;
-    --)
-        shift
-        PASSTHROUGH_OPTIONS+=("$@")
-        break
-        ;;
-    --*)
-        ## Any other long option (e.g. --allow-neuron-vars-in-explanations) goes to spexplain.
-        ## Support both '--opt value' and '--opt=value'.
-        if [[ $1 == *=* || -z $2 || $2 =~ ^- ]]; then
-            PASSTHROUGH_OPTIONS+=("$1")
-            shift
-        else
-            PASSTHROUGH_OPTIONS+=("$1=$2")
-            shift 2
-        fi
-        ;;
-    *)
+    elif [[ $1 == -h ]]; then
+        usage 0
+    else
         printf "Unrecognized option: %s\n" "$1" >&2
         usage 1 >&2
-        ;;
-    esac
-done
+    fi
+    shift
+}
 
-read_output_dir "$read_output_dir_arg" || usage $? >&2
+[[ -n $1 ]] && {
+    printf "Additional arguments: %s\n" "$*" >&2
+    usage 1 >&2
+}
 
 set_cmd
 set_action
 set_timeout
+
+## The ONNX-specific settings must reach run1-2.sh through `parallel`
+export INPUT_MIN INPUT_MAX DROP_SIGMOID QUIET
 
 if [[ -z $INCLUDE_CONSECUTIVE ]]; then
     EXPERIMENT_NAMES_VAR=EXPERIMENT_NAMES
@@ -151,31 +96,66 @@ else
 fi
 export EXPERIMENT_NAMES_VAR
 
-## Merge the OPTIONS environment variable (as in run-experiments.sh) with the parsed passthrough
-## options; both end up as trailing spexplain arguments.
-[[ -n $OPTIONS ]] && PASSTHROUGH_OPTIONS=($OPTIONS "${PASSTHROUGH_OPTIONS[@]}")
-export EXTRA_OPTIONS="${PASSTHROUGH_OPTIONS[*]}"
+(( $DRY_RUN )) && printf "DRY RUN - only printing what would be run\n\n"
 
-printf "Output directory: %s\n" "$OUTPUT_DIR"
-printf "ONNX model: %s\n" "$MODEL"
-printf "Dataset: %s\n" "$DATASET"
-printf "Input min: %s\n" "${INPUT_MIN:-<unset, defaults to 0 per feature>}"
-printf "Input max: %s\n" "${INPUT_MAX:-<unset, defaults to 1 per feature>}"
-[[ -n $DROP_SIGMOID ]] && printf "Drop sigmoid: %s\n" "$DROP_SIGMOID"
-[[ -n $EXTRA_OPTIONS ]] && printf "Extra options: %s\n" "$EXTRA_OPTIONS"
-printf "\n"
+[[ -n $OPTIONS ]] && export OPTIONS
 
-[[ -n $INCLUDE_REVERSE ]] && {
-    printf "Running reversed-order experiments "
-    if (( $REVERSE_ONLY )); then
-        printf "only"
-    else
-        printf "as well"
-    fi
-    printf "\n\n"
+if [[ -n $VARIANTS_SPEC ]]; then
+    read_variants_spec "$VARIANTS_SPEC" || usage $? >&2
+
+    printf "Variants: %s\n\n" "${VARIANT_NAMES[*]}"
+elif [[ -n $VARIANT ]]; then
+    VARIANT_NAMES=("$VARIANT")
+
+    printf "Variant: %s\n\n" "$VARIANT"
+fi
+
+## Short description of the input bounds that run1-2.sh will use for the current MODEL/DATASET.
+## Runs in a subshell, so that the resolved bounds of one model do not leak into the next one.
+function describe_input_bounds {
+    (
+        set_input_bounds 2>/dev/null
+        if [[ -z $INPUT_MIN || -z $INPUT_MAX ]]; then
+            printf "<none; spexplain defaults to [0,1] per feature>"
+        else
+            local mins maxs
+            _split_string "$INPUT_MIN" mins ,
+            _split_string "$INPUT_MAX" maxs ,
+            local umins=($(printf "%s\n" "${mins[@]}" | sort -u))
+            local umaxs=($(printf "%s\n" "${maxs[@]}" | sort -u))
+            if (( ${#umins[@]} == 1 && ${#umaxs[@]} == 1 )); then
+                printf "[%s,%s] for all %d features" "${umins[0]}" "${umaxs[0]}" ${#mins[@]}
+            else
+                printf "per feature (%d values)" ${#mins[@]}
+            fi
+        fi
+    )
 }
 
-(( $DRY_RUN )) && printf "DRY RUN - only printing what would be run\n\n"
+for idx in ${!MODELS[@]}; do
+    model="${MODELS[$idx]}"
+    dataset="${DATASETS[$idx]}"
+
+    ## Will be set mainly later in run1 function, here only for printing
+    set_output_dir_from_model_dataset "$model" "$dataset" || usage $? >&2
+
+    printf "Model: %s\n" "$MODEL"
+    printf "Dataset: %s\n" "$DATASET"
+    printf "Input bounds: %s\n" "$(describe_input_bounds)"
+
+    if (( ${#VARIANT_NAMES[@]} <= 1 )); then
+        printf "Output directory: %s\n" "$OUTPUT_DIR"
+    else
+        printf "Output directories:\n"
+        for VARIANT in "${VARIANT_NAMES[@]}"; do
+            ## Only to set the OUTPUT_DIR
+            set_output_dir_from_model_dataset "$model" "$dataset" || usage $? >&2
+
+            printf "\t%s\n" "$OUTPUT_DIR"
+        done
+    fi
+    printf "\n"
+done
 
 function cleanup {
     local code=$1
@@ -191,16 +171,29 @@ function cleanup {
 trap 'cleanup 9' INT TERM
 
 function run1 {
-    source "$DIRNAME/lib/run2"
+    source "$SCRIPTS_DIR/lib/run2"
     read_experiments_spec "$EXPERIMENTS_SPEC"
 
-    local exp_idx=$1
+    local model="$1"
+    local dataset="$2"
+    local variant="$3"
+    local exp_idx=$4
+
+    export VARIANT="$variant"
+
+    set_output_dir_from_model_dataset "$model" "$dataset" || return $?
+    OUTPUT_DIR="${OUTPUT_DIR%%/}"
 
     local -n lexperiment_names=$EXPERIMENT_NAMES_VAR
 
     local experiment=${lexperiment_names[$exp_idx]}
-    [[ -n $FILTER && ! $experiment =~ $FILTER ]] && {
-        printf "Skipping %s ...\n" $experiment
+    local variant="${OUTPUT_DIR##*/}"
+    local experiment_full="${variant}/${experiment}"
+    local experiment_path="${OUTPUT_DIR}/${experiment}"
+    experiment_path="${experiment_path#explanations/}"
+
+    [[ -n $FILTER && ! $experiment_full =~ $FILTER ]] && {
+        printf "Skipping: %s\n" "$experiment_path"
         return 0
     }
 
@@ -217,33 +210,32 @@ function run1 {
         find_strategies_for_experiment $dst_experiment experiment_strategies
     fi
 
-    printf "Running %s in the background ...\n" $experiment
+    printf "Running in the background: %s\n" "$experiment_path"
 
     (( $DRY_RUN )) && return 0
 
-    reverse_args=('')
-    [[ -n $INCLUDE_REVERSE ]] && {
-        (( $REVERSE_ONLY )) && reverse_args=()
-        reverse_args+=(reverse)
-    }
+    ##+ allow running multiple variants
+    SRC_EXPERIMENT=$src_experiment "$SCRIPTS_DIR/run1-2.sh" "$MODEL" "$DATASET" "$experiment_strategies" $experiment $MAX_SAMPLES
 
-    for rev in "${reverse_args[@]}"; do
-        SRC_EXPERIMENT=$src_experiment "$DIRNAME/run1-2.sh" "$OUTPUT_DIR" "$experiment_strategies" $experiment $rev $MAX_SAMPLES $EXTRA_OPTIONS &
-    done
-
-    wait -n
     case $? in
     0)
-        printf "Finished %s\n" $experiment
+        printf "Finished: %s\n" "$experiment_path"
         return 0
         ;;
     $TIMEOUT_STATUS)
-        printf "Timeout %s\n" $experiment
+        printf "Timeout: %s\n" "$experiment_path"
         return 0
         ;;
     *)
-        printf "%s failed!\nUsed command: %s\n" $experiment \
-            "SRC_EXPERIMENT=$src_experiment \"$DIRNAME/run1-2.sh\" \"$OUTPUT_DIR\" \"$experiment_strategies\" $experiment $rev $MAX_SAMPLES $EXTRA_OPTIONS &" >&2
+        printf "%s failed!\n" $experiment >&2
+        [[ -n $VARIANT ]] && {
+            maybe_find_options_for_variant "$VARIANT" VAR_OPTIONS
+            printf "Used variant: %s\n" "$VARIANT" >&2
+        }
+        printf "Used command: %s\nUsed OPTIONS: %s\n" \
+            "SRC_EXPERIMENT=$src_experiment \"$SCRIPTS_DIR/run1-2.sh\" \"$MODEL\" \"$DATASET\" \"$experiment_strategies\" $experiment $MAX_SAMPLES" \
+            "$VAR_OPTIONS $OPTIONS" \
+            >&2
         return 1
         ;;
     esac
@@ -252,12 +244,16 @@ export -f run1
 
 [[ -z $CPU_PERCENTAGE ]] && CPU_PERCENTAGE=60
 
-[[ -n $INCLUDE_REVERSE ]] && (( ! $REVERSE_ONLY )) && CPU_PERCENTAGE=$(( $CPU_PERCENTAGE/2 ))
+if [[ -z $SLURM_CPUS_PER_TASK ]]; then
+    JOBS=${CPU_PERCENTAGE}%
+else
+    JOBS=$(( ($SLURM_CPUS_PER_TASK*$CPU_PERCENTAGE + 50)/100 ))
+fi
 
 declare -n lEXPERIMENT_NAMES=$EXPERIMENT_NAMES_VAR
 
 if (( ${#lEXPERIMENT_NAMES[@]} )); then
-    parallel --halt soon,fail=1 --line-buffer --jobs ${CPU_PERCENTAGE}% 'run1 {}' ::: ${!lEXPERIMENT_NAMES[@]}
+    parallel --halt soon,fail=1 --line-buffer --jobs "${JOBS}" 'run1 {} {} {} {}' ::: "${MODELS[@]}" :::+ "${DATASETS[@]}" ::: "${VARIANT_NAMES[@]}" ::: ${!lEXPERIMENT_NAMES[@]}
 else
     printf "Nothing to run.\n"
 fi

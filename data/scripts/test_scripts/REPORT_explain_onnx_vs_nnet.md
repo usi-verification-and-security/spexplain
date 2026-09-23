@@ -1116,3 +1116,81 @@ model; they should not be checked against, or reused with, the other encoding.
 No known issues remain in the ONNX explanation path. The outstanding items are the pre-existing,
 format-independent environment problems of §7 (`analyze.sh` is Linux-only; `-q`/`--quiet` segfaults
 for *both* model formats).
+
+## Appendix B — `--input-fix-sample-neuron-activations` parity (ONNX vs `.nnet`)
+
+Checked whether fixing sample-based ReLU activations from a file behaves the same on the ONNX
+(`Network2`/`OpenSMTVerifier2`) path as on the legacy `.nnet` (`Network`/`OpenSMTVerifier`) path.
+
+### B.1 Code path
+
+`Config::parseSampleNeuronActivations` (`framework/Config.cpp`) is shared by both formats; only
+the meaning of "hidden layer `k`" differs in how it's resolved — for `.nnet` it is network layer
+`k`, for ONNX it is the k-th **ReLU** layer, both 1-based (`Config::nHiddenLayers`/`hiddenLayerSize`).
+`Expand::preprocessSampleModel` uses one shared lambda for the `unstable`/`activated` predicates and
+the per-sample → all-samples → default precedence on both paths, and `OpenSMTVerifier`'s and
+`OpenSMTVerifier2`'s `encodeNeuron` apply a fixed activation identically. The two numbering schemes
+were checked to agree (ONNX's running ReLU ordinal is fed to the verifier with the same 1-based
+index the encoder assigns its ReLU layers).
+
+### B.2 Bug found and fixed: trailing-sigmoid crash in `preprocessSampleModel`
+
+While tracing the ONNX branch, found that it walks **all** `network2.getLayers()` regardless of
+`Network2::nEffectiveLayers()` (which drops a trailing sigmoid, `--drop-sigmoid` default `true`).
+`Network2::evaluate` only stores hidden-neuron values up to `nEffectiveLayers()`, so once the loop
+reached the (unstripped) trailing sigmoid it indexed `output.hiddenNeuronInputValues`/
+`OutputValues` past the end — an `assert` in debug builds, UB in release. This applies to **any**
+ONNX model ending in `Sigmoid`, independent of whether activation-fixing is used at all.
+
+Reproduced pre-fix in a Debug build:
+
+```
+./build-debug/spexplain explain-onnx data/models/heart_attack/heart_attack_1hidden.onnx \
+    data/datasets/heart_attack/heart_attack_quick.csv nop --drop-sigmoid true \
+    --input-min 29,0,0,94,126,0,0,71,0,0,0,0,0 --input-max 77,1,3,200,594,1,2,202,1,6.2,2,4,3 \
+    -i 1,3 -e /tmp/sig.txt
+# Assertion failed: (activationLayerIdx < output.hiddenNeuronInputValues.size()),
+#   function preprocessSampleModel, file Expand.cpp, line 425.
+```
+
+Fix: bound the loop by `network2.nEffectiveLayers()` instead of iterating the full layer list
+(`src/spexplain/framework/expand/Expand.cpp`). Verified fixed (10/10 samples of the same model
+complete cleanly), and verified **no regression** on non-sigmoid models: `heart_attack_50x4`
+ONNX/`itp`, 10 samples with `--input-fix-sample-neuron-activations`, byte-identical output
+before/after the fix.
+
+Two unrelated, pre-existing Debug-build-only issues were found incidentally while reproducing the
+above (both also reproduce on `heart_attack_50x1`, with **no** activation fixing involved, so they
+are out of scope here and were not touched):
+- `itp`/`ucore` (`expand/strategy/opensmt/Strategy.cpp:14`) assert that the verifier is
+  `OpenSMTVerifier`; it's actually a sibling class `OpenSMTVerifier2` for ONNX models, so the
+  subsequent `static_cast` is UB (harmless in these tests, but worth a real fix).
+- `abductive` hits `assert(networkPtr)` in `Framework::getNetwork()` (`Framework.h:60`) somewhere
+  in its ONNX path.
+Both only manifest with assertions enabled (Debug); the Release explanation results used
+throughout this report and Appendix A are unaffected.
+
+### B.3 Parity results
+
+| model | hidden ReLU layers | strategy | samples | result |
+|---|---|---|---|---|
+| toy (built for this check: `data/models/toy.onnx`, 2×hidden ReLU) | 1 | `abductive`, `itp` | 4/4 | **byte-identical** nnet vs onnx, with and without fixing |
+| `heart_attack_50x1` | 1 | `abductive` | 10 | 0 structural mismatches; identical negation pattern and `(= xI v)` equality sets; max coefficient Δ 4.5e-5 (float32-vs-text precision) |
+| `heart_attack_50x1` | 1 | `itp` | 10 | 0 structural mismatches; max coefficient Δ up to 1.5e-3 |
+| `heart_attack_50x4` | 4 | `itp` | 10 | 0 structural mismatches; max coefficient Δ up to 0.07 (expected — 4 ReLU layers compound the float32-vs-double gap) |
+
+"0 structural mismatches" means: same number of conjuncts, same operator/negation/variable-set per
+conjunct, same set of `(= xI v)` fixed-feature equalities, in the same order — i.e. the two runs
+took the same abductive/interpolation path through the network, differing only in the numeric
+precision of `.nnet`'s decimal text weights vs. ONNX's float32 weights.
+
+New fixtures added for this check and kept as a cheap regression case:
+`data/models/toy.onnx` (hand-built ONNX twin of `data/models/toy.nnet`) and
+`data/activation_change/toy/activation_toy.txt`.
+
+### B.4 Conclusion
+
+`--input-fix-sample-neuron-activations` is semantically equivalent between `.nnet` and ONNX, across
+1 and 4 hidden ReLU layers and both `abductive` and `itp`. One real bug was found and fixed
+(trailing-sigmoid layer indexing in `preprocessSampleModel`); two unrelated Debug-only assertion
+issues were found and are recorded above but left unfixed as out of scope.

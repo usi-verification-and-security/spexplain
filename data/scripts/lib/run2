@@ -1,59 +1,33 @@
-## ONNX counterpart of `lib/run`.
+## ONNX counterpart of `lib/run`, used by `run-experiments2.sh` and `run1-2.sh`.
 ##
-## Loads the ONNX model/dataset spec (`spec/models_datasets2`) instead of `spec/models_datasets`,
-## and re-defines `read_output_dir` so that it also resolves the per-feature input domain bounds
-## that ONNX models do not carry themselves.
-##
-## Everything else (experiments spec handling, `set_timeout`, `set_experiment_name_from_strategies`,
-## ...) is inherited unchanged from `lib/run`.
+## Everything from `lib/run` (experiments/variants specs, `set_cmd`, `set_timeout`,
+## `set_experiment_name_from_strategies`, ...) is inherited unchanged. On top of it this file
+##   * relaxes the model/dataset type check of `set_output_dir_from_model_dataset`, so that ONNX
+##     models may live in subdirectories (e.g. models/mnist/cnn-bench/S1.onnx pairs with
+##     datasets/mnist/mnist_test100.csv),
+##   * resolves the per-feature input domain bounds that ONNX models do not carry themselves
+##     (`set_input_bounds`), and
+##   * provides the `explain-onnx` action and the ONNX-only spexplain options.
 
-[[ -z $DIRNAME ]] && DIRNAME=$(dirname "$0")
+[[ -z $SCRIPTS_DIR ]] && SCRIPTS_DIR=$(dirname "$0")
 
-source "$DIRNAME/lib/run"
+source "$SCRIPTS_DIR/lib/run"
 
-MODELS_DATASETS2_SPEC="$SPEC_DIR/models_datasets2"
+## Spec with per-model input bounds (arrays MODELS, INPUT_MINS, INPUT_MAXS; paths relative to data/),
+## consulted when INPUT_MIN/INPUT_MAX are not given. Overridable from the environment.
+[[ -z $MODELS_DATASETS2_SPEC ]] && MODELS_DATASETS2_SPEC="$SPEC_DIR/models_datasets2"
+export MODELS_DATASETS2_SPEC
 
-## Re-read the ONNX spec, overwriting OUTPUT_DIRS/MODELS/DATASETS from `spec/models_datasets`.
-source "$MODELS_DATASETS2_SPEC"
-
-_check_array_sizes OUTPUT_DIRS MODELS
-_check_array_sizes OUTPUT_DIRS DATASETS
-[[ -n ${INPUT_MINS+x} ]] && _check_array_sizes OUTPUT_DIRS INPUT_MINS
-[[ -n ${INPUT_MAXS+x} ]] && _check_array_sizes OUTPUT_DIRS INPUT_MAXS
-
-## Same contract as `read_output_dir` in lib/run, but resolves an ONNX model and its input bounds.
-## `ONNX_MODEL_OVERRIDE` (set by `--onnx <file>`) takes precedence over the spec entry.
-## `INPUT_MIN_OVERRIDE` / `INPUT_MAX_OVERRIDE` (set by `--input-min` / `--input-max`) likewise.
-function read_output_dir {
-    export OUTPUT_DIR="$1"
-
-    OUTPUT_DIR="${OUTPUT_DIR%%/}"
-    OUTPUT_DIR="${OUTPUT_DIR##./}"
-    unset OUTPUT_DIR_IDX
-    for odir_idx in ${!OUTPUT_DIRS[@]}; do
-        odir="${OUTPUT_DIRS[$odir_idx]}"
-        [[ $odir == $OUTPUT_DIR ]] || continue
-        OUTPUT_DIR_IDX=$odir_idx
-        break
-    done
-
-    [[ -z $OUTPUT_DIR_IDX ]] && {
-        printf "Unrecognized output directory: %s\n" "$OUTPUT_DIR" >&2
-        printf "Expected one of: %s\n" "${OUTPUT_DIRS[*]}" >&2
-        return 1
+## Same as in lib/run, except that
+##   * the model must be an .onnx file, and
+##   * only the top-level types have to match (models/<type>/... vs. datasets/<type>/...),
+##     instead of the whole directories.
+## The output directory is derived exactly as in lib/run:
+##   explanations/<model path without extension>/<dataset base without '<type>_'>/<variant>
+function set_output_dir_from_model_dataset {
+    [[ -n $1 ]] && {
+        set_model_dataset "$1" "$2" || return $?
     }
-
-    [[ -d $OUTPUT_DIR && -w $OUTPUT_DIR ]] || mkdir -p "$OUTPUT_DIR" >/dev/null || {
-        printf "Could not create output directory %s.\n" "$OUTPUT_DIR" >&2
-        return 2
-    }
-
-    if [[ -n $ONNX_MODEL_OVERRIDE ]]; then
-        export MODEL="$ONNX_MODEL_OVERRIDE"
-    else
-        export MODEL="${MODELS[$OUTPUT_DIR_IDX]}"
-    fi
-    export DATASET="${DATASETS[$OUTPUT_DIR_IDX]}"
 
     [[ $MODEL == *.onnx ]] || {
         printf "Expected an ONNX model, got: %s\n" "$MODEL" >&2
@@ -61,36 +35,100 @@ function read_output_dir {
         return 2
     }
 
-    [[ -r $MODEL ]] || {
-        printf "Model file %s is not readable.\n" "$MODEL" >&2
-        return 2
+    local model_type=$(dirname "$MODEL")
+    model_type="${model_type#*models/}"
+    local dataset_type=$(dirname "$DATASET")
+    dataset_type="${dataset_type#*datasets/}"
+
+    local type_base=${model_type%%/*}
+    local dataset_type_base=${dataset_type%%/*}
+
+    [[ $type_base == $dataset_type_base ]] || {
+        printf "Mismatch between model and dataset type:\n%s != %s\n" "$type_base" "$dataset_type_base" >&2
+        return 3
     }
 
-    [[ -r $DATASET ]] || {
-        printf "Dataset file %s is not readable.\n" "$DATASET" >&2
-        return 2
+    local model_base="${MODEL/models/explanations}"
+    model_base="${model_base%.*}"
+    local dataset_base=$(basename -s .csv "${DATASET}")
+
+    local output_dir="${model_base}/${dataset_base}"
+    output_dir="${output_dir//\/${type_base}_/\/}"
+    output_dir="${output_dir//\/${type_base}-/\/}"
+
+    local variant=default
+    [[ -n $VARIANT ]] && variant="$VARIANT"
+    output_dir+="/${variant}"
+
+    set_output_dir "$output_dir"
+    return $?
+}
+
+## Number of input features of the dataset (all CSV columns but the trailing label).
+function _dataset_n_features {
+    head -n 1 "$DATASET" | awk -F, '{ print NF - 1 }'
+}
+
+## A single number is expanded to one value per input feature.
+function _expand_bound {
+    local -n lbound=$1
+
+    [[ -z $lbound || $lbound =~ , ]] && return 0
+
+    local n=$(_dataset_n_features)
+    (( $n > 1 )) || return 0
+    lbound="$(printf "${lbound},%.0s" $(seq 1 $(( $n - 1 ))))${lbound}"
+}
+
+## Looks MODEL up in MODELS_DATASETS2_SPEC and sets the given variables to its bounds.
+function _lookup_spec_bounds {
+    local -n lmin=$1
+    local -n lmax=$2
+
+    [[ -r $MODELS_DATASETS2_SPEC ]] || return 1
+
+    ## Local, so that sourcing the spec does not clobber the caller's MODELS/DATASETS
+    local OUTPUT_DIRS MODELS DATASETS INPUT_MINS INPUT_MAXS
+    source "$MODELS_DATASETS2_SPEC" || return 1
+
+    local idx
+    for idx in ${!MODELS[@]}; do
+        [[ ${MODELS[$idx]#*models/} == ${MODEL#*models/} ]] || continue
+        lmin="${INPUT_MINS[$idx]}"
+        lmax="${INPUT_MAXS[$idx]}"
+        return 0
+    done
+
+    return 1
+}
+
+## Resolves INPUT_MIN / INPUT_MAX (comma-separated, one value per input feature) for MODEL/DATASET:
+##   1. the INPUT_MIN / INPUT_MAX environment variables; a single number applies to every feature,
+##   2. otherwise the entry of MODEL in MODELS_DATASETS2_SPEC,
+##   3. otherwise unset, i.e. spexplain's ONNX default [0,1] for every feature (with a warning).
+function set_input_bounds {
+    local min="$INPUT_MIN"
+    local max="$INPUT_MAX"
+
+    [[ -z $min || -z $max ]] && {
+        local spec_min spec_max
+        _lookup_spec_bounds spec_min spec_max && {
+            [[ -z $min ]] && min="$spec_min"
+            [[ -z $max ]] && max="$spec_max"
+        }
     }
 
-    if [[ -n $INPUT_MIN_OVERRIDE ]]; then
-        export INPUT_MIN="$INPUT_MIN_OVERRIDE"
-    else
-        export INPUT_MIN="${INPUT_MINS[$OUTPUT_DIR_IDX]}"
-    fi
+    _expand_bound min
+    _expand_bound max
 
-    if [[ -n $INPUT_MAX_OVERRIDE ]]; then
-        export INPUT_MAX="$INPUT_MAX_OVERRIDE"
-    else
-        export INPUT_MAX="${INPUT_MAXS[$OUTPUT_DIR_IDX]}"
-    fi
-
-    [[ -z $INPUT_MIN || -z $INPUT_MAX ]] && {
+    [[ -z $min || -z $max ]] && (( ! ${QUIET_BOUNDS_WARNING:-0} )) && {
         printf "WARNING: no input domain bounds for %s.\n" "$MODEL" >&2
-        printf "         ONNX models carry no input domain, so every feature defaults to [0,1],\n" >&2
-        printf "         which usually yields misleadingly weak explanations.\n" >&2
-        printf "         Provide --input-min/--input-max or add them to %s.\n" "$MODELS_DATASETS2_SPEC" >&2
+        printf "         ONNX models carry no input domain, so every feature defaults to [0,1].\n" >&2
+        printf "         Set INPUT_MIN/INPUT_MAX or add the model to %s.\n" "$MODELS_DATASETS2_SPEC" >&2
     }
 
-    return 0
+    export INPUT_MIN="$min"
+    export INPUT_MAX="$max"
 }
 
 ## Appends the ONNX-only options to the array named by $1.

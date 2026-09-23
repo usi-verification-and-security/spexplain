@@ -1,0 +1,4 @@
+VARIANT_NAMES=(
+    fix-all
+    hybrid
+)

@@ -1,77 +1,84 @@
 #!/bin/bash
 
-## ONNX counterpart of `run1.sh`: runs a single experiment for one ONNX model.
+## ONNX counterpart of `run1.sh`: runs a single experiment for one ONNX model and dataset.
 ##
-## Differences from `run1.sh`:
-##   * uses `lib/run2` (ONNX model/dataset spec `spec/models_datasets2`),
+## Same arguments, output layout, variants, neuron-activation files, SRC_EXPERIMENT chaining and
+## TIMEOUT/TIMEOUT_PER handling as `run1.sh`. The differences are:
+##   * uses `lib/run2` (models may live in subdirectories, e.g. models/mnist/cnn-bench/S1.onnx),
 ##   * invokes the `explain-onnx` action instead of the default `explain`,
-##   * passes `--input-min`/`--input-max` (and optionally `--drop-sigmoid`), which are ONNX-only.
-## Everything else -- output file naming, --format/--max-samples/--reverse-var/--time-limit-per
-## handling, SRC_EXPERIMENT chaining -- is identical.
+##   * passes the ONNX-only `--input-min`/`--input-max` (and optionally `--drop-sigmoid`).
 
-DIRNAME=$(dirname "$0")
+SCRIPTS_DIR=$(dirname "$0")
 
-source "$DIRNAME/lib/run2"
+source "$SCRIPTS_DIR/lib/run2"
 
 function usage {
-    printf "USAGE: %s <output_dir> <exp_strategies_spec> [<name>] [reverse] [<max_samples>] <args>...\n" "$0"
-    printf "\t<output_dir> must be specified in %s\n" "$MODELS_DATASETS2_SPEC"
-    printf "\nENVIRONMENT:\n"
-    printf "\tONNX_MODEL_OVERRIDE\tUse this .onnx file instead of the spec entry\n"
-    printf "\tINPUT_MIN_OVERRIDE\tComma-separated per-feature input minimums\n"
-    printf "\tINPUT_MAX_OVERRIDE\tComma-separated per-feature input maximums\n"
+    printf "USAGE: %s <onnx_model_fn> <dataset_fn> <exp_strategies_spec> [<name>] [<max_samples>] <args>...\n" "$0"
+    printf "\nENVIRONMENT (in addition to those of run1.sh):\n"
+    printf "\tINPUT_MIN, INPUT_MAX\tInput domain bounds: one number for all features, or one value per\n"
+    printf "\t\t\t\tfeature (comma-separated). Default: the entry of the model in\n"
+    printf "\t\t\t\t%s, else [0,1]\n" "$MODELS_DATASETS2_SPEC"
     printf "\tDROP_SIGMOID\t\ttrue|false, passed as --drop-sigmoid (default: unset, i.e. true)\n"
     printf "\tQUIET\t\t\tSet to 0 to omit --quiet (default: 1)\n"
 
     [[ -n $1 ]] && exit $1
 }
 
-[[ -z $1 ]] && usage 1 >&2
+[[ -z $1 || -z $2 ]] && usage 1 >&2
 
-read_output_dir "$1" || usage $? >&2
-shift
+set_output_dir_from_model_dataset "$1" "$2" || usage $? >&2
+shift 2
 
-[[ -z $1 || $1 =~ ^(reverse|short)$ ]] && usage 1 >&2
+[[ -z $1 || $1 == short ]] && usage 1 >&2
 STRATEGIES="$1"
 shift
 
-if [[ -z $1 || $1 =~ ^(reverse|short)$ ]]; then
+if [[ -z $1 || $1 == short || $1 =~ ^- ]]; then
     set_experiment_name_from_strategies EXPERIMENT "$STRATEGIES"
 else
     EXPERIMENT="$1"
     shift
 fi
 
-[[ $1 == reverse ]] && {
-    REVERSE=1
-    shift
-}
-
 maybe_read_max_samples "$1" && shift
 
-[[ $1 =~ ^(reverse|short)$ ]] && usage 1 >&2
+[[ $1 == short ]] && usage 1 >&2
 
 set_cmd
 set_action
 set_timeout
+set_input_bounds
 
-declare -a OPTIONS
-OPTIONS=(--format=smtlib2)
+[[ -n $VARIANT ]] && {
+    maybe_find_options_for_variant "$VARIANT" VAR_OPTIONS
+}
 
-## `--quiet` is known to segfault in the current build, so make it opt-out-able.
+activations="${MODEL/models\//neuron_activations\/}"
+activations="${activations%.*}.txt"
+[[ -r $activations ]] && {
+    for options_var in VAR_OPTIONS OPTIONS; do
+        declare -n lOPTIONS=$options_var
+        for opt in --input-{fix,prefer}-sample-neuron-activations; do
+            [[ $lOPTIONS =~ ${opt}=\"\" ]] || continue
+            lOPTIONS="${lOPTIONS//${opt}=\"\"/${opt}=\"$activations\"}"
+        done
+    done
+}
+
+declare -a options
+options=(
+    --format=smtlib2
+)
+
+## Opt-out-able, as --quiet was known to segfault in some builds.
 [[ -z $QUIET ]] && QUIET=1
-(( $QUIET )) && OPTIONS=(--quiet "${OPTIONS[@]}")
+(( $QUIET )) && options=(--quiet "${options[@]}")
 
-append_onnx_options OPTIONS
+append_onnx_options options
 
 [[ -n $MAX_SAMPLES ]] && {
     OUTPUT_DIR+=/$MAX_SAMPLES_NAME
-    OPTIONS+=(--shuffle-samples --max-samples=$MAX_SAMPLES)
-}
-
-[[ -n $REVERSE ]] && {
-    OUTPUT_DIR+=/reverse
-    OPTIONS+=(--reverse-var)
+    options+=(--shuffle-samples --max-samples=$MAX_SAMPLES)
 }
 
 [[ -n $TIMEOUT_PER ]] && {
@@ -90,7 +97,7 @@ append_onnx_options OPTIONS
     fi
     TIMEOUT_PER_MS=${TIMEOUT_PER_MS%.*}
 
-    OPTIONS+=(--time-limit-per=$TIMEOUT_PER_MS)
+    options+=(--time-limit-per=$TIMEOUT_PER_MS)
 }
 
 mkdir -p "$OUTPUT_DIR" >/dev/null || exit $?
@@ -111,13 +118,13 @@ done
 [[ -n $SRC_EXPERIMENT ]] && {
     set_file src_phi_file "$SRC_EXPERIMENT" phi
 
-    OPTIONS+=(--input-explanations=\"$src_phi_file\")
+    options+=(--input-explanations=\"$src_phi_file\")
 }
 
-OPTIONS+=(
+options+=(
     --output-explanations=\"$phi_file\"
     --output-stats=\"$stats_file\"
     --output-times=\"$times_file\"
 )
 
-exec $TIMEOUT_CMD bash -c "{ time ${CMD} $ACTION \"$MODEL\" \"$DATASET\" \"$STRATEGIES\" ${OPTIONS[*]} "'"$@"'" >\"$out_file\" 2>\"$err_file\" ; } 2>\"$time_file\"" spexplain "$@"
+exec $TIMEOUT_CMD bash -c "{ time ${CMD} $ACTION \"$MODEL\" \"$DATASET\" \"$STRATEGIES\" ${options[*]} $VAR_OPTIONS $OPTIONS "'"$@"'" >\"$out_file\" 2>\"$err_file\" ; } 2>\"$time_file\"" spexplain "$@"

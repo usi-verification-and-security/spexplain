@@ -1,0 +1,4 @@
+Dataset size: 100
+Number of variables: 784
+Limited number of samples: 1
+------------------------------------------------------------

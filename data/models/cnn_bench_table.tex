@@ -1,0 +1,26 @@
+\begin{table}[t]
+\centering
+\small
+\caption{CNN benchmark family. Every network ends with FC(32)+ReLU and a linear classifier. S$d$ downsamples with stride-2 convolutions, P$d$ with $2{\times}2$ max pooling; S$d$ and P$d$ have the same depth and number of ReLUs. \#ReLU = ReLU neurons, \#Max = max-pool output neurons, Acc = top-1 test accuracy (\%).}
+\label{tab:cnn-bench}
+\begin{tabular}{llrrrrrrrrrrrr}
+\toprule
+ & & \multicolumn{3}{c}{MNIST} & \multicolumn{3}{c}{GTSRB} & \multicolumn{3}{c}{CIFAR-10} & \multicolumn{3}{c}{Imagenette-64} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-8} \cmidrule(lr){9-11} \cmidrule(lr){12-14}
+Id & Convs/Pools & \#ReLU & \#Max & Acc & \#ReLU & \#Max & Acc & \#ReLU & \#Max & Acc & \#ReLU & \#Max & Acc \\
+\midrule
+S1 & 1/0 & 1600 & 0 & 98.64 & 2080 & 0 & 86.20 & 2080 & 0 & 61.36 & 8224 & 0 & 62.39 \\
+P1 & 1/1 & 1600 & 392 & 98.10 & 2080 & 512 & 85.52 & 2080 & 512 & 61.29 & 8224 & 2048 & 64.89 \\
+S2 & 2/0 & 2384 & 0 & 99.06 & 3104 & 0 & 90.78 & 3104 & 0 & 67.78 & 12320 & 0 & 67.62 \\
+P2 & 2/2 & 2384 & 536 & 98.56 & 3104 & 768 & 84.77 & 3104 & 768 & 65.55 & 12320 & 3072 & 70.19 \\
+S3 & 3/0 & 3168 & 0 & 99.36 & 4128 & 0 & 92.61 & 4128 & 0 & 70.54 & 16416 & 0 & 71.95 \\
+P3 & 3/2 & 3168 & 536 & 99.00 & 4128 & 768 & 88.96 & 4128 & 768 & 69.02 & 16416 & 3072 & 71.39 \\
+S4 & 4/0 & 4736 & 0 & 99.35 & 6176 & 0 & 94.45 & 6176 & 0 & 73.39 & 24608 & 0 & 72.87 \\
+P4 & 4/2 & 4736 & 536 & 99.32 & 6176 & 768 & 92.31 & 6176 & 768 & 71.07 & 24608 & 3072 & 73.45 \\
+S6 & 6/0 & 5312 & 0 & 99.51 & 7200 & 0 & 95.62 & 7200 & 0 & 76.30 & 28704 & 0 & 75.90 \\
+P6 & 6/3 & 5312 & 568 & 99.35 & 7200 & 896 & 92.37 & 7200 & 896 & 74.26 & 28704 & 3584 & 76.25 \\
+S8 & 8/0 & 7664 & 0 & 99.51 & 10272 & 0 & 96.42 & 10272 & 0 & 77.81 & 40992 & 0 & 75.95 \\
+P8 & 8/3 & 7664 & 568 & 99.42 & 10272 & 896 & 94.76 & 10272 & 896 & 74.05 & 40992 & 3584 & 75.90 \\
+\bottomrule
+\end{tabular}
+\end{table}

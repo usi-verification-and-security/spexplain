@@ -1,0 +1,70 @@
+# 1 - input string
+#<2>- array var. name to write into
+#(3)- field separator to use
+function _split_string {
+    [[ -n $3 ]] && local IFS=$3
+    local -n larray=$2
+    larray=($1)
+}
+
+function _check_array_sizes {
+    local array_var1=$1
+    local array_var2=$2
+
+    local -n larray1=$array_var1
+    local -n larray2=$array_var2
+
+    (( ${#larray1[@]} == ${#larray2[@]} )) && return 0
+
+    printf "Mismatch of the size of arrays %s and %s: %d != %d\n" $array_var1 $array_var2 ${#larray1[@]} ${#larray2[@]} >&2
+    exit 9
+}
+
+function __contains {
+    local array_var=$1
+    local elem="$2"
+
+    local -n larray=$array_var
+
+    local e
+    for e in "${larray[@]}"; do
+        [[ $e == $elem ]] && return 0
+    done
+
+    return 1
+}
+
+function _check_includes {
+    local array_var1=$1
+    local array_var2=$2
+
+    local -n larray1=$array_var1
+    local -n larray2=$array_var2
+
+    local e
+    for e in "${larray2[@]}"; do
+        __contains $array_var1 "$e" && continue
+
+        printf "Element '%s' of array %s is not included in array %s\n" "$e" $array_var2 $array_var1 >&2
+        exit 9
+    done
+
+    return 0
+}
+
+function _set_max_len {
+    local array_var=$1
+    local dst_max_len_var=$2
+
+    local -n larray=$array_var
+    local -n ldst_max_len=$dst_max_len_var
+
+    local max_len=0
+    for e in "${larray[@]}"; do
+        local len=${#e}
+        (( $len <= $max_len )) && continue
+        max_len=$len
+    done
+
+    ldst_max_len=$max_len
+}

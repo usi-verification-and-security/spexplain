@@ -1,0 +1,13 @@
+id,dataset,tokens,layers,input_shape,num_classes,convs,maxpools,relu_neurons,pool_windows,params,epochs,train_acc,test_acc,onnx_top1,onnx_top5,onnx_vs_torch_mismatch,onnx_rel_diff,onnx_ops,train_seconds,onnx
+S1,mnist,c8s2,Conv8/2 - FC32 - FC,1x28x28,10,1,0,1600,0,50674,15,0.9862,0.9864,0.9864,0.9998,0,4.37e-06,Conv Flatten Gemm Relu,24,S1.onnx
+P1,mnist,c8s2 p,Conv8/2 - MaxPool - FC32 - FC,1x28x28,10,1,1,1600,392,13042,15,0.9812,0.9810,0.9810,0.9999,0,2.15e-06,Conv Flatten Gemm MaxPool Relu,23,P1.onnx
+S2,mnist,c8s2 c16s2,Conv8/2 - Conv16/2 - FC32 - FC,1x28x28,10,2,0,2384,0,27650,15,0.9911,0.9906,0.9906,1.0000,0,4.50e-06,Conv Flatten Gemm Relu,29,S2.onnx
+P2,mnist,c8s2 p c16 p,Conv8/2 - MaxPool - Conv16 - MaxPool - FC32 - FC,1x28x28,10,2,2,2384,536,6274,15,0.9849,0.9856,0.9856,0.9999,0,3.46e-06,Conv Flatten Gemm MaxPool Relu,22,P2.onnx
+S3,mnist,c8s2 c16s2 c16,Conv8/2 - Conv16/2 - Conv16 - FC32 - FC,1x28x28,10,3,0,3168,0,29970,15,0.9936,0.9936,0.9936,0.9999,0,5.08e-06,Conv Flatten Gemm Relu,42,S3.onnx
+P3,mnist,c8s2 p c16 c16 p,Conv8/2 - MaxPool - Conv16 - Conv16 - MaxPool - FC32 - FC,1x28x28,10,3,2,3168,536,8594,15,0.9899,0.9900,0.9900,0.9998,0,3.34e-06,Conv Flatten Gemm MaxPool Relu,26,P3.onnx
+S4,mnist,c8s2 c8 c16s2 c16,Conv8/2 - Conv8 - Conv16/2 - Conv16 - FC32 - FC,1x28x28,10,4,0,4736,0,30554,15,0.9943,0.9935,0.9935,0.9999,0,5.20e-06,Conv Flatten Gemm Relu,30,S4.onnx
+P4,mnist,c8s2 c8 p c16 c16 p,Conv8/2 - Conv8 - MaxPool - Conv16 - Conv16 - MaxPool - FC32 - FC,1x28x28,10,4,2,4736,536,9178,15,0.9929,0.9932,0.9932,0.9999,0,3.40e-06,Conv Flatten Gemm MaxPool Relu,30,P4.onnx
+S6,mnist,c8s2 c8 c16s2 c16 c32s2 c32,Conv8/2 - Conv8 - Conv16/2 - Conv16 - Conv32/2 - Conv32 - FC32 - FC,1x28x28,10,6,0,5312,0,32154,15,0.9962,0.9951,0.9951,1.0000,0,3.78e-06,Conv Flatten Gemm Relu,36,S6.onnx
+P6,mnist,c8s2 c8 p c16 c16 p c32 c32 p,Conv8/2 - Conv8 - MaxPool - Conv16 - Conv16 - MaxPool - Conv32 - Conv32 - MaxPool - FC32 - FC,1x28x28,10,6,3,5312,568,19482,15,0.9954,0.9935,0.9935,1.0000,0,7.39e-06,Conv Flatten Gemm MaxPool Relu,39,P6.onnx
+S8,mnist,c8s2 c8 c8 c16s2 c16 c16 c32s2 c32,Conv8/2 - Conv8 - Conv8 - Conv16/2 - Conv16 - Conv16 - Conv32/2 - Conv32 - FC32 - FC,1x28x28,10,8,0,7664,0,35058,15,0.9964,0.9951,0.9951,1.0000,0,2.15e-06,Conv Flatten Gemm Relu,45,S8.onnx
+P8,mnist,c8s2 c8 c8 p c16 c16 c16 p c32 c32 p,Conv8/2 - Conv8 - Conv8 - MaxPool - Conv16 - Conv16 - Conv16 - MaxPool - Conv32 - Conv32 - MaxPool - FC32 - FC,1x28x28,10,8,3,7664,568,22386,15,0.9963,0.9942,0.9942,1.0000,0,5.60e-06,Conv Flatten Gemm MaxPool Relu,53,P8.onnx

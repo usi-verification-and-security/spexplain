@@ -1,0 +1,15 @@
+
+NAME=MN50-prefer_only   VARIANTS_SPEC=prefer_only  WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN50.sh
+NAME=CIF50-prefer_only  VARIANTS_SPEC=prefer_only  WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF50.sh
+NAME=GTS50-prefer_only  VARIANTS_SPEC=prefer_only  WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS50.sh
+NAME=MN200-prefer_only  VARIANTS_SPEC=prefer_only MODEL_IDXS="1 2 3 4 6 8 10 12 14" WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN200.sh
+NAME=CIF200-prefer_only VARIANTS_SPEC=prefer_only MODEL_IDXS="1 2 3 4 6 8 10" WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF200.sh
+NAME=GTS200-prefer_only VARIANTS_SPEC=prefer_only MODEL_IDXS="1 2 3 4 6 8 10" WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS200.sh
+
+
+NAME=MN50-fix_hybrid   VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN50.sh
+NAME=CIF50-fix_hybrid  VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF50.sh
+NAME=GTS50-fix_hybrid  VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS50.sh
+NAME=MN200-fix_hybrid  VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN200.sh
+NAME=CIF200-fix_hybrid VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF200.sh
+NAME=GTS200-fix_hybrid VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS200.sh
