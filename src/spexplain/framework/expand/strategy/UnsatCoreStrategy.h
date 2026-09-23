@@ -6,7 +6,7 @@
 namespace xai::verifiers {
 struct UnsatCore;
 class UnsatCoreVerifier;
-}
+} // namespace xai::verifiers
 
 namespace spexplain {
 class ConjunctExplanation;
