@@ -414,9 +414,12 @@ void Framework::Expand::preprocessSampleModel(Sample::Idx idx, Network::Output c
 
     if (framework.hasNetwork2()) {
         auto const & network2 = framework.getNetwork2();
+        std::size_t const nEffectiveLayers = network2.nEffectiveLayers();
         std::size_t activationLayerIdx = 0;
         xai::verifiers::LayerIndex reluLayerIndex = 1;
-        for (auto const & layerPtr : network2.getLayers()) {
+        auto const & layers = network2.getLayers();
+        for (std::size_t li = 0; li < nEffectiveLayers; ++li) {
+            auto const & layerPtr = layers[li];
             if (!layerPtr) { continue; }
 
             std::string const & type = layerPtr->getType();
