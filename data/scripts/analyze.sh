@@ -1,8 +1,8 @@
 #!/bin/bash
 
-export DIRNAME=$(dirname "$0")
+export SCRIPTS_DIR=$(dirname "$0")
 
-source "$DIRNAME/lib/run"
+source "$SCRIPTS_DIR/lib/run"
 
 ACTION_REGEX='check|check-sat|count-fixed|compare-subset'
 
@@ -433,10 +433,7 @@ while true; do
             printf "(declare-fun C1 () Real)\n" >>$ifile
             printf "(declare-fun C2 () Real)\n" >>$ifile
 
-            ## Same premature-(check-sat)/(exit) issue as in set_input_output_file (see the
-            ## comment there): this second copy of the domain assertions, with $var renamed,
-            ## is read from the psi file directly rather than from the already-stripped $ifile.
-            sed -n '/assert/,$p' <"$psi_file" | grep -v -x -E '\(check-sat\)|\(exit\)' | sed -r "${sed_str}" >>$ifile
+            sed -n '/assert/,$p' <"$psi_file" | sed -r "${sed_str}" >>$ifile
 
             printf "(assert %s)\n(assert %s)\n" "$line" "$line2" >>$ifile
             printf "(assert (and (= %s C1) (= %s C2) (not (= C1 C2))))\n" $var $var2 >>$ifile

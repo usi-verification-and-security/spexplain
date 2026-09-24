@@ -43,7 +43,7 @@ function read_experiments_spec {
 }
 
 function maybe_read_consecutive {
-    [[ $1 =~ ^(|\+)consecutive$ ]] || return 1
+    [[ $1 =~ ^\+?consecutive$ ]] || return 1
 
     export INCLUDE_CONSECUTIVE=1
     export CONSECUTIVE_ONLY=1

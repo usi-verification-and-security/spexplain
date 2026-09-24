@@ -1,37 +1,27 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 SCRIPTS_DIR=$(dirname "$0")
 
 STATS_SCRIPT="$SCRIPTS_DIR/stats.awk"
 
-source "$SCRIPTS_DIR/lib/experiments"
+source "$SCRIPTS_DIR/lib/analyze"
 
 function usage {
-    printf "USAGE: %s <explanations_dir> <experiments_spec> [[+]consecutive] [[+]reverse] [<max_samples>] [<filter_regex>] [<OPTIONS>]\n" "$0"
+    printf "USAGE: %s <explanations_dir>... <experiments_spec> [[+]consecutive] [<max_samples>] [<filter_regex>] [<OPTIONS>]\n" "$0"
     printf "OPTIONS:\n"
     printf "\t--exclude-column <name>\t\tExclude given column\n"
-    printf "\t--average [<regex>]\t\tAverage columns for all rows [matching the regex] (can be repeated)\n"
+    printf "\t--average-variant [<regex>]\t\tAverage columns for all rows of each variant [matching the regex] (can be repeated)\n"
 
     [[ -n $1 ]] && exit $1
 }
 
-[[ -z $1 ]] && {
-    printf "Provide stats data directory.\n" >&2
-    usage 1 >&2
-}
-
-STATS_DIR="$1"
-shift
-[[ -d $STATS_DIR && -r $STATS_DIR ]] || {
-    printf "'%s' is not a readable directory.\n" "$STATS_DIR" >&2
-    usage 1 >&2
-}
+read_explanation_dirs "$@" || usage $? >&2
+shift ${#VARIANTS[@]}
 
 read_experiments_spec "$1" || usage $? >&2
 shift
 
 maybe_read_consecutive "$1" && shift
-maybe_read_reverse "$1" && shift
 maybe_read_max_samples "$1" && shift
 
 [[ -n $1 && ! $1 =~ ^-- ]] && {
@@ -76,7 +66,7 @@ while [[ -n $1 ]]; do
             shift
             ;;
 
-        --average)
+        --average-variant)
             if [[ -n $1 ]]; then
                 AVERAGE_FILTERS+=("$1")
             else
@@ -87,18 +77,9 @@ while [[ -n $1 ]]; do
     esac
 done
 
-if [[ -z $INCLUDE_CONSECUTIVE ]]; then
-    declare -n lEXPERIMENT_NAMES=EXPERIMENT_NAMES
-    declare -n lMAX_EXPERIMENT_NAMES_LEN=MAX_EXPERIMENT_NAMES_LEN
-elif (( $CONSECUTIVE_ONLY )); then
-    declare -n lEXPERIMENT_NAMES=CONSECUTIVE_EXPERIMENTS_NAMES
-    declare -n lMAX_EXPERIMENT_NAMES_LEN=MAX_CONSECUTIVE_EXPERIMENTS_NAMES_LEN
-else
-    declare -n lEXPERIMENT_NAMES=EXPERIMENT_NAMES_WITH_CONSECUTIVE
-    declare -n lMAX_EXPERIMENT_NAMES_LEN=MAX_EXPERIMENT_NAMES_WITH_CONSECUTIVE_LEN
-fi
+set_experiment_names
 
-EXPERIMENT_MAX_WIDTH=$(( 1 + $lMAX_EXPERIMENT_NAMES_LEN ))
+EXPERIMENT_MAX_WIDTH=$(( 1 + $MAX_EXPERIMENT_FULL_NAMES_LEN ))
 
 FEATURES_CAPTION='%features'
 FEATURES_MAX_WIDTH=${#FEATURES_CAPTION}
@@ -131,26 +112,23 @@ function compute_term_size {
     local phi_file="$1"
     local n_lines=$2
 
-    grep -o '=' "$phi_file" | wc -l | { tr -d '\n'; printf "/$n_lines\n"; } | bc -l | xargs -i printf $FORMAT_nterms {}
+    grep -o '=' "$phi_file" | wc -l | { tr -d '\n'; printf "/$n_lines\n"; } | bc -l | xargs -I{} printf $FORMAT_nterms {}
 }
 
 function compute_mb_size {
     local phi_file="$1"
     local n_lines=$2
 
-    du -ck "$phi_file" | tail -n 1 | sed 's/^\([0-9]*\)[^0-9].*$/\1/' | { tr -d '\n'; printf "/($n_lines*1000)\n"; } | bc -l | xargs -i printf $FORMAT_size_mb {}
+    du -ck "$phi_file" | tail -n 1 | sed 's/^\([0-9]*\)[^0-9].*$/\1/' | { tr -d '\n'; printf "/($n_lines*1000)\n"; } | bc -l | xargs -I{} printf $FORMAT_size_mb {}
 }
 
 PRINTED_HEADER=0
-PRINTED_REVERSE=0
-PRINTED_REGULAR=0
 
 function print_header {
-    local reverse=$1
-    local dataset_size=$2
-    local n_features=$3
-    local timeout_per=$4
-    local n_correct=$5
+    local dataset_size=$1
+    local n_features=$2
+    local timeout_per=$3
+    local n_correct=$4
 
     (( $PRINTED_HEADER )) || {
         printf 'Dataset size: %d\n' $dataset_size
@@ -173,25 +151,6 @@ function print_header {
 
         PRINTED_HEADER=1
     }
-
-
-    if (( $reverse )); then
-        (( $PRINTED_REVERSE )) || {
-            printf "REVERSE:\n"
-            PRINTED_REVERSE=1
-        }
-    else
-        (( $PRINTED_REGULAR )) || {
-            printf "REGULAR:\n"
-            PRINTED_REGULAR=1
-        }
-    fi
-}
-
-do_reverse_args=(0)
-[[ -n $INCLUDE_REVERSE ]] && {
-    (( $REVERSE_ONLY )) && do_reverse_args=()
-    do_reverse_args+=(1)
 }
 
 ERR_FILE=$(mktemp)
@@ -222,7 +181,7 @@ function store_var_into_str_array {
 
 function postprocess_str_var {
     local str_var_id=$1
-    local experiment="$2"
+    local experiment_full="$2"
 
     local -n lstr=$str_var_id
     [[ $lstr =~ ^@ ]] || return 0
@@ -235,7 +194,7 @@ function postprocess_str_var {
             local -n lsum_str_array=SUM_STR_${var_id}
             local -n lcnt_array=COUNT_${var_id}
 
-            local filter="$experiment"
+            local filter="$experiment_full"
             local sum_str=${lsum_str_array["$filter"]}
             local cnt=${lcnt_array["$filter"]}
 
@@ -252,7 +211,10 @@ function postprocess_str_var {
     esac
 }
 
-for do_reverse in ${do_reverse_args[@]}; do
+for vidx in ${!VARIANTS[@]}; do
+    variant="${VARIANTS[$vidx]}"
+    explanations_dir="${EXPLANATIONS_DIRS[$vidx]}"
+
     experiment_array=()
     perc_features_str_array=()
     perc_fixed_features_str_array=()
@@ -266,42 +228,43 @@ for do_reverse in ${do_reverse_args[@]}; do
 
     for experiment in ${lEXPERIMENT_NAMES[@]}; do
         experiment_stem=$experiment
-        [[ -n $FILTER && ! $experiment =~ $FILTER ]] && continue
+        experiment_full="${variant}/${experiment}"
 
-        (( $do_reverse )) && experiment_stem=reverse/$experiment_stem
+        [[ -n $FILTER && ! $experiment_full =~ $FILTER ]] && continue
+
         [[ -n $MAX_SAMPLES ]] && experiment_stem=$MAX_SAMPLES_NAME/$experiment_stem
 
-        stats_file="${STATS_DIR}/${experiment_stem}.stats.txt"
+        stats_file="${explanations_dir}/${experiment_stem}.stats.txt"
         [[ -r $stats_file ]] || {
             printf "File '%s' is not a readable.\n" "$stats_file" >&2
             cleanup 1
         }
 
-        time_file="${STATS_DIR}/${experiment_stem}.time.txt"
+        time_file="${explanations_dir}/${experiment_stem}.time.txt"
         [[ -r $time_file ]] || {
             printf "File '%s' is not a readable.\n" "$time_file" >&2
             cleanup 1
         }
 
-        times_file="${STATS_DIR}/${experiment_stem}.times.txt"
+        times_file="${explanations_dir}/${experiment_stem}.times.txt"
         [[ -r $times_file ]] || {
             printf "File '%s' is not a readable.\n" "$times_file" >&2
             cleanup 1
         }
 
-        phi_file="${STATS_DIR}/${experiment_stem}.phi.txt"
+        phi_file="${explanations_dir}/${experiment_stem}.phi.txt"
         [[ -r $phi_file ]] || {
             printf "File '%s' is not a readable.\n" "$phi_file" >&2
             cleanup 1
         }
 
-        stats=$($STATS_SCRIPT "$stats_file" 2>$ERR_FILE)
+        stats=$(awk -f "$STATS_SCRIPT" "$stats_file" 2>$ERR_FILE)
         size=$(sed -n 's/^Total:[^0-9]*\([0-9]*\)$/\1/p' <<<"$stats")
         features=$(sed -n 's/^Features:[^0-9]*\([0-9]*\)$/\1/p' <<<"$stats")
         timeout_per=$(sed -n 's/^Timeout per[^0-9]*\([0-9].*\)$/\1/p' <<<"$stats")
         n_correct=$(sed -n 's/^[^#]*#correct classifications[^0-9]*\([0-9][^%]*\)%$/\1/p' <<<"$stats")
 
-        print_header $do_reverse "$size" "$features" "$timeout_per" "$n_correct"
+        print_header "$size" "$features" "$timeout_per" "$n_correct"
 
         time_str=$(sed -n 's/^user[^0-9]*\([0-9].*\)$/\1/p' <"$time_file")
         if [[ -z $time_str ]]; then
@@ -327,7 +290,7 @@ for do_reverse in ${do_reverse_args[@]}; do
             perc_completed=$(sed -n 's/^.*#completed: \([^%]*\)%.*$/\1/p' <<<"$stats")
             nchecks=$(sed -n 's/^.*#checks: \(.*\)$/\1/p' <<<"$stats")
 
-            n_timeouts=$(grep '<null>' <"$times_file" | wc -l)
+            n_timeouts=$(grep -c '<null>' <"$times_file")
             [[ $n_timeouts == $n_timeouts_stats ]] || {
                 printf "%s: encountered inconsistency: stats.n_timeouts != n_timeouts(times): %s != %s\n" $experiment_stem "$n_timeouts_stats" "$n_timeouts" >&2
                 cleanup 3
@@ -380,26 +343,28 @@ for do_reverse in ${do_reverse_args[@]}; do
         for avg_filter in "${AVERAGE_FILTERS[@]}"; do
             [[ $experiment =~ $avg_filter ]] || continue
 
-            SUM_STR_perc_features["$avg_filter"]+="$perc_features+"
-            SUM_STR_perc_fixed_features["$avg_filter"]+="$perc_fixed_features+"
-            SUM_STR_perc_dimension["$avg_filter"]+="$perc_dimension+"
-            SUM_STR_nterms["$avg_filter"]+="$nterms+"
-            SUM_STR_size_mb["$avg_filter"]+="$size_mb+"
-            SUM_STR_nchecks["$avg_filter"]+="$nchecks+"
-            SUM_STR_perc_completed["$avg_filter"]+="$perc_completed+"
-            SUM_STR_avg_time_s["$avg_filter"]+="$avg_time_s+"
-            SUM_STR_avg_par2["$avg_filter"]+="$avg_par2+"
-            (( COUNT_perc_features["$avg_filter"] ++ ))
-            (( COUNT_perc_fixed_features["$avg_filter"] ++ ))
-            (( COUNT_perc_dimension["$avg_filter"] ++ ))
-            (( COUNT_nterms["$avg_filter"] ++ ))
-            (( COUNT_size_mb["$avg_filter"] ++ ))
-            (( COUNT_nchecks["$avg_filter"] ++ ))
-            (( COUNT_perc_completed["$avg_filter"] ++ ))
-            (( COUNT_avg_time_s["$avg_filter"] ++ ))
-            (( COUNT_avg_par2["$avg_filter"] ++ ))
+            variant_avg_filter="${variant}/${avg_filter}"
 
-            if (( ${COUNT_perc_completed["$avg_filter"]} == 1 )); then
+            SUM_STR_perc_features["$variant_avg_filter"]+="$perc_features+"
+            SUM_STR_perc_fixed_features["$variant_avg_filter"]+="$perc_fixed_features+"
+            SUM_STR_perc_dimension["$variant_avg_filter"]+="$perc_dimension+"
+            SUM_STR_nterms["$variant_avg_filter"]+="$nterms+"
+            SUM_STR_size_mb["$variant_avg_filter"]+="$size_mb+"
+            SUM_STR_nchecks["$variant_avg_filter"]+="$nchecks+"
+            SUM_STR_perc_completed["$variant_avg_filter"]+="$perc_completed+"
+            SUM_STR_avg_time_s["$variant_avg_filter"]+="$avg_time_s+"
+            SUM_STR_avg_par2["$variant_avg_filter"]+="$avg_par2+"
+            (( COUNT_perc_features["$variant_avg_filter"] ++ ))
+            (( COUNT_perc_fixed_features["$variant_avg_filter"] ++ ))
+            (( COUNT_perc_dimension["$variant_avg_filter"] ++ ))
+            (( COUNT_nterms["$variant_avg_filter"] ++ ))
+            (( COUNT_size_mb["$variant_avg_filter"] ++ ))
+            (( COUNT_nchecks["$variant_avg_filter"] ++ ))
+            (( COUNT_perc_completed["$variant_avg_filter"] ++ ))
+            (( COUNT_avg_time_s["$variant_avg_filter"] ++ ))
+            (( COUNT_avg_par2["$variant_avg_filter"] ++ ))
+
+            if (( ${COUNT_perc_completed["$variant_avg_filter"]} == 1 )); then
                 perc_features_str_array+=(@AVG)
                 perc_fixed_features_str_array+=(@AVG)
                 perc_dimension_str_array+=(@AVG)
@@ -421,12 +386,12 @@ for do_reverse in ${do_reverse_args[@]}; do
                 avg_par2_str_array+=(@SKIP)
             fi
 
-            experiment_array+=("$avg_filter")
+            experiment_array+=("$variant_avg_filter")
 
             continue 2
         done
 
-        experiment_array+=("$experiment")
+        experiment_array+=("$experiment_full")
 
         store_var_into_str_array perc_features
         store_var_into_str_array perc_fixed_features
@@ -440,7 +405,7 @@ for do_reverse in ${do_reverse_args[@]}; do
     done
 
     for idx in ${!experiment_array[@]}; do
-        experiment="${experiment_array[$idx]}"
+        experiment_full="${experiment_array[$idx]}"
 
         perc_features_str="${perc_features_str_array[$idx]}"
         perc_fixed_features_str="${perc_fixed_features_str_array[$idx]}"
@@ -452,17 +417,17 @@ for do_reverse in ${do_reverse_args[@]}; do
         avg_time_s_str="${avg_time_s_str_array[$idx]}"
         avg_par2_str="${avg_par2_str_array[$idx]}"
 
-        postprocess_str_var perc_features_str "$experiment" || continue
-        postprocess_str_var perc_fixed_features_str "$experiment" || continue
-        postprocess_str_var perc_dimension_str "$experiment" || continue
-        postprocess_str_var nterms_str "$experiment" || continue
-        postprocess_str_var size_mb_str "$experiment" || continue
-        postprocess_str_var nchecks_str "$experiment" || continue
-        postprocess_str_var perc_completed_str "$experiment" || continue
-        postprocess_str_var avg_time_s_str "$experiment" || continue
-        postprocess_str_var avg_par2_str "$experiment" || continue
+        postprocess_str_var perc_features_str "$experiment_full" || continue
+        postprocess_str_var perc_fixed_features_str "$experiment_full" || continue
+        postprocess_str_var perc_dimension_str "$experiment_full" || continue
+        postprocess_str_var nterms_str "$experiment_full" || continue
+        postprocess_str_var size_mb_str "$experiment_full" || continue
+        postprocess_str_var nchecks_str "$experiment_full" || continue
+        postprocess_str_var perc_completed_str "$experiment_full" || continue
+        postprocess_str_var avg_time_s_str "$experiment_full" || continue
+        postprocess_str_var avg_par2_str "$experiment_full" || continue
 
-        printf "%${EXPERIMENT_MAX_WIDTH}s" "$experiment"
+        printf "%${EXPERIMENT_MAX_WIDTH}s" "$experiment_full"
         [[ -z ${EXCLUDE_COLUMNS[$FEATURES_CAPTION]} ]] && printf " | %${FEATURES_MAX_WIDTH}s" "$perc_features_str"
         [[ -z ${EXCLUDE_COLUMNS[$FIXED_CAPTION]} ]] && printf " | %${FIXED_MAX_WIDTH}s" "$perc_fixed_features_str"
         [[ -z ${EXCLUDE_COLUMNS[$DIMENSION_CAPTION]} ]] && printf " | %${DIMENSION_MAX_WIDTH}s" "$perc_dimension_str"
