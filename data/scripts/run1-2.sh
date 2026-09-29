@@ -20,6 +20,8 @@ function usage {
     printf "\t\t\t\t%s, else [0,1]\n" "$MODELS_DATASETS2_SPEC"
     printf "\tDROP_SIGMOID\t\ttrue|false, passed as --drop-sigmoid (default: unset, i.e. true)\n"
     printf "\tQUIET\t\t\tSet to 0 to omit --quiet (default: 1)\n"
+    printf "\tSHUFFLE_SAMPLES\t\tSet to 1 to take a shuffled subset of <max_samples> rows instead\n"
+    printf "\t\t\t\tof the first <max_samples> (default: 0)\n"
 
     [[ -n $1 ]] && exit $1
 }
@@ -76,9 +78,17 @@ options=(
 
 append_onnx_options options
 
+## <max_samples> takes the FIRST <max_samples> rows of the dataset. SHUFFLE_SAMPLES=1 takes a
+## shuffled subset instead; that shuffle is seeded identically on every run, so it is still
+## reproducible. spexplain has no --no-shuffle-samples, so the flag is simply left out by default.
+## NOTE: run1.sh (the .nnet path) always shuffles -- it is unchanged, so the FC experiments keep
+## the behaviour their existing results were produced with.
 [[ -n $MAX_SAMPLES ]] && {
     OUTPUT_DIR+=/$MAX_SAMPLES_NAME
-    options+=(--shuffle-samples --max-samples=$MAX_SAMPLES)
+    options+=(--max-samples=$MAX_SAMPLES)
+    if (( ${SHUFFLE_SAMPLES:-0} )); then
+        options+=(--shuffle-samples)
+    fi
 }
 
 [[ -n $TIMEOUT_PER ]] && {
