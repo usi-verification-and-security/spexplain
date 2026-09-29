@@ -1,6 +1,6 @@
 Model: /Users/labbaf/Documents/NN_Explainability/spexplain/neuron-activation/spexplain/data/models/cifar10/cnn-bench/S4.onnx
   input shape [1, 3, 32, 32], 3072 features, 5 ReLU layer(s), 10-class
-Dataset: /Users/labbaf/Documents/NN_Explainability/spexplain/neuron-activation/spexplain/data/datasets/cifar10/cifar10_s100_scaled.csv (100/100 samples)
+Dataset: /Users/labbaf/Documents/NN_Explainability/spexplain/neuron-activation/spexplain/data/datasets/cifar/cifar_s100_scaled.csv (100/100 samples)
 PGD: epsilon-frac=0.1 step-frac=0.1 num-steps=50
 Output: /Users/labbaf/Documents/NN_Explainability/spexplain/neuron-activation/spexplain/data/neuron_activations/cifar10/cnn-bench/S4.txt
 

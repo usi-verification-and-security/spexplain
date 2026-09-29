@@ -5,12 +5,13 @@
 ##
 ## USAGE: ./<KEYWORD>-CNN.sh [<model>...] [-n]
 ##
-## A <model> is a model id of the family (S1 P1 S2 P2 S3 P3 S4 P4 S6 P6 S8 P8) or a path to an
-## .onnx file; bare arguments replace the default models. '-' arguments are forwarded to
+## A <model> is a model id of the 36-model family (S/P/A at depths 1-6 and their narrow NS/NP/NA
+## twins; see data/models/CNN_BENCH_REPORT.md) or a path to an .onnx file; bare arguments replace
+## the default models. '-' arguments are forwarded to
 ## run-experiments2.sh. Every model is paired with the benchmark's dataset.
 ##
 ## Environment variables (all optional):
-##   MODEL_IDS         model ids to run (default: all 12, simplest first); ignored when models
+##   MODEL_IDS         model ids to run (default: all 36, smallest first); ignored when models
 ##                     are given as arguments
 ##   MODEL_SET         subdirectory of data/models/<NAME>/ with the models (default: cnn-bench)
 ##   VARIANTS          space-separated variant names from spec/variants/all, e.g. "naive fix-all";
@@ -116,8 +117,9 @@ done
 [[ -n $FILTER ]] && OPTS=("$FILTER" "${OPTS[@]}")
 [[ -n $MAX_SAMPLES ]] && OPTS=("$MAX_SAMPLES" "${OPTS[@]}")
 
-## Default model set: the whole family, ordered by depth, strided before pooled
-[[ -z $MODEL_IDS ]] && MODEL_IDS="S1 P1 S2 P2 S3 P3 S4 P4 S6 P6 S8 P8"
+## Default model set: the whole family, ordered smallest-first by ReLU count
+## (S strided, P max pool, A avg pool; N* are the narrow c4/c8/c16 twins)
+[[ -z $MODEL_IDS ]] && MODEL_IDS="NP1 NA1 NP2 NA2 P1 A1 P2 A2 NP3 NA3 NS1 NS2 P3 A3 NP4 NA4 NP5 NA5 S1 NS3 NP6 NA6 S2 NS4 NS5 NS6 P4 A4 P5 A5 S3 P6 A6 S4 S5 S6"
 
 (( ${#MODELS[@]} )) || {
     for id in $MODEL_IDS; do

@@ -1,4 +1,4 @@
-Model: /Users/labbaf/Documents/NN_Explainability/spexplain/neuron-activation/spexplain/data/models/mnist/cnn-bench/P8.onnx
+git push origin CNN-new:CNN-Dev Model: /Users/labbaf/Documents/NN_Explainability/spexplain/neuron-activation/spexplain/data/models/mnist/cnn-bench/P8.onnx
   input shape [1, 1, 28, 28], 784 features, 9 ReLU layer(s), 10-class
 Dataset: /Users/labbaf/Documents/NN_Explainability/spexplain/neuron-activation/spexplain/data/datasets/mnist/mnist_s100_scaled.csv (100/100 samples)
 PGD: epsilon-frac=0.1 step-frac=0.1 num-steps=50
