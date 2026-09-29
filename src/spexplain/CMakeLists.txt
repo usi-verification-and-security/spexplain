@@ -41,6 +41,7 @@ PRIVATE
     network/CNNLayer.cpp
     network/TransposeLayer.cpp
     network/MaxPoolLayer.cpp
+    network/AvgPoolLayer.cpp
     network/AddLayer.cpp
     network/Dataset.cpp
     framework/Config.cpp

@@ -13,6 +13,7 @@
 #include <spexplain/network/FCLayer.h>
 #include <spexplain/network/FlattenLayer.h>
 #include <spexplain/network/MaxPoolLayer.h>
+#include <spexplain/network/AvgPoolLayer.h>
 #include <spexplain/network/Network2.h>
 #include <spexplain/network/ReLULayer.h>
 #include <spexplain/network/SigmoidLayer.h>
@@ -44,6 +45,7 @@ namespace { // Helper methods
     AffineRows fcRows(spexplain::FCLayer const &);
     AffineRows cnnRows(spexplain::CNNLayer const &);
     AffineRows addRows(spexplain::AddLayer const &);
+    AffineRows avgPoolRows(spexplain::AvgPoolLayer const &);
 } // namespace
 
 class OpenSMTVerifier2::OpenSMTImpl {
@@ -474,6 +476,24 @@ namespace { // Helper methods
         }
         return rows;
     }
+
+    // Mirror AvgPoolLayer::computeLayerOutput: out[o] = (1/n_o) * sum of its window.
+    AffineRows avgPoolRows(spexplain::AvgPoolLayer const & pool) {
+        auto const windows = pool.windowIndices();
+        auto const divisors = pool.windowDivisors();
+        assert(windows.size() == pool.getOutputSize());
+        assert(divisors.size() == windows.size());
+
+        AffineRows rows(windows.size());
+        for (std::size_t out = 0; out < windows.size(); ++out) {
+            assert(divisors[out] > 0);
+            Float const weight = Float{1} / static_cast<Float>(divisors[out]);
+            AffineRow & row = rows[out];
+            row.coeffs.reserve(windows[out].size());
+            for (std::size_t in : windows[out]) { row.coeffs.emplace_back(in, weight); }
+        }
+        return rows;
+    }
 } // namespace
 
 bool OpenSMTVerifier2::OpenSMTImpl::contains(PTRef const & term, NodeIndex node) const {
@@ -679,6 +699,11 @@ OpenSMTVerifier2::OpenSMTImpl::makeLayerEncoder(spexplain::NetworkLayer const & 
     }
     if (type == "maxpool") {
         return std::make_unique<MaxPoolEncoder>(dynamic_cast<spexplain::MaxPoolLayer const &>(layer).windowIndices());
+    }
+    if (type == "avgpool") {
+        // Averaging is affine, so it needs no fresh variables and no disjunction: it reuses the
+        // same encoder as fc/cnn/add and contributes nothing to the solver's case splitting.
+        return std::make_unique<AffineEncoder>(avgPoolRows(dynamic_cast<spexplain::AvgPoolLayer const &>(layer)));
     }
     if (type == "sigmoid") {
         // A sigmoid is not encodable in linear arithmetic. A *trailing* sigmoid is monotone and is

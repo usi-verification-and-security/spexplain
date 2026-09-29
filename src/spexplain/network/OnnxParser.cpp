@@ -12,6 +12,7 @@
 #include "FlattenLayer.h"
 #include "ReshapeLayer.h"
 #include "MaxPoolLayer.h"
+#include "AvgPoolLayer.h"
 #include "AddLayer.h"
 #include <spexplain/common/MStringf.h>
 
@@ -987,6 +988,10 @@ void OnnxParser::makeNodeObjects( onnx::NodeProto &node, bool makeEquations )
     {
         maxPoolEquations( node, makeEquations );
     }
+    else if ( strcmp( nodeType, "AveragePool" ) == 0 )
+    {
+        avgPoolEquations( node, makeEquations );
+    }
     else if ( strcmp( nodeType, "Conv" ) == 0 )
     {
         convEquations( node, makeEquations );
@@ -1559,6 +1564,92 @@ void OnnxParser::maxPoolEquations( onnx::NodeProto &node, bool makeEquations )
     MaxPoolLayer::Strides s{ strides[0], strides[1] };
     MaxPoolLayer::Padding p{ pads[0], pads[2], pads[1], pads[3] };
     _net->addLayer( std::make_unique<MaxPoolLayer>( layerInputShape, k, s, p ) );
+}
+
+/**
+ * @brief Function to generate equations for an AveragePool node.
+ * Implements https://github.com/onnx/onnx/blob/main/docs/Operators.md#AveragePool
+ *
+ * Average pooling is affine, so unlike MaxPool it needs no fresh variables and no disjunctions:
+ * OpenSMTVerifier2 encodes it as one linear combination per output element.
+ *
+ * @param node ONNX node representing the AveragePool operation
+ * @param makeEquations True if we need to create the corresponding layer
+ */
+void OnnxParser::avgPoolEquations( onnx::NodeProto &node, bool makeEquations )
+{
+    String inputNodeName = node.input()[0];
+    String outputNodeName = node.output()[0];
+
+    TensorShape inputShape = _shapeMap[inputNodeName];
+    if ( inputShape.size() != 4 )
+    {
+        String errorMessage = Stringf(
+            "Currently Onnx '%s' is supported only for 4D inputs, but got %dD.",
+            node.op_type().c_str(),
+            inputShape.size() );
+        throw std::logic_error( errorMessage.ascii() );
+    }
+
+    // NCHW
+    unsigned int inputH = inputShape[2];
+    unsigned int inputW = inputShape[3];
+
+    String autoPad = getStringAttribute( node, "auto_pad", "NOTSET" );
+    if ( autoPad != "NOTSET" && autoPad != "VALID" )
+        unimplementedAttributeError( node, "auto_pad" );
+
+    int ceilMode = getIntAttribute( node, "ceil_mode", 0 );
+
+    Vector<unsigned int> defaultDilations = { 1, 1 };
+    Vector<unsigned int> dilations =
+        getNonNegativeIntsAttribute( node, "dilations", defaultDilations );
+    for ( auto d : dilations )
+        if ( d != 1 )
+            unimplementedAttributeError( node, "dilations" );
+
+    Vector<unsigned int> defaultKernel = { 1, 1 };
+    Vector<unsigned int> kernel = getNonNegativeIntsAttribute( node, "kernel_shape", defaultKernel );
+
+    Vector<unsigned int> defaultPads = { 0, 0, 0, 0 };
+    Vector<unsigned int> pads = getNonNegativeIntsAttribute( node, "pads", defaultPads );
+    if ( pads.size() != 4 )
+    {
+        String errorMessage = Stringf( "Unexpected padding length '%d' for Onnx '%s'.",
+                                       pads.size(),
+                                       node.op_type().c_str() );
+        throw std::logic_error( errorMessage.ascii() );
+    }
+
+    int countIncludePad = getIntAttribute( node, "count_include_pad", 0 );
+
+    Vector<unsigned int> defaultStrides = { 1, 1 };
+    Vector<unsigned int> strides = getNonNegativeIntsAttribute( node, "strides", defaultStrides );
+
+    int padH = static_cast<int>( pads[0] + pads[2] );
+    int padW = static_cast<int>( pads[1] + pads[3] );
+
+    float unroundedOutH =
+        ( static_cast<float>( inputH + padH - ( ( kernel[0] - 1 ) * dilations[0] + 1 ) ) /
+          static_cast<float>( strides[0] ) ) + 1.0f;
+    float unroundedOutW =
+        ( static_cast<float>( inputW + padW - ( ( kernel[1] - 1 ) * dilations[1] + 1 ) ) /
+          static_cast<float>( strides[1] ) ) + 1.0f;
+
+    TensorShape outputShape = inputShape;
+    outputShape[2] = static_cast<unsigned int>( ceilMode == 0 ? std::floor( unroundedOutH ) : std::ceil( unroundedOutH ) );
+    outputShape[3] = static_cast<unsigned int>( ceilMode == 0 ? std::floor( unroundedOutW ) : std::ceil( unroundedOutW ) );
+
+    _shapeMap[outputNodeName] = outputShape;
+    if ( !makeEquations || !_net )
+        return;
+
+    NetworkLayer::Shape layerInputShape = toLayerShape( inputShape, /*stripBatch=*/true );
+    AvgPoolLayer::Kernel k{ kernel[0], kernel[1] };
+    AvgPoolLayer::Strides s{ strides[0], strides[1] };
+    AvgPoolLayer::Padding p{ pads[0], pads[2], pads[1], pads[3] };
+    _net->addLayer(
+        std::make_unique<AvgPoolLayer>( layerInputShape, k, s, p, countIncludePad != 0 ) );
 }
 
 /**
