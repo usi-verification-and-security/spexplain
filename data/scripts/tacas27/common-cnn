@@ -6,7 +6,7 @@
 ## USAGE: ./<KEYWORD>-CNN.sh [<model>...] [-n]
 ##
 ## A <model> is a model id of the family (S/P/A at depths 1-6, their narrow NS/NP/NA twins, and
-## NAB1-6 on mnist/gtsrb/cifar; see data/models/CNN_BENCH_REPORT.md) or a path to an .onnx file;
+## AB1-6/NAB1-6 on mnist/gtsrb/cifar; see data/models/CNN_BENCH_REPORT.md) or a path to an .onnx file;
 ## bare arguments replace the default models. '-' arguments are forwarded to
 ## run-experiments2.sh. Every model is paired with the benchmark's dataset.
 ##
@@ -119,11 +119,11 @@ done
 [[ -n $MAX_SAMPLES ]] && OPTS=("$MAX_SAMPLES" "${OPTS[@]}")
 
 ## Default model set: the whole family, ordered smallest-first by ReLU count
-## (S strided, P max pool, A avg pool; N* are the narrow c4/c8/c16 twins; NAB* is NA* with the
-## ReLU before the pool, and exists for mnist/gtsrb/cifar only).
+## (S strided, P max pool, A avg pool; N* are the narrow c4/c8/c16 twins; AB*/NAB* are A*/NA*
+## with the ReLU before the pool, and exist for mnist/gtsrb/cifar only).
 MODEL_IDS_DEFAULTED=0
 [[ -z $MODEL_IDS ]] && {
-    MODEL_IDS="NP1 NA1 NP2 NA2 P1 A1 P2 A2 NP3 NA3 NS1 NAB1 NS2 NAB2 P3 A3 NP4 NA4 NP5 NA5 S1 NS3 NAB3 NP6 NA6 S2 NS4 NAB4 NS5 NAB5 NS6 NAB6 P4 A4 P5 A5 S3 P6 A6 S4 S5 S6"
+    MODEL_IDS="NP1 NA1 NP2 NA2 P1 A1 P2 A2 NP3 NA3 NS1 NAB1 NS2 NAB2 P3 A3 NP4 NA4 NP5 NA5 S1 NS3 NAB3 AB1 NP6 NA6 S2 NS4 NAB4 AB2 NS5 NAB5 NS6 NAB6 P4 A4 P5 A5 S3 AB3 P6 A6 S4 AB4 S5 AB5 S6 AB6"
     MODEL_IDS_DEFAULTED=1
 }
 

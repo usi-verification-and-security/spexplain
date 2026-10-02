@@ -1,0 +1,447 @@
+
+---- GTSRB ----- 
+ TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+ TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+ TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+ TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+ TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 NA3 NA4 NA5 A1 A2 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+ TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+ TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 NA3 NA4 NA5 A1 A2 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+ TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+ TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 NP4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+ 
+ -----   ReLU before Avg Pooling -----
+ TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NAB1 NAB2 NAB3 NAB4 NAB5 NAB6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+ TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NAB1 NAB2 NAB3 NAB4 NAB5 NAB6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+ TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NAB1 NAB2 NAB3 NAB4 NAB5 NAB6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+ TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NAB1 NAB2 NAB3 NAB4 NAB5 NAB6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+ TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NAB1 NAB2 NAB3 NAB4 NAB5 NAB6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+ TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NAB1 NAB2 NAB3 NAB4 NAB5 NAB6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+
+ [eiger][flabbaf@eiger-ln003 spexplain]$  TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NAB1 NAB2 NAB3 NAB4 NAB5 NAB6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+ Benchmark:   gtsrb (cnn-bench)
+ Models:      NAB1 NAB2 NAB3 NAB4 NAB5 NAB6
+ Dataset:     gtsrb_s100_scaled.csv
+ Experiments: plain_itp
+ Variants:    prefer_only
+ Max samples: 50
+ Timeout per: 14m
+ Timeout all: 13:55:00
+
+ Submitted batch job 8175485
+ [eiger][flabbaf@eiger-ln003 spexplain]$  TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NAB1 NAB2 NAB3 NAB4 NAB5 NAB6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+ Benchmark:   mnist (cnn-bench)
+ Models:      NAB1 NAB2 NAB3 NAB4 NAB5 NAB6
+ Dataset:     mnist_s100_scaled.csv
+ Experiments: plain_itp
+ Variants:    fix_hybrid
+ Max samples: 50
+ Timeout per: 10m
+ Timeout all: 13:55:00
+
+ Submitted batch job 8175488
+ [eiger][flabbaf@eiger-ln003 spexplain]$  TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NAB1 NAB2 NAB3 NAB4 NAB5 NAB6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+ Benchmark:   mnist (cnn-bench)
+ Models:      NAB1 NAB2 NAB3 NAB4 NAB5 NAB6
+ Dataset:     mnist_s100_scaled.csv
+ Experiments: plain_itp
+ Variants:    prefer_only
+ Max samples: 50
+ Timeout per: 10m
+ Timeout all: 13:55:00
+
+ Submitted batch job 8175489
+ [eiger][flabbaf@eiger-ln003 spexplain]$  TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NAB1 NAB2 NAB3 NAB4 NAB5 NAB6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+ Benchmark:   cifar (cnn-bench)
+ Models:      NAB1 NAB2 NAB3 NAB4 NAB5 NAB6
+ Dataset:     cifar_s100_scaled.csv
+ Experiments: plain_itp
+ Variants:    fix_hybrid
+ Max samples: 50
+ Timeout per: 10m
+ Timeout all: 13:55:00
+
+ Submitted batch job 8175492
+ [eiger][flabbaf@eiger-ln003 spexplain]$  TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NAB1 NAB2 NAB3 NAB4 NAB5 NAB6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+ Benchmark:   cifar (cnn-bench)
+ Models:      NAB1 NAB2 NAB3 NAB4 NAB5 NAB6
+ Dataset:     cifar_s100_scaled.csv
+ Experiments: plain_itp
+ Variants:    prefer_only
+ Max samples: 50
+ Timeout per: 10m
+ Timeout all: 13:55:00
+
+ Submitted batch job 8175493
+
+ -------- MNIST ------
+   TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+  
+   TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+  
+   TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+ 
+ 
+   TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+ 
+   TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 NA3 NA4 NA5 A1 A2 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+  
+   TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+  
+  
+   TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 NA3 NA4 NA5 A1 A2 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+ 
+ 
+ 
+   TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+  
+   TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 NP4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+  
+  
+  
+  -- CIFAR ------
+
+     TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+   
+     TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+   
+     TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+  
+  
+     TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+  
+     TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 NA3 NA4 NA5 A1 A2 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+   
+     TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+   
+   
+     TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 NA3 NA4 NA5 A1 A2 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+  
+  
+  
+     TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+   
+   TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 NP4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+   
+
+   [eiger][flabbaf@eiger-ln001 spexplain]$  TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+   Benchmark:   gtsrb (cnn-bench)
+   Models:      NS1 NS2 S1 NS3 S2 NS4
+   Dataset:     gtsrb_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    fix_hybrid
+   Max samples: 50
+   Timeout per: 14m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169057
+   [eiger][flabbaf@eiger-ln001 spexplain]$  TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+   Benchmark:   gtsrb (cnn-bench)
+   Models:      NS1 NS2 S1 NS3 S2 NS4
+   Dataset:     gtsrb_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    prefer_only
+   Max samples: 50
+   Timeout per: 14m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169058
+   [eiger][flabbaf@eiger-ln001 spexplain]$  TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+   Benchmark:   gtsrb (cnn-bench)
+   Models:      NS5 NS6 S3 S4 S5 S6
+   Dataset:     gtsrb_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    fix_hybrid
+   Max samples: 50
+   Timeout per: 14m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169059
+   [eiger][flabbaf@eiger-ln001 spexplain]$  TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 NA3 NA4 NA5 A1 A2 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+   Benchmark:   gtsrb (cnn-bench)
+   Models:      NA1 NA2 NA3 NA4 NA5 A1 A2 A3
+   Dataset:     gtsrb_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    naive_only
+   Max samples: 50
+   Timeout per: 14m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169060
+   [eiger][flabbaf@eiger-ln001 spexplain]$  TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+   Benchmark:   gtsrb (cnn-bench)
+   Models:      NA1 NA2 A1 A2 NA3 A3
+   Dataset:     gtsrb_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    fix_hybrid
+   Max samples: 50
+   Timeout per: 14m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169061
+   [eiger][flabbaf@eiger-ln001 spexplain]$  TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 NA3 NA4 NA5 A1 A2 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+   Benchmark:   gtsrb (cnn-bench)
+   Models:      NA1 NA2 NA3 NA4 NA5 A1 A2 A3
+   Dataset:     gtsrb_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    prefer_only
+   Max samples: 50
+   Timeout per: 14m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169062
+   [eiger][flabbaf@eiger-ln001 spexplain]$  TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+   Benchmark:   gtsrb (cnn-bench)
+   Models:      NA4 NA5 NA6 A4 A5 A6
+   Dataset:     gtsrb_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    fix_hybrid
+   Max samples: 50
+   Timeout per: 14m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169063
+   [eiger][flabbaf@eiger-ln001 spexplain]$  TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 NP4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+   Benchmark:   gtsrb (cnn-bench)
+   Models:      NP1 NP2 P1 P2 NP3 NP4
+   Dataset:     gtsrb_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    fix_hybrid
+   Max samples: 50
+   Timeout per: 14m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169064
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$  -------- MNIST ------
+   -bash: --------: command not found
+   [eiger][flabbaf@eiger-ln001 spexplain]$    TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+   Benchmark:   mnist (cnn-bench)
+   Models:      NS1 NS2 S1 NS3 S2 NS4
+   Dataset:     mnist_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    naive_only
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169065
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$    TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+   Benchmark:   mnist (cnn-bench)
+   Models:      NS1 NS2 S1 NS3 S2 NS4
+   Dataset:     mnist_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    fix_hybrid
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169066
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$    TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+   Benchmark:   mnist (cnn-bench)
+   Models:      NS1 NS2 S1 NS3 S2 NS4
+   Dataset:     mnist_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    prefer_only
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169067
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$    TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+   Benchmark:   mnist (cnn-bench)
+   Models:      NS5 NS6 S3 S4 S5 S6
+   Dataset:     mnist_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    fix_hybrid
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169068
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$    TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 NA3 NA4 NA5 A1 A2 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+   Benchmark:   mnist (cnn-bench)
+   Models:      NA1 NA2 NA3 NA4 NA5 A1 A2 A3
+   Dataset:     mnist_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    naive_only
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169069
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$    TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+   Benchmark:   mnist (cnn-bench)
+   Models:      NA1 NA2 A1 A2 NA3 A3
+   Dataset:     mnist_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    fix_hybrid
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169070
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$    TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 NA3 NA4 NA5 A1 A2 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+   Benchmark:   mnist (cnn-bench)
+   Models:      NA1 NA2 NA3 NA4 NA5 A1 A2 A3
+   Dataset:     mnist_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    prefer_only
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169071
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$    TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+   Benchmark:   mnist (cnn-bench)
+   Models:      NA4 NA5 NA6 A4 A5 A6
+   Dataset:     mnist_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    fix_hybrid
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169072
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$    TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 NP4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+   Benchmark:   mnist (cnn-bench)
+   Models:      NP1 NP2 P1 P2 NP3 NP4
+   Dataset:     mnist_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    fix_hybrid
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169073
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$   -- CIFAR ------
+   -bash: --: command not found
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$      TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+   Benchmark:   cifar (cnn-bench)
+   Models:      NS1 NS2 S1 NS3 S2 NS4
+   Dataset:     cifar_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    naive_only
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169074
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$      TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+   Benchmark:   cifar (cnn-bench)
+   Models:      NS1 NS2 S1 NS3 S2 NS4
+   Dataset:     cifar_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    fix_hybrid
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169075
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$      TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+   Benchmark:   cifar (cnn-bench)
+   Models:      NS1 NS2 S1 NS3 S2 NS4
+   Dataset:     cifar_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    prefer_only
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169076
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$      TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+   Benchmark:   cifar (cnn-bench)
+   Models:      NS5 NS6 S3 S4 S5 S6
+   Dataset:     cifar_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    fix_hybrid
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169077
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$      TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 NA3 NA4 NA5 A1 A2 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+   Benchmark:   cifar (cnn-bench)
+   Models:      NA1 NA2 NA3 NA4 NA5 A1 A2 A3
+   Dataset:     cifar_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    naive_only
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169078
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$      TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+   Benchmark:   cifar (cnn-bench)
+   Models:      NA1 NA2 A1 A2 NA3 A3
+   Dataset:     cifar_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    fix_hybrid
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169079
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$      TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 NA3 NA4 NA5 A1 A2 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+   Benchmark:   cifar (cnn-bench)
+   Models:      NA1 NA2 NA3 NA4 NA5 A1 A2 A3
+   Dataset:     cifar_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    prefer_only
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169080
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$      TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+   Benchmark:   cifar (cnn-bench)
+   Models:      NA4 NA5 NA6 A4 A5 A6
+   Dataset:     cifar_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    fix_hybrid
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169081
+   [eiger][flabbaf@eiger-ln001 spexplain]$
+   [eiger][flabbaf@eiger-ln001 spexplain]$    TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 NP4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+   Benchmark:   cifar (cnn-bench)
+   Models:      NP1 NP2 P1 P2 NP3 NP4
+   Dataset:     cifar_s100_scaled.csv
+   Experiments: plain_itp
+   Variants:    fix_hybrid
+   Max samples: 50
+   Timeout per: 10m
+   Timeout all: 13:55:00
+
+   Submitted batch job 8169082

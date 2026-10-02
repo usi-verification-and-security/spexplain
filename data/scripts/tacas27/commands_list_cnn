@@ -1,13 +1,15 @@
 ## Examples for the CNN (ONNX) runs; see ./common-cnn for all env. variables.
-## Models:      MODEL_IDS="NP1 NA1 ..." (default: all 36), or ids/paths as arguments
+## Models:      MODEL_IDS="NP1 NA1 ..." (default: all 48; AB/NAB skipped on IMN), or ids/paths as arguments
 ## Variants:    VARIANTS="naive guide-all ..." (names from spec/variants/all), or VARIANTS_SPEC=<collection>
-## Samples:     MAX_SAMPLES=<n> processes <n> shuffled samples instead of all 100; results go to
-##              an extra Sn<n>/ subdirectory, e.g. explanations/mnist/cnn-bench/S1/s100_scaled/naive/Sn10/
+## Samples:     MAX_SAMPLES=<n> processes the FIRST <n> samples instead of all 100; add
+##              SHUFFLE_SAMPLES=1 for a (seeded, reproducible) shuffled subset. Results go to
+##              an extra Sn<n>/ subdir, e.g. explanations/mnist/cnn-bench/S1/s100_scaled/naive/Sn10/
 ## Timeouts:    TIMEOUT_PER=<t> per explanation (defaults: MN 10m, CIF 10m, GTS 14m, IMN 1h),
 ##              TIMEOUT=<t> per experiment, TIMEOUT_ALL=<HH:MM:SS> for the whole run (default 23:55:00)
 
 ## ===================================================================================
-## The model family (36 models, see data/models/CNN_BENCH_REPORT.md). The runs below are
+## The model family (36 models, plus the 12 AB<d>/NAB<d> ablation models on MN/CIF/GTS; see
+## data/models/CNN_BENCH_REPORT.md). The runs below are
 ## organised by *pooling kind*, because that is what decides the encoding:
 ##   nopool  S<d>/NS<d>  stride-2 downsampling, no pooling layer -- only ReLUs to encode
 ##   avg     A<d>/NA<d>  2x2 average pooling -- affine, no extra variable, NO disjunction
@@ -24,6 +26,10 @@
 ## A<d>/P<d> and NA<d>/NP<d> are twins: same shape, same ReLU count, same parameter count, so
 ## 'avg-*' vs 'max-*' at the same position isolates the cost of max-pool branching, and
 ## 'N*' vs its wide twin isolates the cost of width.
+##
+## AB<d>/NAB<d> are A<d>/NA<d> with the ReLU *before* the avg pool (a different function, ~4x the
+## ReLUs on every pooled conv -- the same ReLU count as S<d>/NS<d>). See the "ReLU before avg
+## pool" section at the end.
 ## ===================================================================================
 
 ## ---------- Quick checks ----------
@@ -50,212 +56,230 @@ NAME=GTSCNN-S1 TIMEOUT_PER=1h WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/t
 NAME=MNCNN-max-large-prefer MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS=guide-all EXPERIMENTS_SPEC=plain_itp FILTER='/itp_aweak_bstrong$' WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
 
 ## ===================================================================================
-## Mode 1: whole dataset (100 samples), default per-explanation timeouts
+## Mode 1: first 50 samples, default per-explanation timeouts, 14h node reservation
 ## six model sets x {naive_only, fix_hybrid, prefer_only} x four benchmarks = 72 jobs
 ## ===================================================================================
 
 ## ---------- MNIST ----------
-NAME=MNCNN-nopool-small-naive_only-full MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-nopool-small-fix_hybrid-full MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-nopool-small-prefer_only-full MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+8168813 NAME=MNCNN-nopool-small-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+8168814 NAME=MNCNN-nopool-small-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+8168815 NAME=MNCNN-nopool-small-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
 
-NAME=MNCNN-nopool-large-naive_only-full MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-nopool-large-fix_hybrid-full MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-nopool-large-prefer_only-full MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-nopool-large-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+--- 8168633 ---- NAME=MNCNN-nopool-large-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-nopool-large-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
 
-NAME=MNCNN-avg-small-naive_only-full MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-avg-small-fix_hybrid-full MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-avg-small-prefer_only-full MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+-- 8168616 NAME=MNCNN-avg-small-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+-- 8168617 NAME=MNCNN-avg-small-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+8168819 NAME=MNCNN-avg-small-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
 
-NAME=MNCNN-avg-large-naive_only-full MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-avg-large-fix_hybrid-full MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-avg-large-prefer_only-full MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-avg-large-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+8168821 NAME=MNCNN-avg-large-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-avg-large-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
 
-NAME=MNCNN-max-small-naive_only-full MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-max-small-fix_hybrid-full MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-max-small-prefer_only-full MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-max-small-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+8168637 NAME=MNCNN-max-small-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 NP4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-max-small-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
 
-NAME=MNCNN-max-large-naive_only-full MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-max-large-fix_hybrid-full MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-max-large-prefer_only-full MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-max-large-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-max-large-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="P3 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-max-large-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
 
 ## ---------- CIFAR-10 ----------
-NAME=CIFCNN-nopool-small-naive_only-full MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-nopool-small-fix_hybrid-full MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-nopool-small-prefer_only-full MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+-- NAME=CIFCNN-nopool-small-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+-- NAME=CIFCNN-nopool-small-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+8168843 NAME=CIFCNN-nopool-small-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
 
-NAME=CIFCNN-nopool-large-naive_only-full MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-nopool-large-fix_hybrid-full MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-nopool-large-prefer_only-full MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-nopool-large-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+8168901 NAME=CIFCNN-nopool-large-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-nopool-large-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
 
-NAME=CIFCNN-avg-small-naive_only-full MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-avg-small-fix_hybrid-full MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-avg-small-prefer_only-full MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+ NAME=CIFCNN-avg-small-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+ NAME=CIFCNN-avg-small-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+8168904 NAME=CIFCNN-avg-small-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
 
-NAME=CIFCNN-avg-large-naive_only-full MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-avg-large-fix_hybrid-full MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-avg-large-prefer_only-full MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-avg-large-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-avg-large-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-avg-large-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
 
-NAME=CIFCNN-max-small-naive_only-full MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-max-small-fix_hybrid-full MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-max-small-prefer_only-full MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-max-small-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+8168907 NAME=CIFCNN-max-small-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-max-small-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
 
-NAME=CIFCNN-max-large-naive_only-full MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-max-large-fix_hybrid-full MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-max-large-prefer_only-full MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-max-large-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-max-large-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-max-large-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
 
 ## ---------- GTSRB ----------
-NAME=GTSCNN-nopool-small-naive_only-full MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-nopool-small-fix_hybrid-full MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-nopool-small-prefer_only-full MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+--8168626 NAME=GTSCNN-nopool-small-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+--8168627 NAME=GTSCNN-nopool-small-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+8168911 NAME=GTSCNN-nopool-small-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
 
-NAME=GTSCNN-nopool-large-naive_only-full MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-nopool-large-fix_hybrid-full MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-nopool-large-prefer_only-full MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-nopool-large-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+8168916 NAME=GTSCNN-nopool-large-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-nopool-large-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
 
-NAME=GTSCNN-avg-small-naive_only-full MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-avg-small-fix_hybrid-full MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-avg-small-prefer_only-full MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+-- NAME=GTSCNN-avg-small-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+-- NAME=GTSCNN-avg-small-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+8168919 NAME=GTSCNN-avg-small-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
 
-NAME=GTSCNN-avg-large-naive_only-full MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-avg-large-fix_hybrid-full MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-avg-large-prefer_only-full MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-avg-large-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+8168921 NAME=GTSCNN-avg-large-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-avg-large-preferhen _only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
 
-NAME=GTSCNN-max-small-naive_only-full MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-max-small-fix_hybrid-full MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-max-small-prefer_only-full MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-max-small-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+8168641 NAME=GTSCNN-max-small-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 NP4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-max-small-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
 
-NAME=GTSCNN-max-large-naive_only-full MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-max-large-fix_hybrid-full MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-max-large-prefer_only-full MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-max-large-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-max-large-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="P3 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-max-large-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
 
 ## ---------- Imagenette-64 ----------
-NAME=IMNCNN-nopool-small-naive_only-full MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-nopool-small-fix_hybrid-full MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-nopool-small-prefer_only-full MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-nopool-small-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-nopool-small-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-nopool-small-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
 
-NAME=IMNCNN-nopool-large-naive_only-full MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-nopool-large-fix_hybrid-full MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-nopool-large-prefer_only-full MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-nopool-large-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-nopool-large-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-nopool-large-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
 
-NAME=IMNCNN-avg-small-naive_only-full MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-avg-small-fix_hybrid-full MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-avg-small-prefer_only-full MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-avg-small-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-avg-small-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-avg-small-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
 
-NAME=IMNCNN-avg-large-naive_only-full MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-avg-large-fix_hybrid-full MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-avg-large-prefer_only-full MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-avg-large-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-avg-large-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-avg-large-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
 
-NAME=IMNCNN-max-small-naive_only-full MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-max-small-fix_hybrid-full MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-max-small-prefer_only-full MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-max-small-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-max-small-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-max-small-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
 
-NAME=IMNCNN-max-large-naive_only-full MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-max-large-fix_hybrid-full MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-max-large-prefer_only-full MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-max-large-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-max-large-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-max-large-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
 
 
 ## ===================================================================================
-## Mode 2: 20 shuffled samples, TIMEOUT_PER=1h
+## Mode 2: 20 shuffled samples (SHUFFLE_SAMPLES=1), TIMEOUT_PER=1h
 ## six model sets x {naive_only, fix_hybrid, prefer_only} x four benchmarks = 72 jobs
 ## ===================================================================================
 
 ## ---------- MNIST ----------
-NAME=MNCNN-nopool-small-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-nopool-small-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-nopool-small-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-nopool-small-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-nopool-small-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-nopool-small-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
 
-NAME=MNCNN-nopool-large-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-nopool-large-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-nopool-large-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-nopool-large-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-nopool-large-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-nopool-large-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
 
-NAME=MNCNN-avg-small-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-avg-small-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-avg-small-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-avg-small-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-avg-small-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-avg-small-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
 
-NAME=MNCNN-avg-large-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-avg-large-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-avg-large-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-avg-large-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-avg-large-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-avg-large-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
 
-NAME=MNCNN-max-small-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-max-small-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-max-small-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-max-small-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-max-small-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-max-small-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
 
-NAME=MNCNN-max-large-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-max-large-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
-NAME=MNCNN-max-large-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-max-large-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-max-large-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-max-large-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
 
 ## ---------- CIFAR-10 ----------
-NAME=CIFCNN-nopool-small-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-nopool-small-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-nopool-small-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-nopool-small-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-nopool-small-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-nopool-small-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
 
-NAME=CIFCNN-nopool-large-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-nopool-large-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-nopool-large-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-nopool-large-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-nopool-large-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-nopool-large-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
 
-NAME=CIFCNN-avg-small-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-avg-small-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-avg-small-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-avg-small-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-avg-small-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-avg-small-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
 
-NAME=CIFCNN-avg-large-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-avg-large-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-avg-large-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-avg-large-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-avg-large-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-avg-large-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
 
-NAME=CIFCNN-max-small-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-max-small-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-max-small-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-max-small-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-max-small-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-max-small-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
 
-NAME=CIFCNN-max-large-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-max-large-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
-NAME=CIFCNN-max-large-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-max-large-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-max-large-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-max-large-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
 
 ## ---------- GTSRB ----------
-NAME=GTSCNN-nopool-small-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-nopool-small-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-nopool-small-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-nopool-small-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-nopool-small-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-nopool-small-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
 
-NAME=GTSCNN-nopool-large-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-nopool-large-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-nopool-large-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-nopool-large-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-nopool-large-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-nopool-large-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
 
-NAME=GTSCNN-avg-small-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-avg-small-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-avg-small-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-avg-small-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-avg-small-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-avg-small-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
 
-NAME=GTSCNN-avg-large-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-avg-large-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-avg-large-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-avg-large-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-avg-large-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-avg-large-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
 
-NAME=GTSCNN-max-small-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-max-small-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-max-small-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-max-small-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-max-small-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-max-small-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
 
-NAME=GTSCNN-max-large-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-max-large-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
-NAME=GTSCNN-max-large-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-max-large-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-max-large-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-max-large-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
 
 ## ---------- Imagenette-64 ----------
-NAME=IMNCNN-nopool-small-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-nopool-small-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-nopool-small-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-nopool-small-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-nopool-small-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-nopool-small-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS1 NS2 S1 NS3 S2 NS4" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
 
-NAME=IMNCNN-nopool-large-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-nopool-large-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-nopool-large-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-nopool-large-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-nopool-large-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-nopool-large-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NS5 NS6 S3 S4 S5 S6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
 
-NAME=IMNCNN-avg-small-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-avg-small-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-avg-small-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-avg-small-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-avg-small-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-avg-small-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA1 NA2 A1 A2 NA3 A3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
 
-NAME=IMNCNN-avg-large-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-avg-large-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-avg-large-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-avg-large-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-avg-large-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-avg-large-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NA4 NA5 NA6 A4 A5 A6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
 
-NAME=IMNCNN-max-small-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-max-small-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-max-small-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-max-small-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-max-small-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-max-small-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP1 NP2 P1 P2 NP3 P3" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
 
-NAME=IMNCNN-max-large-naive_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-max-large-fix_hybrid-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
-NAME=IMNCNN-max-large-prefer_only-Sn20 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-max-large-naive_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-max-large-fix_hybrid-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+NAME=IMNCNN-max-large-prefer_only-Sn20 SHUFFLE_SAMPLES=1 MAX_SAMPLES=20 TIMEOUT_PER=1h MODEL_IDS="NP4 NP5 NP6 P4 P5 P6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/IMN-CNN.sh
+
+## ===================================================================================
+## ReLU before avg pool: wide AB<d> (A<d> with Conv -> ReLU -> AvgPool), MN/CIF/GTS only.
+## Same setup as Mode 1 (first 50 samples, 14h). The narrow NAB<d> twins were run separately
+## (see first_batch_commmands); add them with MODEL_IDS="NAB1 ... NAB6".
+## ===================================================================================
+
+NAME=MNCNN-avgb-wide-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="AB1 AB2 AB3 AB4 AB5 AB6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-avgb-wide-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="AB1 AB2 AB3 AB4 AB5 AB6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+NAME=MNCNN-avgb-wide-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="AB1 AB2 AB3 AB4 AB5 AB6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/MN-CNN.sh
+
+NAME=CIFCNN-avgb-wide-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="AB1 AB2 AB3 AB4 AB5 AB6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-avgb-wide-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="AB1 AB2 AB3 AB4 AB5 AB6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+NAME=CIFCNN-avgb-wide-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="AB1 AB2 AB3 AB4 AB5 AB6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/CIF-CNN.sh
+
+NAME=GTSCNN-avgb-wide-naive_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="AB1 AB2 AB3 AB4 AB5 AB6" VARIANTS_SPEC=naive_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-avgb-wide-fix_hybrid-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="AB1 AB2 AB3 AB4 AB5 AB6" VARIANTS_SPEC=fix_hybrid WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh
+NAME=GTSCNN-avgb-wide-prefer_only-Sn50 TIME=14:00:00 TIMEOUT_ALL=13:55:00 MAX_SAMPLES=50 MODEL_IDS="AB1 AB2 AB3 AB4 AB5 AB6" VARIANTS_SPEC=prefer_only WRAPPER=~/srun_commands/sbatch.sh ./data/scripts/tacas27/GTS-CNN.sh

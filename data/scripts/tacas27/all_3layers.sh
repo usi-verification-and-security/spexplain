@@ -15,14 +15,15 @@ RUN_SCRIPT="$SCRIPTS_DIR/run-experiments.sh"
 ## the previous behaviour of waiting for each one to finish before the next
 
 NAMES=(
-heart_attack
-obesity
+mnist
+cifar
+gtsrb
 )
 
 KEYWORDS=(
-HA50
-OB50
-
+MN
+CIF
+GTSRB
 )
 
 TIMEOUT_PERS=(
