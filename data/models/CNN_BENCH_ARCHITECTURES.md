@@ -1,18 +1,18 @@
 # CNN-bench: layer-by-layer architecture reference
 
-Node-level structure of all **144 models** in the CNN-bench family — 36 architectures trained
-identically on each of four image datasets: **MNIST**, **GTSRB**, **CIFAR-10** and
-**Imagenette-64**.
+Node-level structure of all **84 models** in the CNN-bench family — 24 architectures trained
+identically on up to four image datasets: all 24 on **MNIST**, **GTSRB** and **CIFAR-10**, and the
+12 un-pooled ones (`S<d>`, `NS<d>`) on **Imagenette-64**.
 
 Every table is generated directly from the exported `.onnx` graphs by walking the ONNX node list
 with shape inference, so the shapes, parameter counts and ReLU counts are the ones spexplain's
-`OnnxParser` actually sees — not a reconstruction from the training code. All 432 per-model
-totals (144 models × params / ReLUs / pool neurons) were cross-checked against each dataset's
+`OnnxParser` actually sees — not a reconstruction from the training code. All 252 per-model
+totals (84 models × params / ReLUs / pool neurons) were cross-checked against each dataset's
 `manifest.csv` and agree exactly.
 
 **Related documents.** [`CNN_BENCH_REPORT.md`](CNN_BENCH_REPORT.md) is the full experimental
-report — training recipe, accuracies, validation, average-pool support. Its §11 carries a second
-set of tables for the same 144 models in a *layer-level* format (one row per layer, with an
+report — training recipe, accuracies, validation, average-pool support. Its §12 carries a second
+set of tables for the same 84 models in a *layer-level* format (one row per layer, with an
 Activation column). This file is the *node-level* view: `Conv` and `ReLU` are separate rows, and
 parameters, ReLU neurons and pool neurons are broken out per node.
 
@@ -36,7 +36,7 @@ parameters, ReLU neurons and pool neurons are broken out per node.
 ## How to read the tables
 
 Each row is **one ONNX node**. A "convolutional layer" in the usual sense spans two or three
-rows: the `Conv` that holds the parameters, an optional pooling node, then the `ReLU`.
+rows: the `Conv` that holds the parameters, the `ReLU`, then an optional `AvgPool`.
 
 | Column | Meaning |
 |---|---|
@@ -47,7 +47,7 @@ rows: the `Conv` that holds the parameters, an optional pooling node, then the `
 | **Output shape** | Shape leaving the node. |
 | **Params** | Learnable values in this node: weights + bias. Non-zero only for `Conv` and `FC`. |
 | **ReLUs** | ReLU neurons — the element count of the node's output. Each is a case split for the SMT solver. |
-| **Pool** | Pooling output neurons. For `MaxPool` each is a 4-way maximum: a fresh variable plus a disjunction. For `AvgPool` each is a mean — **a plain linear term, no variable and no disjunction**. |
+| **Pool** | Pooling output neurons. Every pool is an `AvgPool`, so each is a 2×2 mean — **a plain linear term, no variable and no disjunction**. |
 
 **The batch axis is dropped.** The graphs declare a `[1,C,H,W]` input; `Network2` strips the
 leading axis, so shapes are written `C×H×W`. A flat CSV row maps onto that in **CHW row-major**
@@ -62,28 +62,28 @@ graph.
 
 ## The architecture family
 
-A **6 × 6 grid**: six depths (1..6 convolutions) × six variants.
+A **6 × 4 grid**: six depths (1..6 convolutions) × four variants.
 
-| id | width | downsampling | pool branching |
-|---|---|---|---|
-| `S<d>` | wide 8/16/32 | stride-2 convolutions | none |
-| `P<d>` | wide 8/16/32 | 2×2 **max** pool | one 4-way max per pooled neuron |
-| `A<d>` | wide 8/16/32 | 2×2 **average** pool | **none** — averaging is affine |
-| `NS<d>` | narrow 4/8/16 | stride-2 convolutions | none |
-| `NP<d>` | narrow 4/8/16 | 2×2 **max** pool | one 4-way max per pooled neuron |
-| `NA<d>` | narrow 4/8/16 | 2×2 **average** pool | **none** — averaging is affine |
+| id | width | downsampling | pool branching | datasets |
+|---|---|---|---|---|
+| `S<d>` | wide 8/16/32 | stride-2 convolutions | none | all four |
+| `AB<d>` | wide 8/16/32 | 2×2 **average** pool, ReLU before the pool | **none** — averaging is affine | MNIST, GTSRB, CIFAR-10 |
+| `NS<d>` | narrow 4/8/16 | stride-2 convolutions | none | all four |
+| `NAB<d>` | narrow 4/8/16 | 2×2 **average** pool, ReLU before the pool | **none** — averaging is affine | MNIST, GTSRB, CIFAR-10 |
 
 Everything is derived from one table of strided token lists at import time, so the grid cannot
-drift: `P<d>` replaces every non-stem `c<N>s2` with `p, c<N>` and appends a final `p`; `A<d>` is
-`P<d>` with `a` for `p`; `NS`/`NP`/`NA` are the 4/8/16 twins. `archs.py` asserts all of it.
+drift: `AB<d>` replaces every non-stem `c<N>s2` with `a, c<N>` and appends a final `a` — except at
+depth 2, where that final pool is left out (`AB2` = `c8s2 a c16`), so the last conv feeds the head
+at full resolution; `NS`/`NAB` are the 4/8/16 twins. `archs.py` asserts all of it.
 
 Two consequences the tables make visible:
 
-- **`P<d>`/`A<d>` and `NP<d>`/`NA<d>` are controlled pairs.** Within a pair the shapes, ReLU
-  counts and parameter counts are *identical*; only the pooling operator differs. That isolates
-  the cost of max-pool branching, once at each width.
-- **`S<d>` has more ReLUs than its pooled siblings**, because its feature maps are not pooled
-  before the activation. See the ReLU placement note below.
+- **`S<d>`/`AB<d>` and `NS<d>`/`NAB<d>` are controlled pairs.** Because the ReLU sits *before*
+  the pool, a pooled model has exactly the ReLU count of its strided twin; only the way the map
+  is downsampled differs (stride-2 conv vs 3×3 conv + 2×2 average pool), and with it the
+  parameter count. That isolates the cost of the pooling layer, once at each width.
+- **Average pooling adds no case splits.** Its pool neurons are affine means, so an `AB`/`NAB`
+  model branches on exactly the same number of neurons as its `S`/`NS` twin.
 
 ### Token grammar
 
@@ -91,7 +91,6 @@ Two consequences the tables make visible:
 |---|---|---|
 | `c<N>` | Conv, N channels, 3×3, stride 1, pad 1 | unchanged |
 | `c<N>s2` | Conv, N channels, 4×4, stride 2, pad 1 | exactly halved |
-| `p` | Max pool, 2×2, stride 2 | halved (floor) |
 | `a` | Average pool, 2×2, stride 2 | halved (floor) |
 
 Every convolution is followed by a ReLU. Every network ends with **Flatten → FC(32) + ReLU →
@@ -99,25 +98,24 @@ FC(classes)**, emitting raw logits — softmax lives only in the training loss.
 
 ### ReLU placement
 
-A convolution immediately followed by a pool emits `Conv → Pool → ReLU`, **not**
-`Conv → ReLU → Pool`. In the tables below that is why a pooled model's `ReLU` row always comes
-*after* its pooling row, and why its ReLU count is a quarter of the unpooled feature map.
+A convolution followed by a pool emits `Conv → ReLU → AvgPool`: the ReLU sits on the
+full-resolution feature map, *before* the pool. In the tables below that is why a pooled model's
+`ReLU` row always comes *before* its pooling row, and why its ReLU count equals that of its
+strided twin.
 
-For **max** pooling the two orders compute exactly the same function — ReLU is monotone
-non-decreasing, so `max(relu(a), relu(b)) == relu(max(a, b))` — and applying it after the pool
-puts it on the 4× smaller map for free. For **average** pooling the orders are *not* equal
-(`avg(relu([-1,1])) = 0.5` while `relu(avg([-1,1])) = 0`); pooling first is a deliberate choice
-that keeps the `A`/`NA` ReLU counts equal to `P`/`NP`, which is what makes the pairs comparable.
+For average pooling the order is not cosmetic — the two orders compute different functions
+(`avg(relu([-1,1])) = 0.5` while `relu(avg([-1,1])) = 0`) — so `AB`/`NAB` are the conventional
+`Conv → ReLU → Pool` networks, paying ~4× the ReLUs of a pool-first ordering on every pooled conv.
 
 The ReLU is never dropped: it is the only nonlinearity between convolutions.
 
-### The 42 architectures
+### The 24 architectures
 
-*Tables are split first by **channel width** (wide 8/16/32 vs narrow 4/8/16), then by pooling kind -- **no pooling**, **average pooling**, **max pooling**. Within each group the models are ordered **smallest first**, by ReLU count ascending.*
+*Tables are split first by **channel width** (wide 8/16/32 vs narrow 4/8/16), then by pooling kind -- **no pooling**, **average pooling (ReLU before the pool)**. Within each group the models are ordered **smallest first**, by ReLU count ascending.*
 
 #### Wide (8/16/32 channels)
 
-`S<d>` / `P<d>` / `A<d>` -- the original family, 8/16/32 channels.
+`S<d>` / `AB<d>` -- 8/16/32 channels.
 
 *No pooling.* `S<d>` / `NS<d>` -- downsampling is done by stride-2 convolutions, so there is no pooling layer at all and nothing beyond the ReLUs to encode.
 
@@ -130,31 +128,20 @@ The ReLU is never dropped: it is the only nonlinearity between convolutions.
 | `S5` | 5 | 0 | `c8s2 c8 c16s2 c16 c32s2` |
 | `S6` | 6 | 0 | `c8s2 c8 c16s2 c16 c32s2 c32` |
 
-*Average pooling.* `A<d>` / `NA<d>` -- 2x2 average pooling, ReLU *after* the pool. Each output is the mean of its window, an affine map: no fresh variable and **no disjunction**.
+*Average pooling, ReLU before the pool.* `AB<d>` / `NAB<d>` -- 2x2 average pooling with the ReLU *before* the pool (mnist/gtsrb/cifar only). Each pool output is the mean of its window, an affine map: no fresh variable and **no disjunction**. The ReLUs sit on the full-resolution map, so the ReLU count equals the strided twin's.
 
 | id | convs | pools | token sequence |
 |---|---:|---:|---|
-| `A1` | 1 | 1 | `c8s2 a` |
-| `A2` | 2 | 2 | `c8s2 a c16 a` |
-| `A3` | 3 | 2 | `c8s2 a c16 c16 a` |
-| `A4` | 4 | 2 | `c8s2 c8 a c16 c16 a` |
-| `A5` | 5 | 3 | `c8s2 c8 a c16 c16 a c32 a` |
-| `A6` | 6 | 3 | `c8s2 c8 a c16 c16 a c32 c32 a` |
-
-*Max pooling.* `P<d>` / `NP<d>` -- 2x2 max pooling. Each output needs a fresh variable with `m >= a_i` plus a 4-way disjunction `\/ m = a_i`.
-
-| id | convs | pools | token sequence |
-|---|---:|---:|---|
-| `P1` | 1 | 1 | `c8s2 p` |
-| `P2` | 2 | 2 | `c8s2 p c16 p` |
-| `P3` | 3 | 2 | `c8s2 p c16 c16 p` |
-| `P4` | 4 | 2 | `c8s2 c8 p c16 c16 p` |
-| `P5` | 5 | 3 | `c8s2 c8 p c16 c16 p c32 p` |
-| `P6` | 6 | 3 | `c8s2 c8 p c16 c16 p c32 c32 p` |
+| `AB1` | 1 | 1 | `c8s2 a` |
+| `AB2` | 2 | 1 | `c8s2 a c16` |
+| `AB3` | 3 | 2 | `c8s2 a c16 c16 a` |
+| `AB4` | 4 | 2 | `c8s2 c8 a c16 c16 a` |
+| `AB5` | 5 | 3 | `c8s2 c8 a c16 c16 a c32 a` |
+| `AB6` | 6 | 3 | `c8s2 c8 a c16 c16 a c32 c32 a` |
 
 #### Narrow (4/8/16 channels)
 
-`NS<d>` / `NP<d>` / `NA<d>` / `NAB<d>` -- the half-width twins of the wide models, 4/8/16 channels. Same depth, same token sequence, same downsampling; roughly half the ReLUs and 2-6x fewer parameters.
+`NS<d>` / `NAB<d>` -- the half-width twins of the wide models, 4/8/16 channels. Same depth, same token sequence, same downsampling; roughly half the ReLUs and 2-6x fewer parameters.
 
 *No pooling.* `S<d>` / `NS<d>` -- downsampling is done by stride-2 convolutions, so there is no pooling layer at all and nothing beyond the ReLUs to encode.
 
@@ -167,38 +154,16 @@ The ReLU is never dropped: it is the only nonlinearity between convolutions.
 | `NS5` | 5 | 0 | `c4s2 c4 c8s2 c8 c16s2` |
 | `NS6` | 6 | 0 | `c4s2 c4 c8s2 c8 c16s2 c16` |
 
-*Average pooling.* `A<d>` / `NA<d>` -- 2x2 average pooling, ReLU *after* the pool. Each output is the mean of its window, an affine map: no fresh variable and **no disjunction**.
-
-| id | convs | pools | token sequence |
-|---|---:|---:|---|
-| `NA1` | 1 | 1 | `c4s2 a` |
-| `NA2` | 2 | 2 | `c4s2 a c8 a` |
-| `NA3` | 3 | 2 | `c4s2 a c8 c8 a` |
-| `NA4` | 4 | 2 | `c4s2 c4 a c8 c8 a` |
-| `NA5` | 5 | 3 | `c4s2 c4 a c8 c8 a c16 a` |
-| `NA6` | 6 | 3 | `c4s2 c4 a c8 c8 a c16 c16 a` |
-
-*Average pooling, ReLU before the pool.* `NAB<d>` -- the same networks as `NA<d>` with the ReLU moved *before* the pool (mnist/gtsrb/cifar only). For average pooling that is a different function, not a re-ordering, and it costs ~4x the ReLUs on every pooled conv. See the `NAB<d>` ablation section.
+*Average pooling, ReLU before the pool.* `AB<d>` / `NAB<d>` -- 2x2 average pooling with the ReLU *before* the pool (mnist/gtsrb/cifar only). Each pool output is the mean of its window, an affine map: no fresh variable and **no disjunction**. The ReLUs sit on the full-resolution map, so the ReLU count equals the strided twin's.
 
 | id | convs | pools | token sequence |
 |---|---:|---:|---|
 | `NAB1` | 1 | 1 | `c4s2 a` |
-| `NAB2` | 2 | 2 | `c4s2 a c8 a` |
+| `NAB2` | 2 | 1 | `c4s2 a c8` |
 | `NAB3` | 3 | 2 | `c4s2 a c8 c8 a` |
 | `NAB4` | 4 | 2 | `c4s2 c4 a c8 c8 a` |
 | `NAB5` | 5 | 3 | `c4s2 c4 a c8 c8 a c16 a` |
 | `NAB6` | 6 | 3 | `c4s2 c4 a c8 c8 a c16 c16 a` |
-
-*Max pooling.* `P<d>` / `NP<d>` -- 2x2 max pooling. Each output needs a fresh variable with `m >= a_i` plus a 4-way disjunction `\/ m = a_i`.
-
-| id | convs | pools | token sequence |
-|---|---:|---:|---|
-| `NP1` | 1 | 1 | `c4s2 p` |
-| `NP2` | 2 | 2 | `c4s2 p c8 p` |
-| `NP3` | 3 | 2 | `c4s2 p c8 c8 p` |
-| `NP4` | 4 | 2 | `c4s2 c4 p c8 c8 p` |
-| `NP5` | 5 | 3 | `c4s2 c4 p c8 c8 p c16 p` |
-| `NP6` | 6 | 3 | `c4s2 c4 p c8 c8 p c16 c16 p` |
 
 ---
 
@@ -208,14 +173,14 @@ Models are ordered by ReLU count rather than parameter count, because that is wh
 pays for: every ReLU is a case split, while a wide `Gemm` is just more linear arithmetic in
 `QF_LRA`. The two measures disagree sharply, and often invert.
 
-| MNIST | `S1` | `P6` |
+| MNIST | `S1` | `AB6` |
 |---|---:|---:|
 | Convolutions | 1 | 6 |
 | Parameters | 50,674 | 19,482 |
-| ReLUs | 1,600 | 3,240 |
+| ReLUs | 1,600 | 5,312 |
 | Pool neurons | 0 | 568 |
 
-`S1` carries **2.6× the parameters** of `P6` and is far the
+`S1` carries **2.6× the parameters** of `AB6` and is far the
 easier model to verify: almost all its weight sits in one fully-connected layer reading a large
 un-pooled feature map, which is cheap linear arithmetic.
 
@@ -223,7 +188,8 @@ un-pooled feature map, which is cheap linear arithmetic.
 
 ## Size at a glance
 
-ReLU neurons per model. `P<d>`/`A<d>` share a value, as do `NP<d>`/`NA<d>`, by construction.
+ReLU neurons per model. `S<d>`/`AB<d>` share a value, as do `NS<d>`/`NAB<d>`, by construction
+(the ReLU sits before the pool). `AB`/`NAB` are not trained on Imagenette-64 (`--`).
 
 **Wide -- no pooling**
 
@@ -236,27 +202,16 @@ ReLU neurons per model. `P<d>`/`A<d>` share a value, as do `NP<d>`/`NA<d>`, by c
 | `S5` | 5,024 | 6,688 | 6,688 | 26,656 |
 | `S6` | 5,312 | 7,200 | 7,200 | 28,704 |
 
-**Wide -- average pooling**
+**Wide -- average pooling, ReLU before the pool**
 
 | id | MNIST | GTSRB | CIFAR-10 | Imagenette-64 |
 |---|---:|---:|---:|---:|
-| `A1` | 424 | 544 | 544 | 2,080 |
-| `A2` | 568 | 800 | 800 | 3,104 |
-| `A3` | 1,352 | 1,824 | 1,824 | 7,200 |
-| `A4` | 2,920 | 3,872 | 3,872 | 15,392 |
-| `A5` | 2,952 | 4,000 | 4,000 | 15,904 |
-| `A6` | 3,240 | 4,512 | 4,512 | 17,952 |
-
-**Wide -- max pooling**
-
-| id | MNIST | GTSRB | CIFAR-10 | Imagenette-64 |
-|---|---:|---:|---:|---:|
-| `P1` | 424 | 544 | 544 | 2,080 |
-| `P2` | 568 | 800 | 800 | 3,104 |
-| `P3` | 1,352 | 1,824 | 1,824 | 7,200 |
-| `P4` | 2,920 | 3,872 | 3,872 | 15,392 |
-| `P5` | 2,952 | 4,000 | 4,000 | 15,904 |
-| `P6` | 3,240 | 4,512 | 4,512 | 17,952 |
+| `AB1` | 1,600 | 2,080 | 2,080 | -- |
+| `AB2` | 2,384 | 3,104 | 3,104 | -- |
+| `AB3` | 3,168 | 4,128 | 4,128 | -- |
+| `AB4` | 4,736 | 6,176 | 6,176 | -- |
+| `AB5` | 5,024 | 6,688 | 6,688 | -- |
+| `AB6` | 5,312 | 7,200 | 7,200 | -- |
 
 **Narrow -- no pooling**
 
@@ -269,17 +224,6 @@ ReLU neurons per model. `P<d>`/`A<d>` share a value, as do `NP<d>`/`NA<d>`, by c
 | `NS5` | 2,528 | 3,360 | 3,360 | 13,344 |
 | `NS6` | 2,672 | 3,616 | 3,616 | 14,368 |
 
-**Narrow -- average pooling**
-
-| id | MNIST | GTSRB | CIFAR-10 | Imagenette-64 |
-|---|---:|---:|---:|---:|
-| `NA1` | 228 | 288 | 288 | 1,056 |
-| `NA2` | 300 | 416 | 416 | 1,568 |
-| `NA3` | 692 | 928 | 928 | 3,616 |
-| `NA4` | 1,476 | 1,952 | 1,952 | 7,712 |
-| `NA5` | 1,492 | 2,016 | 2,016 | 7,968 |
-| `NA6` | 1,636 | 2,272 | 2,272 | 8,992 |
-
 **Narrow -- average pooling, ReLU before the pool**
 
 | id | MNIST | GTSRB | CIFAR-10 | Imagenette-64 |
@@ -291,73 +235,29 @@ ReLU neurons per model. `P<d>`/`A<d>` share a value, as do `NP<d>`/`NA<d>`, by c
 | `NAB5` | 2,528 | 3,360 | 3,360 | -- |
 | `NAB6` | 2,672 | 3,616 | 3,616 | -- |
 
-**Narrow -- max pooling**
+Pooling neurons (zero for `S`/`NS`; each is an affine mean, so none of them is a case split):
+
+**Wide -- average pooling, ReLU before the pool**
 
 | id | MNIST | GTSRB | CIFAR-10 | Imagenette-64 |
 |---|---:|---:|---:|---:|
-| `NP1` | 228 | 288 | 288 | 1,056 |
-| `NP2` | 300 | 416 | 416 | 1,568 |
-| `NP3` | 692 | 928 | 928 | 3,616 |
-| `NP4` | 1,476 | 1,952 | 1,952 | 7,712 |
-| `NP5` | 1,492 | 2,016 | 2,016 | 7,968 |
-| `NP6` | 1,636 | 2,272 | 2,272 | 8,992 |
-
-Pooling neurons (zero for `S`/`NS`; a disjunction each for `P`/`NP`, free for `A`/`NA`):
-
-**Wide -- average pooling**
-
-| id | MNIST | GTSRB | CIFAR-10 | Imagenette-64 |
-|---|---:|---:|---:|---:|
-| `A1` | 392 | 512 | 512 | 2,048 |
-| `A2` | 536 | 768 | 768 | 3,072 |
-| `A3` | 536 | 768 | 768 | 3,072 |
-| `A4` | 536 | 768 | 768 | 3,072 |
-| `A5` | 568 | 896 | 896 | 3,584 |
-| `A6` | 568 | 896 | 896 | 3,584 |
-
-**Wide -- max pooling**
-
-| id | MNIST | GTSRB | CIFAR-10 | Imagenette-64 |
-|---|---:|---:|---:|---:|
-| `P1` | 392 | 512 | 512 | 2,048 |
-| `P2` | 536 | 768 | 768 | 3,072 |
-| `P3` | 536 | 768 | 768 | 3,072 |
-| `P4` | 536 | 768 | 768 | 3,072 |
-| `P5` | 568 | 896 | 896 | 3,584 |
-| `P6` | 568 | 896 | 896 | 3,584 |
-
-**Narrow -- average pooling**
-
-| id | MNIST | GTSRB | CIFAR-10 | Imagenette-64 |
-|---|---:|---:|---:|---:|
-| `NA1` | 196 | 256 | 256 | 1,024 |
-| `NA2` | 268 | 384 | 384 | 1,536 |
-| `NA3` | 268 | 384 | 384 | 1,536 |
-| `NA4` | 268 | 384 | 384 | 1,536 |
-| `NA5` | 284 | 448 | 448 | 1,792 |
-| `NA6` | 284 | 448 | 448 | 1,792 |
+| `AB1` | 392 | 512 | 512 | -- |
+| `AB2` | 392 | 512 | 512 | -- |
+| `AB3` | 536 | 768 | 768 | -- |
+| `AB4` | 536 | 768 | 768 | -- |
+| `AB5` | 568 | 896 | 896 | -- |
+| `AB6` | 568 | 896 | 896 | -- |
 
 **Narrow -- average pooling, ReLU before the pool**
 
 | id | MNIST | GTSRB | CIFAR-10 | Imagenette-64 |
 |---|---:|---:|---:|---:|
 | `NAB1` | 196 | 256 | 256 | -- |
-| `NAB2` | 268 | 384 | 384 | -- |
+| `NAB2` | 196 | 256 | 256 | -- |
 | `NAB3` | 268 | 384 | 384 | -- |
 | `NAB4` | 268 | 384 | 384 | -- |
 | `NAB5` | 284 | 448 | 448 | -- |
 | `NAB6` | 284 | 448 | 448 | -- |
-
-**Narrow -- max pooling**
-
-| id | MNIST | GTSRB | CIFAR-10 | Imagenette-64 |
-|---|---:|---:|---:|---:|
-| `NP1` | 196 | 256 | 256 | 1,024 |
-| `NP2` | 268 | 384 | 384 | 1,536 |
-| `NP3` | 268 | 384 | 384 | 1,536 |
-| `NP4` | 268 | 384 | 384 | 1,536 |
-| `NP5` | 284 | 448 | 448 | 1,792 |
-| `NP6` | 284 | 448 | 448 | 1,792 |
 
 Parameters:
 
@@ -372,27 +272,16 @@ Parameters:
 | `S5` | 22,906 | 31,419 | 30,330 | 79,482 |
 | `S6` | 32,154 | 40,667 | 39,578 | 88,730 |
 
-**Wide -- average pooling**
+**Wide -- average pooling, ReLU before the pool**
 
 | id | MNIST | GTSRB | CIFAR-10 | Imagenette-64 |
 |---|---:|---:|---:|---:|
-| `A1` | 13,042 | 18,227 | 17,138 | 66,290 |
-| `A2` | 6,274 | 11,203 | 10,114 | 34,690 |
-| `A3` | 8,594 | 13,523 | 12,434 | 37,010 |
-| `A4` | 9,178 | 14,107 | 13,018 | 37,594 |
-| `A5` | 10,234 | 14,651 | 13,562 | 25,850 |
-| `A6` | 19,482 | 23,899 | 22,810 | 35,098 |
-
-**Wide -- max pooling**
-
-| id | MNIST | GTSRB | CIFAR-10 | Imagenette-64 |
-|---|---:|---:|---:|---:|
-| `P1` | 13,042 | 18,227 | 17,138 | 66,290 |
-| `P2` | 6,274 | 11,203 | 10,114 | 34,690 |
-| `P3` | 8,594 | 13,523 | 12,434 | 37,010 |
-| `P4` | 9,178 | 14,107 | 13,018 | 37,594 |
-| `P5` | 10,234 | 14,651 | 13,562 | 25,850 |
-| `P6` | 19,482 | 23,899 | 22,810 | 35,098 |
+| `AB1` | 13,042 | 18,227 | 17,138 | -- |
+| `AB2` | 26,754 | 35,779 | 34,690 | -- |
+| `AB3` | 8,594 | 13,523 | 12,434 | -- |
+| `AB4` | 9,178 | 14,107 | 13,018 | -- |
+| `AB5` | 10,234 | 14,651 | 13,562 | -- |
+| `AB6` | 19,482 | 23,899 | 22,810 | -- |
 
 **Narrow -- no pooling**
 
@@ -405,38 +294,16 @@ Parameters:
 | `NS5` | 8,354 | 13,155 | 12,066 | 36,642 |
 | `NS6` | 10,674 | 15,475 | 14,386 | 38,962 |
 
-**Narrow -- average pooling**
-
-| id | MNIST | GTSRB | CIFAR-10 | Imagenette-64 |
-|---|---:|---:|---:|---:|
-| `NA1` | 6,702 | 9,839 | 8,750 | 33,326 |
-| `NA2` | 3,030 | 6,039 | 4,950 | 17,238 |
-| `NA3` | 3,614 | 6,623 | 5,534 | 17,822 |
-| `NA4` | 3,762 | 6,771 | 5,682 | 17,970 |
-| `NA5` | 3,138 | 5,891 | 4,802 | 10,946 |
-| `NA6` | 5,458 | 8,211 | 7,122 | 13,266 |
-
 **Narrow -- average pooling, ReLU before the pool**
 
 | id | MNIST | GTSRB | CIFAR-10 | Imagenette-64 |
 |---|---:|---:|---:|---:|
 | `NAB1` | 6,702 | 9,839 | 8,750 | -- |
-| `NAB2` | 3,030 | 6,039 | 4,950 | -- |
+| `NAB2` | 13,270 | 18,327 | 17,238 | -- |
 | `NAB3` | 3,614 | 6,623 | 5,534 | -- |
 | `NAB4` | 3,762 | 6,771 | 5,682 | -- |
 | `NAB5` | 3,138 | 5,891 | 4,802 | -- |
 | `NAB6` | 5,458 | 8,211 | 7,122 | -- |
-
-**Narrow -- max pooling**
-
-| id | MNIST | GTSRB | CIFAR-10 | Imagenette-64 |
-|---|---:|---:|---:|---:|
-| `NP1` | 6,702 | 9,839 | 8,750 | 33,326 |
-| `NP2` | 3,030 | 6,039 | 4,950 | 17,238 |
-| `NP3` | 3,614 | 6,623 | 5,534 | 17,822 |
-| `NP4` | 3,762 | 6,771 | 5,682 | 17,970 |
-| `NP5` | 3,138 | 5,891 | 4,802 | 10,946 |
-| `NP6` | 5,458 | 8,211 | 7,122 | 13,266 |
 
 ---
 
@@ -459,27 +326,16 @@ Handwritten digits, greyscale.
 | [`S5`](#mnist-s5) | 5 | 0 | 5,024 | 0 | 22,906 | 99.52% |
 | [`S6`](#mnist-s6) | 6 | 0 | 5,312 | 0 | 32,154 | 99.51% |
 
-### Wide -- average pooling
+### Wide -- average pooling, ReLU before the pool
 
 | id | convs | pools | ReLUs | pool | params | test acc |
 |---|---:|---:|---:|---:|---:|---:|
-| [`A1`](#mnist-a1) | 1 | 1 | 424 | 392 | 13,042 | 97.22% |
-| [`A2`](#mnist-a2) | 2 | 2 | 568 | 536 | 6,274 | 97.53% |
-| [`A3`](#mnist-a3) | 3 | 2 | 1,352 | 536 | 8,594 | 98.74% |
-| [`A4`](#mnist-a4) | 4 | 2 | 2,920 | 536 | 9,178 | 99.10% |
-| [`A5`](#mnist-a5) | 5 | 3 | 2,952 | 568 | 10,234 | 99.17% |
-| [`A6`](#mnist-a6) | 6 | 3 | 3,240 | 568 | 19,482 | 99.21% |
-
-### Wide -- max pooling
-
-| id | convs | pools | ReLUs | pool | params | test acc |
-|---|---:|---:|---:|---:|---:|---:|
-| [`P1`](#mnist-p1) | 1 | 1 | 424 | 392 | 13,042 | 98.10% |
-| [`P2`](#mnist-p2) | 2 | 2 | 568 | 536 | 6,274 | 98.56% |
-| [`P3`](#mnist-p3) | 3 | 2 | 1,352 | 536 | 8,594 | 99.00% |
-| [`P4`](#mnist-p4) | 4 | 2 | 2,920 | 536 | 9,178 | 99.32% |
-| [`P5`](#mnist-p5) | 5 | 3 | 2,952 | 568 | 10,234 | 99.30% |
-| [`P6`](#mnist-p6) | 6 | 3 | 3,240 | 568 | 19,482 | 99.35% |
+| [`AB1`](#mnist-ab1) | 1 | 1 | 1,600 | 392 | 13,042 | 98.35% |
+| [`AB2`](#mnist-ab2) | 2 | 1 | 2,384 | 392 | 26,754 | 99.11% |
+| [`AB3`](#mnist-ab3) | 3 | 2 | 3,168 | 536 | 8,594 | 99.03% |
+| [`AB4`](#mnist-ab4) | 4 | 2 | 4,736 | 536 | 9,178 | 99.33% |
+| [`AB5`](#mnist-ab5) | 5 | 3 | 5,024 | 568 | 10,234 | 99.34% |
+| [`AB6`](#mnist-ab6) | 6 | 3 | 5,312 | 568 | 19,482 | 99.38% |
 
 ### Narrow -- no pooling
 
@@ -492,38 +348,16 @@ Handwritten digits, greyscale.
 | [`NS5`](#mnist-ns5) | 5 | 0 | 2,528 | 0 | 8,354 | 98.98% |
 | [`NS6`](#mnist-ns6) | 6 | 0 | 2,672 | 0 | 10,674 | 99.15% |
 
-### Narrow -- average pooling
-
-| id | convs | pools | ReLUs | pool | params | test acc |
-|---|---:|---:|---:|---:|---:|---:|
-| [`NA1`](#mnist-na1) | 1 | 1 | 228 | 196 | 6,702 | 96.43% |
-| [`NA2`](#mnist-na2) | 2 | 2 | 300 | 268 | 3,030 | 95.43% |
-| [`NA3`](#mnist-na3) | 3 | 2 | 692 | 268 | 3,614 | 97.78% |
-| [`NA4`](#mnist-na4) | 4 | 2 | 1,476 | 268 | 3,762 | 98.27% |
-| [`NA5`](#mnist-na5) | 5 | 3 | 1,492 | 284 | 3,138 | 97.99% |
-| [`NA6`](#mnist-na6) | 6 | 3 | 1,636 | 284 | 5,458 | 98.53% |
-
 ### Narrow -- average pooling, ReLU before the pool
 
 | id | convs | pools | ReLUs | pool | params | test acc |
 |---|---:|---:|---:|---:|---:|---:|
 | [`NAB1`](#mnist-nab1) | 1 | 1 | 816 | 196 | 6,702 | 97.40% |
-| [`NAB2`](#mnist-nab2) | 2 | 2 | 1,208 | 268 | 3,030 | 97.71% |
+| [`NAB2`](#mnist-nab2) | 2 | 1 | 1,208 | 196 | 13,270 | 98.68% |
 | [`NAB3`](#mnist-nab3) | 3 | 2 | 1,600 | 268 | 3,614 | 98.24% |
 | [`NAB4`](#mnist-nab4) | 4 | 2 | 2,384 | 268 | 3,762 | 98.66% |
 | [`NAB5`](#mnist-nab5) | 5 | 3 | 2,528 | 284 | 3,138 | 98.53% |
 | [`NAB6`](#mnist-nab6) | 6 | 3 | 2,672 | 284 | 5,458 | 98.84% |
-
-### Narrow -- max pooling
-
-| id | convs | pools | ReLUs | pool | params | test acc |
-|---|---:|---:|---:|---:|---:|---:|
-| [`NP1`](#mnist-np1) | 1 | 1 | 228 | 196 | 6,702 | 96.84% |
-| [`NP2`](#mnist-np2) | 2 | 2 | 300 | 268 | 3,030 | 97.36% |
-| [`NP3`](#mnist-np3) | 3 | 2 | 692 | 268 | 3,614 | 97.86% |
-| [`NP4`](#mnist-np4) | 4 | 2 | 1,476 | 268 | 3,762 | 98.41% |
-| [`NP5`](#mnist-np5) | 5 | 3 | 1,492 | 284 | 3,138 | 98.56% |
-| [`NP6`](#mnist-np6) | 6 | 3 | 1,636 | 284 | 5,458 | 98.77% |
 
 #### MNIST · `S1` (no pooling)
 
@@ -657,73 +491,72 @@ Handwritten digits, greyscale.
 | 16 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
 | | **Total** | | | | **32,154** | **5,312** | **0** |
 
-#### MNIST · `A1` (average pooling)
+#### MNIST · `AB1` (average pooling, ReLU before the pool)
 
-<a id="mnist-a1"></a>
+<a id="mnist-ab1"></a>
 
-`c8s2 a` — wide, average pool; 1 conv, 1 pool. Test accuracy **97.22%**.
+`c8s2 a` — wide, average pool, ReLU before the pool; 1 conv, 1 pool. Test accuracy **98.35%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
 | — | *input* | | | `1×28×28` | — | — | — |
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `1×28×28` | `8×14×14` | 136 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
-| 3 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
+| 2 | ReLU |  | `8×14×14` | `8×14×14` | — | 1,568 | — |
+| 3 | AvgPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
 | 4 | Flatten |  | `8×7×7` | `392` | — | — | — |
 | 5 | FC32 | 392 → 32 | `392` | `32` | 12,576 | — | — |
 | 6 | ReLU |  | `32` | `32` | — | 32 | — |
 | 7 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **13,042** | **424** | **392** |
+| | **Total** | | | | **13,042** | **1,600** | **392** |
 
-#### MNIST · `A2` (average pooling)
+#### MNIST · `AB2` (average pooling, ReLU before the pool)
 
-<a id="mnist-a2"></a>
+<a id="mnist-ab2"></a>
 
-`c8s2 a c16 a` — wide, average pool; 2 convs, 2 pools. Test accuracy **97.53%**.
+`c8s2 a c16` — wide, average pool, ReLU before the pool; 2 convs, 1 pool. Test accuracy **99.11%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
 | — | *input* | | | `1×28×28` | — | — | — |
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `1×28×28` | `8×14×14` | 136 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
-| 3 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
+| 2 | ReLU |  | `8×14×14` | `8×14×14` | — | 1,568 | — |
+| 3 | AvgPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
 | 4 | Conv16 | 3×3, stride 1, pad 1 | `8×7×7` | `16×7×7` | 1,168 | — | — |
-| 5 | AvgPool | 2×2, stride 2 | `16×7×7` | `16×3×3` | — | — | 144 |
-| 6 | ReLU |  | `16×3×3` | `16×3×3` | — | 144 | — |
-| 7 | Flatten |  | `16×3×3` | `144` | — | — | — |
-| 8 | FC32 | 144 → 32 | `144` | `32` | 4,640 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **6,274** | **568** | **536** |
+| 5 | ReLU |  | `16×7×7` | `16×7×7` | — | 784 | — |
+| 6 | Flatten |  | `16×7×7` | `784` | — | — | — |
+| 7 | FC32 | 784 → 32 | `784` | `32` | 25,120 | — | — |
+| 8 | ReLU |  | `32` | `32` | — | 32 | — |
+| 9 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
+| | **Total** | | | | **26,754** | **2,384** | **392** |
 
-#### MNIST · `A3` (average pooling)
+#### MNIST · `AB3` (average pooling, ReLU before the pool)
 
-<a id="mnist-a3"></a>
+<a id="mnist-ab3"></a>
 
-`c8s2 a c16 c16 a` — wide, average pool; 3 convs, 2 pools. Test accuracy **98.74%**.
+`c8s2 a c16 c16 a` — wide, average pool, ReLU before the pool; 3 convs, 2 pools. Test accuracy **99.03%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
 | — | *input* | | | `1×28×28` | — | — | — |
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `1×28×28` | `8×14×14` | 136 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
-| 3 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
+| 2 | ReLU |  | `8×14×14` | `8×14×14` | — | 1,568 | — |
+| 3 | AvgPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
 | 4 | Conv16 | 3×3, stride 1, pad 1 | `8×7×7` | `16×7×7` | 1,168 | — | — |
 | 5 | ReLU |  | `16×7×7` | `16×7×7` | — | 784 | — |
 | 6 | Conv16 | 3×3, stride 1, pad 1 | `16×7×7` | `16×7×7` | 2,320 | — | — |
-| 7 | AvgPool | 2×2, stride 2 | `16×7×7` | `16×3×3` | — | — | 144 |
-| 8 | ReLU |  | `16×3×3` | `16×3×3` | — | 144 | — |
+| 7 | ReLU |  | `16×7×7` | `16×7×7` | — | 784 | — |
+| 8 | AvgPool | 2×2, stride 2 | `16×7×7` | `16×3×3` | — | — | 144 |
 | 9 | Flatten |  | `16×3×3` | `144` | — | — | — |
 | 10 | FC32 | 144 → 32 | `144` | `32` | 4,640 | — | — |
 | 11 | ReLU |  | `32` | `32` | — | 32 | — |
 | 12 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **8,594** | **1,352** | **536** |
+| | **Total** | | | | **8,594** | **3,168** | **536** |
 
-#### MNIST · `A4` (average pooling)
+#### MNIST · `AB4` (average pooling, ReLU before the pool)
 
-<a id="mnist-a4"></a>
+<a id="mnist-ab4"></a>
 
-`c8s2 c8 a c16 c16 a` — wide, average pool; 4 convs, 2 pools. Test accuracy **99.10%**.
+`c8s2 c8 a c16 c16 a` — wide, average pool, ReLU before the pool; 4 convs, 2 pools. Test accuracy **99.33%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
@@ -731,24 +564,24 @@ Handwritten digits, greyscale.
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `1×28×28` | `8×14×14` | 136 | — | — |
 | 2 | ReLU |  | `8×14×14` | `8×14×14` | — | 1,568 | — |
 | 3 | Conv8 | 3×3, stride 1, pad 1 | `8×14×14` | `8×14×14` | 584 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
-| 5 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
+| 4 | ReLU |  | `8×14×14` | `8×14×14` | — | 1,568 | — |
+| 5 | AvgPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
 | 6 | Conv16 | 3×3, stride 1, pad 1 | `8×7×7` | `16×7×7` | 1,168 | — | — |
 | 7 | ReLU |  | `16×7×7` | `16×7×7` | — | 784 | — |
 | 8 | Conv16 | 3×3, stride 1, pad 1 | `16×7×7` | `16×7×7` | 2,320 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `16×7×7` | `16×3×3` | — | — | 144 |
-| 10 | ReLU |  | `16×3×3` | `16×3×3` | — | 144 | — |
+| 9 | ReLU |  | `16×7×7` | `16×7×7` | — | 784 | — |
+| 10 | AvgPool | 2×2, stride 2 | `16×7×7` | `16×3×3` | — | — | 144 |
 | 11 | Flatten |  | `16×3×3` | `144` | — | — | — |
 | 12 | FC32 | 144 → 32 | `144` | `32` | 4,640 | — | — |
 | 13 | ReLU |  | `32` | `32` | — | 32 | — |
 | 14 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **9,178** | **2,920** | **536** |
+| | **Total** | | | | **9,178** | **4,736** | **536** |
 
-#### MNIST · `A5` (average pooling)
+#### MNIST · `AB5` (average pooling, ReLU before the pool)
 
-<a id="mnist-a5"></a>
+<a id="mnist-ab5"></a>
 
-`c8s2 c8 a c16 c16 a c32 a` — wide, average pool; 5 convs, 3 pools. Test accuracy **99.17%**.
+`c8s2 c8 a c16 c16 a c32 a` — wide, average pool, ReLU before the pool; 5 convs, 3 pools. Test accuracy **99.34%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
@@ -756,27 +589,27 @@ Handwritten digits, greyscale.
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `1×28×28` | `8×14×14` | 136 | — | — |
 | 2 | ReLU |  | `8×14×14` | `8×14×14` | — | 1,568 | — |
 | 3 | Conv8 | 3×3, stride 1, pad 1 | `8×14×14` | `8×14×14` | 584 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
-| 5 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
+| 4 | ReLU |  | `8×14×14` | `8×14×14` | — | 1,568 | — |
+| 5 | AvgPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
 | 6 | Conv16 | 3×3, stride 1, pad 1 | `8×7×7` | `16×7×7` | 1,168 | — | — |
 | 7 | ReLU |  | `16×7×7` | `16×7×7` | — | 784 | — |
 | 8 | Conv16 | 3×3, stride 1, pad 1 | `16×7×7` | `16×7×7` | 2,320 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `16×7×7` | `16×3×3` | — | — | 144 |
-| 10 | ReLU |  | `16×3×3` | `16×3×3` | — | 144 | — |
+| 9 | ReLU |  | `16×7×7` | `16×7×7` | — | 784 | — |
+| 10 | AvgPool | 2×2, stride 2 | `16×7×7` | `16×3×3` | — | — | 144 |
 | 11 | Conv32 | 3×3, stride 1, pad 1 | `16×3×3` | `32×3×3` | 4,640 | — | — |
-| 12 | AvgPool | 2×2, stride 2 | `32×3×3` | `32×1×1` | — | — | 32 |
-| 13 | ReLU |  | `32×1×1` | `32×1×1` | — | 32 | — |
+| 12 | ReLU |  | `32×3×3` | `32×3×3` | — | 288 | — |
+| 13 | AvgPool | 2×2, stride 2 | `32×3×3` | `32×1×1` | — | — | 32 |
 | 14 | Flatten |  | `32×1×1` | `32` | — | — | — |
 | 15 | FC32 | 32 → 32 | `32` | `32` | 1,056 | — | — |
 | 16 | ReLU |  | `32` | `32` | — | 32 | — |
 | 17 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **10,234** | **2,952** | **568** |
+| | **Total** | | | | **10,234** | **5,024** | **568** |
 
-#### MNIST · `A6` (average pooling)
+#### MNIST · `AB6` (average pooling, ReLU before the pool)
 
-<a id="mnist-a6"></a>
+<a id="mnist-ab6"></a>
 
-`c8s2 c8 a c16 c16 a c32 c32 a` — wide, average pool; 6 convs, 3 pools. Test accuracy **99.21%**.
+`c8s2 c8 a c16 c16 a c32 c32 a` — wide, average pool, ReLU before the pool; 6 convs, 3 pools. Test accuracy **99.38%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
@@ -784,168 +617,23 @@ Handwritten digits, greyscale.
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `1×28×28` | `8×14×14` | 136 | — | — |
 | 2 | ReLU |  | `8×14×14` | `8×14×14` | — | 1,568 | — |
 | 3 | Conv8 | 3×3, stride 1, pad 1 | `8×14×14` | `8×14×14` | 584 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
-| 5 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
+| 4 | ReLU |  | `8×14×14` | `8×14×14` | — | 1,568 | — |
+| 5 | AvgPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
 | 6 | Conv16 | 3×3, stride 1, pad 1 | `8×7×7` | `16×7×7` | 1,168 | — | — |
 | 7 | ReLU |  | `16×7×7` | `16×7×7` | — | 784 | — |
 | 8 | Conv16 | 3×3, stride 1, pad 1 | `16×7×7` | `16×7×7` | 2,320 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `16×7×7` | `16×3×3` | — | — | 144 |
-| 10 | ReLU |  | `16×3×3` | `16×3×3` | — | 144 | — |
+| 9 | ReLU |  | `16×7×7` | `16×7×7` | — | 784 | — |
+| 10 | AvgPool | 2×2, stride 2 | `16×7×7` | `16×3×3` | — | — | 144 |
 | 11 | Conv32 | 3×3, stride 1, pad 1 | `16×3×3` | `32×3×3` | 4,640 | — | — |
 | 12 | ReLU |  | `32×3×3` | `32×3×3` | — | 288 | — |
 | 13 | Conv32 | 3×3, stride 1, pad 1 | `32×3×3` | `32×3×3` | 9,248 | — | — |
-| 14 | AvgPool | 2×2, stride 2 | `32×3×3` | `32×1×1` | — | — | 32 |
-| 15 | ReLU |  | `32×1×1` | `32×1×1` | — | 32 | — |
+| 14 | ReLU |  | `32×3×3` | `32×3×3` | — | 288 | — |
+| 15 | AvgPool | 2×2, stride 2 | `32×3×3` | `32×1×1` | — | — | 32 |
 | 16 | Flatten |  | `32×1×1` | `32` | — | — | — |
 | 17 | FC32 | 32 → 32 | `32` | `32` | 1,056 | — | — |
 | 18 | ReLU |  | `32` | `32` | — | 32 | — |
 | 19 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **19,482** | **3,240** | **568** |
-
-#### MNIST · `P1` (max pooling)
-
-<a id="mnist-p1"></a>
-
-`c8s2 p` — wide, max pool; 1 conv, 1 pool. Test accuracy **98.10%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `1×28×28` | `8×14×14` | 136 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
-| 3 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
-| 4 | Flatten |  | `8×7×7` | `392` | — | — | — |
-| 5 | FC32 | 392 → 32 | `392` | `32` | 12,576 | — | — |
-| 6 | ReLU |  | `32` | `32` | — | 32 | — |
-| 7 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **13,042** | **424** | **392** |
-
-#### MNIST · `P2` (max pooling)
-
-<a id="mnist-p2"></a>
-
-`c8s2 p c16 p` — wide, max pool; 2 convs, 2 pools. Test accuracy **98.56%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `1×28×28` | `8×14×14` | 136 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
-| 3 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
-| 4 | Conv16 | 3×3, stride 1, pad 1 | `8×7×7` | `16×7×7` | 1,168 | — | — |
-| 5 | MaxPool | 2×2, stride 2 | `16×7×7` | `16×3×3` | — | — | 144 |
-| 6 | ReLU |  | `16×3×3` | `16×3×3` | — | 144 | — |
-| 7 | Flatten |  | `16×3×3` | `144` | — | — | — |
-| 8 | FC32 | 144 → 32 | `144` | `32` | 4,640 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **6,274** | **568** | **536** |
-
-#### MNIST · `P3` (max pooling)
-
-<a id="mnist-p3"></a>
-
-`c8s2 p c16 c16 p` — wide, max pool; 3 convs, 2 pools. Test accuracy **99.00%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `1×28×28` | `8×14×14` | 136 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
-| 3 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
-| 4 | Conv16 | 3×3, stride 1, pad 1 | `8×7×7` | `16×7×7` | 1,168 | — | — |
-| 5 | ReLU |  | `16×7×7` | `16×7×7` | — | 784 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `16×7×7` | `16×7×7` | 2,320 | — | — |
-| 7 | MaxPool | 2×2, stride 2 | `16×7×7` | `16×3×3` | — | — | 144 |
-| 8 | ReLU |  | `16×3×3` | `16×3×3` | — | 144 | — |
-| 9 | Flatten |  | `16×3×3` | `144` | — | — | — |
-| 10 | FC32 | 144 → 32 | `144` | `32` | 4,640 | — | — |
-| 11 | ReLU |  | `32` | `32` | — | 32 | — |
-| 12 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **8,594** | **1,352** | **536** |
-
-#### MNIST · `P4` (max pooling)
-
-<a id="mnist-p4"></a>
-
-`c8s2 c8 p c16 c16 p` — wide, max pool; 4 convs, 2 pools. Test accuracy **99.32%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `1×28×28` | `8×14×14` | 136 | — | — |
-| 2 | ReLU |  | `8×14×14` | `8×14×14` | — | 1,568 | — |
-| 3 | Conv8 | 3×3, stride 1, pad 1 | `8×14×14` | `8×14×14` | 584 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
-| 5 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `8×7×7` | `16×7×7` | 1,168 | — | — |
-| 7 | ReLU |  | `16×7×7` | `16×7×7` | — | 784 | — |
-| 8 | Conv16 | 3×3, stride 1, pad 1 | `16×7×7` | `16×7×7` | 2,320 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `16×7×7` | `16×3×3` | — | — | 144 |
-| 10 | ReLU |  | `16×3×3` | `16×3×3` | — | 144 | — |
-| 11 | Flatten |  | `16×3×3` | `144` | — | — | — |
-| 12 | FC32 | 144 → 32 | `144` | `32` | 4,640 | — | — |
-| 13 | ReLU |  | `32` | `32` | — | 32 | — |
-| 14 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **9,178** | **2,920** | **536** |
-
-#### MNIST · `P5` (max pooling)
-
-<a id="mnist-p5"></a>
-
-`c8s2 c8 p c16 c16 p c32 p` — wide, max pool; 5 convs, 3 pools. Test accuracy **99.30%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `1×28×28` | `8×14×14` | 136 | — | — |
-| 2 | ReLU |  | `8×14×14` | `8×14×14` | — | 1,568 | — |
-| 3 | Conv8 | 3×3, stride 1, pad 1 | `8×14×14` | `8×14×14` | 584 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
-| 5 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `8×7×7` | `16×7×7` | 1,168 | — | — |
-| 7 | ReLU |  | `16×7×7` | `16×7×7` | — | 784 | — |
-| 8 | Conv16 | 3×3, stride 1, pad 1 | `16×7×7` | `16×7×7` | 2,320 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `16×7×7` | `16×3×3` | — | — | 144 |
-| 10 | ReLU |  | `16×3×3` | `16×3×3` | — | 144 | — |
-| 11 | Conv32 | 3×3, stride 1, pad 1 | `16×3×3` | `32×3×3` | 4,640 | — | — |
-| 12 | MaxPool | 2×2, stride 2 | `32×3×3` | `32×1×1` | — | — | 32 |
-| 13 | ReLU |  | `32×1×1` | `32×1×1` | — | 32 | — |
-| 14 | Flatten |  | `32×1×1` | `32` | — | — | — |
-| 15 | FC32 | 32 → 32 | `32` | `32` | 1,056 | — | — |
-| 16 | ReLU |  | `32` | `32` | — | 32 | — |
-| 17 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **10,234** | **2,952** | **568** |
-
-#### MNIST · `P6` (max pooling)
-
-<a id="mnist-p6"></a>
-
-`c8s2 c8 p c16 c16 p c32 c32 p` — wide, max pool; 6 convs, 3 pools. Test accuracy **99.35%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `1×28×28` | `8×14×14` | 136 | — | — |
-| 2 | ReLU |  | `8×14×14` | `8×14×14` | — | 1,568 | — |
-| 3 | Conv8 | 3×3, stride 1, pad 1 | `8×14×14` | `8×14×14` | 584 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `8×14×14` | `8×7×7` | — | — | 392 |
-| 5 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `8×7×7` | `16×7×7` | 1,168 | — | — |
-| 7 | ReLU |  | `16×7×7` | `16×7×7` | — | 784 | — |
-| 8 | Conv16 | 3×3, stride 1, pad 1 | `16×7×7` | `16×7×7` | 2,320 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `16×7×7` | `16×3×3` | — | — | 144 |
-| 10 | ReLU |  | `16×3×3` | `16×3×3` | — | 144 | — |
-| 11 | Conv32 | 3×3, stride 1, pad 1 | `16×3×3` | `32×3×3` | 4,640 | — | — |
-| 12 | ReLU |  | `32×3×3` | `32×3×3` | — | 288 | — |
-| 13 | Conv32 | 3×3, stride 1, pad 1 | `32×3×3` | `32×3×3` | 9,248 | — | — |
-| 14 | MaxPool | 2×2, stride 2 | `32×3×3` | `32×1×1` | — | — | 32 |
-| 15 | ReLU |  | `32×1×1` | `32×1×1` | — | 32 | — |
-| 16 | Flatten |  | `32×1×1` | `32` | — | — | — |
-| 17 | FC32 | 32 → 32 | `32` | `32` | 1,056 | — | — |
-| 18 | ReLU |  | `32` | `32` | — | 32 | — |
-| 19 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **19,482** | **3,240** | **568** |
+| | **Total** | | | | **19,482** | **5,312** | **568** |
 
 #### MNIST · `NS1` (no pooling)
 
@@ -1079,151 +767,6 @@ Handwritten digits, greyscale.
 | 16 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
 | | **Total** | | | | **10,674** | **2,672** | **0** |
 
-#### MNIST · `NA1` (average pooling)
-
-<a id="mnist-na1"></a>
-
-`c4s2 a` — narrow, average pool; 1 conv, 1 pool. Test accuracy **96.43%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `1×28×28` | `4×14×14` | 68 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `4×14×14` | `4×7×7` | — | — | 196 |
-| 3 | ReLU |  | `4×7×7` | `4×7×7` | — | 196 | — |
-| 4 | Flatten |  | `4×7×7` | `196` | — | — | — |
-| 5 | FC32 | 196 → 32 | `196` | `32` | 6,304 | — | — |
-| 6 | ReLU |  | `32` | `32` | — | 32 | — |
-| 7 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **6,702** | **228** | **196** |
-
-#### MNIST · `NA2` (average pooling)
-
-<a id="mnist-na2"></a>
-
-`c4s2 a c8 a` — narrow, average pool; 2 convs, 2 pools. Test accuracy **95.43%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `1×28×28` | `4×14×14` | 68 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `4×14×14` | `4×7×7` | — | — | 196 |
-| 3 | ReLU |  | `4×7×7` | `4×7×7` | — | 196 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×7×7` | `8×7×7` | 296 | — | — |
-| 5 | AvgPool | 2×2, stride 2 | `8×7×7` | `8×3×3` | — | — | 72 |
-| 6 | ReLU |  | `8×3×3` | `8×3×3` | — | 72 | — |
-| 7 | Flatten |  | `8×3×3` | `72` | — | — | — |
-| 8 | FC32 | 72 → 32 | `72` | `32` | 2,336 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **3,030** | **300** | **268** |
-
-#### MNIST · `NA3` (average pooling)
-
-<a id="mnist-na3"></a>
-
-`c4s2 a c8 c8 a` — narrow, average pool; 3 convs, 2 pools. Test accuracy **97.78%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `1×28×28` | `4×14×14` | 68 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `4×14×14` | `4×7×7` | — | — | 196 |
-| 3 | ReLU |  | `4×7×7` | `4×7×7` | — | 196 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×7×7` | `8×7×7` | 296 | — | — |
-| 5 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `8×7×7` | `8×7×7` | 584 | — | — |
-| 7 | AvgPool | 2×2, stride 2 | `8×7×7` | `8×3×3` | — | — | 72 |
-| 8 | ReLU |  | `8×3×3` | `8×3×3` | — | 72 | — |
-| 9 | Flatten |  | `8×3×3` | `72` | — | — | — |
-| 10 | FC32 | 72 → 32 | `72` | `32` | 2,336 | — | — |
-| 11 | ReLU |  | `32` | `32` | — | 32 | — |
-| 12 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **3,614** | **692** | **268** |
-
-#### MNIST · `NA4` (average pooling)
-
-<a id="mnist-na4"></a>
-
-`c4s2 c4 a c8 c8 a` — narrow, average pool; 4 convs, 2 pools. Test accuracy **98.27%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `1×28×28` | `4×14×14` | 68 | — | — |
-| 2 | ReLU |  | `4×14×14` | `4×14×14` | — | 784 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×14×14` | `4×14×14` | 148 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `4×14×14` | `4×7×7` | — | — | 196 |
-| 5 | ReLU |  | `4×7×7` | `4×7×7` | — | 196 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×7×7` | `8×7×7` | 296 | — | — |
-| 7 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×7×7` | `8×7×7` | 584 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `8×7×7` | `8×3×3` | — | — | 72 |
-| 10 | ReLU |  | `8×3×3` | `8×3×3` | — | 72 | — |
-| 11 | Flatten |  | `8×3×3` | `72` | — | — | — |
-| 12 | FC32 | 72 → 32 | `72` | `32` | 2,336 | — | — |
-| 13 | ReLU |  | `32` | `32` | — | 32 | — |
-| 14 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **3,762** | **1,476** | **268** |
-
-#### MNIST · `NA5` (average pooling)
-
-<a id="mnist-na5"></a>
-
-`c4s2 c4 a c8 c8 a c16 a` — narrow, average pool; 5 convs, 3 pools. Test accuracy **97.99%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `1×28×28` | `4×14×14` | 68 | — | — |
-| 2 | ReLU |  | `4×14×14` | `4×14×14` | — | 784 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×14×14` | `4×14×14` | 148 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `4×14×14` | `4×7×7` | — | — | 196 |
-| 5 | ReLU |  | `4×7×7` | `4×7×7` | — | 196 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×7×7` | `8×7×7` | 296 | — | — |
-| 7 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×7×7` | `8×7×7` | 584 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `8×7×7` | `8×3×3` | — | — | 72 |
-| 10 | ReLU |  | `8×3×3` | `8×3×3` | — | 72 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×3×3` | `16×3×3` | 1,168 | — | — |
-| 12 | AvgPool | 2×2, stride 2 | `16×3×3` | `16×1×1` | — | — | 16 |
-| 13 | ReLU |  | `16×1×1` | `16×1×1` | — | 16 | — |
-| 14 | Flatten |  | `16×1×1` | `16` | — | — | — |
-| 15 | FC32 | 16 → 32 | `16` | `32` | 544 | — | — |
-| 16 | ReLU |  | `32` | `32` | — | 32 | — |
-| 17 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **3,138** | **1,492** | **284** |
-
-#### MNIST · `NA6` (average pooling)
-
-<a id="mnist-na6"></a>
-
-`c4s2 c4 a c8 c8 a c16 c16 a` — narrow, average pool; 6 convs, 3 pools. Test accuracy **98.53%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `1×28×28` | `4×14×14` | 68 | — | — |
-| 2 | ReLU |  | `4×14×14` | `4×14×14` | — | 784 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×14×14` | `4×14×14` | 148 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `4×14×14` | `4×7×7` | — | — | 196 |
-| 5 | ReLU |  | `4×7×7` | `4×7×7` | — | 196 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×7×7` | `8×7×7` | 296 | — | — |
-| 7 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×7×7` | `8×7×7` | 584 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `8×7×7` | `8×3×3` | — | — | 72 |
-| 10 | ReLU |  | `8×3×3` | `8×3×3` | — | 72 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×3×3` | `16×3×3` | 1,168 | — | — |
-| 12 | ReLU |  | `16×3×3` | `16×3×3` | — | 144 | — |
-| 13 | Conv16 | 3×3, stride 1, pad 1 | `16×3×3` | `16×3×3` | 2,320 | — | — |
-| 14 | AvgPool | 2×2, stride 2 | `16×3×3` | `16×1×1` | — | — | 16 |
-| 15 | ReLU |  | `16×1×1` | `16×1×1` | — | 16 | — |
-| 16 | Flatten |  | `16×1×1` | `16` | — | — | — |
-| 17 | FC32 | 16 → 32 | `16` | `32` | 544 | — | — |
-| 18 | ReLU |  | `32` | `32` | — | 32 | — |
-| 19 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **5,458** | **1,636** | **284** |
-
 #### MNIST · `NAB1` (average pooling, ReLU before the pool)
 
 <a id="mnist-nab1"></a>
@@ -1246,7 +789,7 @@ Handwritten digits, greyscale.
 
 <a id="mnist-nab2"></a>
 
-`c4s2 a c8 a` — narrow, average pool, ReLU before the pool; 2 convs, 2 pools. Test accuracy **97.71%**.
+`c4s2 a c8` — narrow, average pool, ReLU before the pool; 2 convs, 1 pool. Test accuracy **98.68%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
@@ -1256,12 +799,11 @@ Handwritten digits, greyscale.
 | 3 | AvgPool | 2×2, stride 2 | `4×14×14` | `4×7×7` | — | — | 196 |
 | 4 | Conv8 | 3×3, stride 1, pad 1 | `4×7×7` | `8×7×7` | 296 | — | — |
 | 5 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
-| 6 | AvgPool | 2×2, stride 2 | `8×7×7` | `8×3×3` | — | — | 72 |
-| 7 | Flatten |  | `8×3×3` | `72` | — | — | — |
-| 8 | FC32 | 72 → 32 | `72` | `32` | 2,336 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **3,030** | **1,208** | **268** |
+| 6 | Flatten |  | `8×7×7` | `392` | — | — | — |
+| 7 | FC32 | 392 → 32 | `392` | `32` | 12,576 | — | — |
+| 8 | ReLU |  | `32` | `32` | — | 32 | — |
+| 9 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
+| | **Total** | | | | **13,270** | **1,208** | **196** |
 
 #### MNIST · `NAB3` (average pooling, ReLU before the pool)
 
@@ -1369,151 +911,6 @@ Handwritten digits, greyscale.
 | 19 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
 | | **Total** | | | | **5,458** | **2,672** | **284** |
 
-#### MNIST · `NP1` (max pooling)
-
-<a id="mnist-np1"></a>
-
-`c4s2 p` — narrow, max pool; 1 conv, 1 pool. Test accuracy **96.84%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `1×28×28` | `4×14×14` | 68 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `4×14×14` | `4×7×7` | — | — | 196 |
-| 3 | ReLU |  | `4×7×7` | `4×7×7` | — | 196 | — |
-| 4 | Flatten |  | `4×7×7` | `196` | — | — | — |
-| 5 | FC32 | 196 → 32 | `196` | `32` | 6,304 | — | — |
-| 6 | ReLU |  | `32` | `32` | — | 32 | — |
-| 7 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **6,702** | **228** | **196** |
-
-#### MNIST · `NP2` (max pooling)
-
-<a id="mnist-np2"></a>
-
-`c4s2 p c8 p` — narrow, max pool; 2 convs, 2 pools. Test accuracy **97.36%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `1×28×28` | `4×14×14` | 68 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `4×14×14` | `4×7×7` | — | — | 196 |
-| 3 | ReLU |  | `4×7×7` | `4×7×7` | — | 196 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×7×7` | `8×7×7` | 296 | — | — |
-| 5 | MaxPool | 2×2, stride 2 | `8×7×7` | `8×3×3` | — | — | 72 |
-| 6 | ReLU |  | `8×3×3` | `8×3×3` | — | 72 | — |
-| 7 | Flatten |  | `8×3×3` | `72` | — | — | — |
-| 8 | FC32 | 72 → 32 | `72` | `32` | 2,336 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **3,030** | **300** | **268** |
-
-#### MNIST · `NP3` (max pooling)
-
-<a id="mnist-np3"></a>
-
-`c4s2 p c8 c8 p` — narrow, max pool; 3 convs, 2 pools. Test accuracy **97.86%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `1×28×28` | `4×14×14` | 68 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `4×14×14` | `4×7×7` | — | — | 196 |
-| 3 | ReLU |  | `4×7×7` | `4×7×7` | — | 196 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×7×7` | `8×7×7` | 296 | — | — |
-| 5 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `8×7×7` | `8×7×7` | 584 | — | — |
-| 7 | MaxPool | 2×2, stride 2 | `8×7×7` | `8×3×3` | — | — | 72 |
-| 8 | ReLU |  | `8×3×3` | `8×3×3` | — | 72 | — |
-| 9 | Flatten |  | `8×3×3` | `72` | — | — | — |
-| 10 | FC32 | 72 → 32 | `72` | `32` | 2,336 | — | — |
-| 11 | ReLU |  | `32` | `32` | — | 32 | — |
-| 12 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **3,614** | **692** | **268** |
-
-#### MNIST · `NP4` (max pooling)
-
-<a id="mnist-np4"></a>
-
-`c4s2 c4 p c8 c8 p` — narrow, max pool; 4 convs, 2 pools. Test accuracy **98.41%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `1×28×28` | `4×14×14` | 68 | — | — |
-| 2 | ReLU |  | `4×14×14` | `4×14×14` | — | 784 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×14×14` | `4×14×14` | 148 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `4×14×14` | `4×7×7` | — | — | 196 |
-| 5 | ReLU |  | `4×7×7` | `4×7×7` | — | 196 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×7×7` | `8×7×7` | 296 | — | — |
-| 7 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×7×7` | `8×7×7` | 584 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `8×7×7` | `8×3×3` | — | — | 72 |
-| 10 | ReLU |  | `8×3×3` | `8×3×3` | — | 72 | — |
-| 11 | Flatten |  | `8×3×3` | `72` | — | — | — |
-| 12 | FC32 | 72 → 32 | `72` | `32` | 2,336 | — | — |
-| 13 | ReLU |  | `32` | `32` | — | 32 | — |
-| 14 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **3,762** | **1,476** | **268** |
-
-#### MNIST · `NP5` (max pooling)
-
-<a id="mnist-np5"></a>
-
-`c4s2 c4 p c8 c8 p c16 p` — narrow, max pool; 5 convs, 3 pools. Test accuracy **98.56%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `1×28×28` | `4×14×14` | 68 | — | — |
-| 2 | ReLU |  | `4×14×14` | `4×14×14` | — | 784 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×14×14` | `4×14×14` | 148 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `4×14×14` | `4×7×7` | — | — | 196 |
-| 5 | ReLU |  | `4×7×7` | `4×7×7` | — | 196 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×7×7` | `8×7×7` | 296 | — | — |
-| 7 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×7×7` | `8×7×7` | 584 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `8×7×7` | `8×3×3` | — | — | 72 |
-| 10 | ReLU |  | `8×3×3` | `8×3×3` | — | 72 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×3×3` | `16×3×3` | 1,168 | — | — |
-| 12 | MaxPool | 2×2, stride 2 | `16×3×3` | `16×1×1` | — | — | 16 |
-| 13 | ReLU |  | `16×1×1` | `16×1×1` | — | 16 | — |
-| 14 | Flatten |  | `16×1×1` | `16` | — | — | — |
-| 15 | FC32 | 16 → 32 | `16` | `32` | 544 | — | — |
-| 16 | ReLU |  | `32` | `32` | — | 32 | — |
-| 17 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **3,138** | **1,492** | **284** |
-
-#### MNIST · `NP6` (max pooling)
-
-<a id="mnist-np6"></a>
-
-`c4s2 c4 p c8 c8 p c16 c16 p` — narrow, max pool; 6 convs, 3 pools. Test accuracy **98.77%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `1×28×28` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `1×28×28` | `4×14×14` | 68 | — | — |
-| 2 | ReLU |  | `4×14×14` | `4×14×14` | — | 784 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×14×14` | `4×14×14` | 148 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `4×14×14` | `4×7×7` | — | — | 196 |
-| 5 | ReLU |  | `4×7×7` | `4×7×7` | — | 196 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×7×7` | `8×7×7` | 296 | — | — |
-| 7 | ReLU |  | `8×7×7` | `8×7×7` | — | 392 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×7×7` | `8×7×7` | 584 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `8×7×7` | `8×3×3` | — | — | 72 |
-| 10 | ReLU |  | `8×3×3` | `8×3×3` | — | 72 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×3×3` | `16×3×3` | 1,168 | — | — |
-| 12 | ReLU |  | `16×3×3` | `16×3×3` | — | 144 | — |
-| 13 | Conv16 | 3×3, stride 1, pad 1 | `16×3×3` | `16×3×3` | 2,320 | — | — |
-| 14 | MaxPool | 2×2, stride 2 | `16×3×3` | `16×1×1` | — | — | 16 |
-| 15 | ReLU |  | `16×1×1` | `16×1×1` | — | 16 | — |
-| 16 | Flatten |  | `16×1×1` | `16` | — | — | — |
-| 17 | FC32 | 16 → 32 | `16` | `32` | 544 | — | — |
-| 18 | ReLU |  | `32` | `32` | — | 32 | — |
-| 19 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **5,458** | **1,636** | **284** |
-
 ---
 
 ## GTSRB
@@ -1535,27 +932,16 @@ German traffic signs, resized to 32×32. The only 43-class family.
 | [`S5`](#gtsrb-s5) | 5 | 0 | 6,688 | 0 | 31,419 | 94.64% |
 | [`S6`](#gtsrb-s6) | 6 | 0 | 7,200 | 0 | 40,667 | 95.62% |
 
-### Wide -- average pooling
+### Wide -- average pooling, ReLU before the pool
 
 | id | convs | pools | ReLUs | pool | params | test acc |
 |---|---:|---:|---:|---:|---:|---:|
-| [`A1`](#gtsrb-a1) | 1 | 1 | 544 | 512 | 18,227 | 77.65% |
-| [`A2`](#gtsrb-a2) | 2 | 2 | 800 | 768 | 11,203 | 71.76% |
-| [`A3`](#gtsrb-a3) | 3 | 2 | 1,824 | 768 | 13,523 | 83.40% |
-| [`A4`](#gtsrb-a4) | 4 | 2 | 3,872 | 768 | 14,107 | 90.93% |
-| [`A5`](#gtsrb-a5) | 5 | 3 | 4,000 | 896 | 14,651 | 89.93% |
-| [`A6`](#gtsrb-a6) | 6 | 3 | 4,512 | 896 | 23,899 | 90.77% |
-
-### Wide -- max pooling
-
-| id | convs | pools | ReLUs | pool | params | test acc |
-|---|---:|---:|---:|---:|---:|---:|
-| [`P1`](#gtsrb-p1) | 1 | 1 | 544 | 512 | 18,227 | 85.52% |
-| [`P2`](#gtsrb-p2) | 2 | 2 | 800 | 768 | 11,203 | 84.77% |
-| [`P3`](#gtsrb-p3) | 3 | 2 | 1,824 | 768 | 13,523 | 88.96% |
-| [`P4`](#gtsrb-p4) | 4 | 2 | 3,872 | 768 | 14,107 | 92.31% |
-| [`P5`](#gtsrb-p5) | 5 | 3 | 4,000 | 896 | 14,651 | 92.30% |
-| [`P6`](#gtsrb-p6) | 6 | 3 | 4,512 | 896 | 23,899 | 92.37% |
+| [`AB1`](#gtsrb-ab1) | 1 | 1 | 2,080 | 512 | 18,227 | 83.06% |
+| [`AB2`](#gtsrb-ab2) | 2 | 1 | 3,104 | 512 | 35,779 | 87.74% |
+| [`AB3`](#gtsrb-ab3) | 3 | 2 | 4,128 | 768 | 13,523 | 89.02% |
+| [`AB4`](#gtsrb-ab4) | 4 | 2 | 6,176 | 768 | 14,107 | 92.69% |
+| [`AB5`](#gtsrb-ab5) | 5 | 3 | 6,688 | 896 | 14,651 | 91.73% |
+| [`AB6`](#gtsrb-ab6) | 6 | 3 | 7,200 | 896 | 23,899 | 93.05% |
 
 ### Narrow -- no pooling
 
@@ -1568,38 +954,16 @@ German traffic signs, resized to 32×32. The only 43-class family.
 | [`NS5`](#gtsrb-ns5) | 5 | 0 | 3,360 | 0 | 13,155 | 90.04% |
 | [`NS6`](#gtsrb-ns6) | 6 | 0 | 3,616 | 0 | 15,475 | 89.72% |
 
-### Narrow -- average pooling
-
-| id | convs | pools | ReLUs | pool | params | test acc |
-|---|---:|---:|---:|---:|---:|---:|
-| [`NA1`](#gtsrb-na1) | 1 | 1 | 288 | 256 | 9,839 | 71.70% |
-| [`NA2`](#gtsrb-na2) | 2 | 2 | 416 | 384 | 6,039 | 64.90% |
-| [`NA3`](#gtsrb-na3) | 3 | 2 | 928 | 384 | 6,623 | 69.39% |
-| [`NA4`](#gtsrb-na4) | 4 | 2 | 1,952 | 384 | 6,771 | 78.67% |
-| [`NA5`](#gtsrb-na5) | 5 | 3 | 2,016 | 448 | 5,891 | 78.42% |
-| [`NA6`](#gtsrb-na6) | 6 | 3 | 2,272 | 448 | 8,211 | 78.05% |
-
 ### Narrow -- average pooling, ReLU before the pool
 
 | id | convs | pools | ReLUs | pool | params | test acc |
 |---|---:|---:|---:|---:|---:|---:|
 | [`NAB1`](#gtsrb-nab1) | 1 | 1 | 1,056 | 256 | 9,839 | 77.59% |
-| [`NAB2`](#gtsrb-nab2) | 2 | 2 | 1,568 | 384 | 6,039 | 75.39% |
+| [`NAB2`](#gtsrb-nab2) | 2 | 1 | 1,568 | 256 | 18,327 | 83.20% |
 | [`NAB3`](#gtsrb-nab3) | 3 | 2 | 2,080 | 384 | 6,623 | 77.72% |
 | [`NAB4`](#gtsrb-nab4) | 4 | 2 | 3,104 | 384 | 6,771 | 84.73% |
 | [`NAB5`](#gtsrb-nab5) | 5 | 3 | 3,360 | 448 | 5,891 | 81.30% |
 | [`NAB6`](#gtsrb-nab6) | 6 | 3 | 3,616 | 448 | 8,211 | 83.25% |
-
-### Narrow -- max pooling
-
-| id | convs | pools | ReLUs | pool | params | test acc |
-|---|---:|---:|---:|---:|---:|---:|
-| [`NP1`](#gtsrb-np1) | 1 | 1 | 288 | 256 | 9,839 | 80.08% |
-| [`NP2`](#gtsrb-np2) | 2 | 2 | 416 | 384 | 6,039 | 70.40% |
-| [`NP3`](#gtsrb-np3) | 3 | 2 | 928 | 384 | 6,623 | 76.25% |
-| [`NP4`](#gtsrb-np4) | 4 | 2 | 1,952 | 384 | 6,771 | 81.10% |
-| [`NP5`](#gtsrb-np5) | 5 | 3 | 2,016 | 448 | 5,891 | 81.37% |
-| [`NP6`](#gtsrb-np6) | 6 | 3 | 2,272 | 448 | 8,211 | 81.39% |
 
 #### GTSRB · `S1` (no pooling)
 
@@ -1733,73 +1097,72 @@ German traffic signs, resized to 32×32. The only 43-class family.
 | 16 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
 | | **Total** | | | | **40,667** | **7,200** | **0** |
 
-#### GTSRB · `A1` (average pooling)
+#### GTSRB · `AB1` (average pooling, ReLU before the pool)
 
-<a id="gtsrb-a1"></a>
+<a id="gtsrb-ab1"></a>
 
-`c8s2 a` — wide, average pool; 1 conv, 1 pool. Test accuracy **77.65%**.
+`c8s2 a` — wide, average pool, ReLU before the pool; 1 conv, 1 pool. Test accuracy **83.06%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
 | — | *input* | | | `3×32×32` | — | — | — |
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 3 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
+| 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
+| 3 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
 | 4 | Flatten |  | `8×8×8` | `512` | — | — | — |
 | 5 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
 | 6 | ReLU |  | `32` | `32` | — | 32 | — |
 | 7 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **18,227** | **544** | **512** |
+| | **Total** | | | | **18,227** | **2,080** | **512** |
 
-#### GTSRB · `A2` (average pooling)
+#### GTSRB · `AB2` (average pooling, ReLU before the pool)
 
-<a id="gtsrb-a2"></a>
+<a id="gtsrb-ab2"></a>
 
-`c8s2 a c16 a` — wide, average pool; 2 convs, 2 pools. Test accuracy **71.76%**.
+`c8s2 a c16` — wide, average pool, ReLU before the pool; 2 convs, 1 pool. Test accuracy **87.74%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
 | — | *input* | | | `3×32×32` | — | — | — |
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 3 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
+| 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
+| 3 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
 | 4 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 5 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 6 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 7 | Flatten |  | `16×4×4` | `256` | — | — | — |
-| 8 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **11,203** | **800** | **768** |
+| 5 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
+| 6 | Flatten |  | `16×8×8` | `1024` | — | — | — |
+| 7 | FC32 | 1024 → 32 | `1024` | `32` | 32,800 | — | — |
+| 8 | ReLU |  | `32` | `32` | — | 32 | — |
+| 9 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
+| | **Total** | | | | **35,779** | **3,104** | **512** |
 
-#### GTSRB · `A3` (average pooling)
+#### GTSRB · `AB3` (average pooling, ReLU before the pool)
 
-<a id="gtsrb-a3"></a>
+<a id="gtsrb-ab3"></a>
 
-`c8s2 a c16 c16 a` — wide, average pool; 3 convs, 2 pools. Test accuracy **83.40%**.
+`c8s2 a c16 c16 a` — wide, average pool, ReLU before the pool; 3 convs, 2 pools. Test accuracy **89.02%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
 | — | *input* | | | `3×32×32` | — | — | — |
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 3 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
+| 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
+| 3 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
 | 4 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
 | 5 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
 | 6 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 7 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 8 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
+| 7 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
+| 8 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
 | 9 | Flatten |  | `16×4×4` | `256` | — | — | — |
 | 10 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
 | 11 | ReLU |  | `32` | `32` | — | 32 | — |
 | 12 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **13,523** | **1,824** | **768** |
+| | **Total** | | | | **13,523** | **4,128** | **768** |
 
-#### GTSRB · `A4` (average pooling)
+#### GTSRB · `AB4` (average pooling, ReLU before the pool)
 
-<a id="gtsrb-a4"></a>
+<a id="gtsrb-ab4"></a>
 
-`c8s2 c8 a c16 c16 a` — wide, average pool; 4 convs, 2 pools. Test accuracy **90.93%**.
+`c8s2 c8 a c16 c16 a` — wide, average pool, ReLU before the pool; 4 convs, 2 pools. Test accuracy **92.69%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
@@ -1807,24 +1170,24 @@ German traffic signs, resized to 32×32. The only 43-class family.
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
 | 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
 | 3 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
+| 4 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
+| 5 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
 | 6 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
 | 7 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
 | 8 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 10 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
+| 9 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
+| 10 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
 | 11 | Flatten |  | `16×4×4` | `256` | — | — | — |
 | 12 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
 | 13 | ReLU |  | `32` | `32` | — | 32 | — |
 | 14 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **14,107** | **3,872** | **768** |
+| | **Total** | | | | **14,107** | **6,176** | **768** |
 
-#### GTSRB · `A5` (average pooling)
+#### GTSRB · `AB5` (average pooling, ReLU before the pool)
 
-<a id="gtsrb-a5"></a>
+<a id="gtsrb-ab5"></a>
 
-`c8s2 c8 a c16 c16 a c32 a` — wide, average pool; 5 convs, 3 pools. Test accuracy **89.93%**.
+`c8s2 c8 a c16 c16 a c32 a` — wide, average pool, ReLU before the pool; 5 convs, 3 pools. Test accuracy **91.73%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
@@ -1832,27 +1195,27 @@ German traffic signs, resized to 32×32. The only 43-class family.
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
 | 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
 | 3 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
+| 4 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
+| 5 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
 | 6 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
 | 7 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
 | 8 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 10 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
+| 9 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
+| 10 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
 | 11 | Conv32 | 3×3, stride 1, pad 1 | `16×4×4` | `32×4×4` | 4,640 | — | — |
-| 12 | AvgPool | 2×2, stride 2 | `32×4×4` | `32×2×2` | — | — | 128 |
-| 13 | ReLU |  | `32×2×2` | `32×2×2` | — | 128 | — |
+| 12 | ReLU |  | `32×4×4` | `32×4×4` | — | 512 | — |
+| 13 | AvgPool | 2×2, stride 2 | `32×4×4` | `32×2×2` | — | — | 128 |
 | 14 | Flatten |  | `32×2×2` | `128` | — | — | — |
 | 15 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
 | 16 | ReLU |  | `32` | `32` | — | 32 | — |
 | 17 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **14,651** | **4,000** | **896** |
+| | **Total** | | | | **14,651** | **6,688** | **896** |
 
-#### GTSRB · `A6` (average pooling)
+#### GTSRB · `AB6` (average pooling, ReLU before the pool)
 
-<a id="gtsrb-a6"></a>
+<a id="gtsrb-ab6"></a>
 
-`c8s2 c8 a c16 c16 a c32 c32 a` — wide, average pool; 6 convs, 3 pools. Test accuracy **90.77%**.
+`c8s2 c8 a c16 c16 a c32 c32 a` — wide, average pool, ReLU before the pool; 6 convs, 3 pools. Test accuracy **93.05%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
@@ -1860,168 +1223,23 @@ German traffic signs, resized to 32×32. The only 43-class family.
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
 | 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
 | 3 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
+| 4 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
+| 5 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
 | 6 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
 | 7 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
 | 8 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 10 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
+| 9 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
+| 10 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
 | 11 | Conv32 | 3×3, stride 1, pad 1 | `16×4×4` | `32×4×4` | 4,640 | — | — |
 | 12 | ReLU |  | `32×4×4` | `32×4×4` | — | 512 | — |
 | 13 | Conv32 | 3×3, stride 1, pad 1 | `32×4×4` | `32×4×4` | 9,248 | — | — |
-| 14 | AvgPool | 2×2, stride 2 | `32×4×4` | `32×2×2` | — | — | 128 |
-| 15 | ReLU |  | `32×2×2` | `32×2×2` | — | 128 | — |
+| 14 | ReLU |  | `32×4×4` | `32×4×4` | — | 512 | — |
+| 15 | AvgPool | 2×2, stride 2 | `32×4×4` | `32×2×2` | — | — | 128 |
 | 16 | Flatten |  | `32×2×2` | `128` | — | — | — |
 | 17 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
 | 18 | ReLU |  | `32` | `32` | — | 32 | — |
 | 19 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **23,899** | **4,512** | **896** |
-
-#### GTSRB · `P1` (max pooling)
-
-<a id="gtsrb-p1"></a>
-
-`c8s2 p` — wide, max pool; 1 conv, 1 pool. Test accuracy **85.52%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 3 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 4 | Flatten |  | `8×8×8` | `512` | — | — | — |
-| 5 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
-| 6 | ReLU |  | `32` | `32` | — | 32 | — |
-| 7 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **18,227** | **544** | **512** |
-
-#### GTSRB · `P2` (max pooling)
-
-<a id="gtsrb-p2"></a>
-
-`c8s2 p c16 p` — wide, max pool; 2 convs, 2 pools. Test accuracy **84.77%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 3 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 4 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 5 | MaxPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 6 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 7 | Flatten |  | `16×4×4` | `256` | — | — | — |
-| 8 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **11,203** | **800** | **768** |
-
-#### GTSRB · `P3` (max pooling)
-
-<a id="gtsrb-p3"></a>
-
-`c8s2 p c16 c16 p` — wide, max pool; 3 convs, 2 pools. Test accuracy **88.96%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 3 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 4 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 5 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 7 | MaxPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 8 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 9 | Flatten |  | `16×4×4` | `256` | — | — | — |
-| 10 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 11 | ReLU |  | `32` | `32` | — | 32 | — |
-| 12 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **13,523** | **1,824** | **768** |
-
-#### GTSRB · `P4` (max pooling)
-
-<a id="gtsrb-p4"></a>
-
-`c8s2 c8 p c16 c16 p` — wide, max pool; 4 convs, 2 pools. Test accuracy **92.31%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 3 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 7 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 8 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 10 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 11 | Flatten |  | `16×4×4` | `256` | — | — | — |
-| 12 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 13 | ReLU |  | `32` | `32` | — | 32 | — |
-| 14 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **14,107** | **3,872** | **768** |
-
-#### GTSRB · `P5` (max pooling)
-
-<a id="gtsrb-p5"></a>
-
-`c8s2 c8 p c16 c16 p c32 p` — wide, max pool; 5 convs, 3 pools. Test accuracy **92.30%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 3 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 7 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 8 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 10 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 11 | Conv32 | 3×3, stride 1, pad 1 | `16×4×4` | `32×4×4` | 4,640 | — | — |
-| 12 | MaxPool | 2×2, stride 2 | `32×4×4` | `32×2×2` | — | — | 128 |
-| 13 | ReLU |  | `32×2×2` | `32×2×2` | — | 128 | — |
-| 14 | Flatten |  | `32×2×2` | `128` | — | — | — |
-| 15 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 16 | ReLU |  | `32` | `32` | — | 32 | — |
-| 17 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **14,651** | **4,000** | **896** |
-
-#### GTSRB · `P6` (max pooling)
-
-<a id="gtsrb-p6"></a>
-
-`c8s2 c8 p c16 c16 p c32 c32 p` — wide, max pool; 6 convs, 3 pools. Test accuracy **92.37%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 3 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 7 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 8 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 10 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 11 | Conv32 | 3×3, stride 1, pad 1 | `16×4×4` | `32×4×4` | 4,640 | — | — |
-| 12 | ReLU |  | `32×4×4` | `32×4×4` | — | 512 | — |
-| 13 | Conv32 | 3×3, stride 1, pad 1 | `32×4×4` | `32×4×4` | 9,248 | — | — |
-| 14 | MaxPool | 2×2, stride 2 | `32×4×4` | `32×2×2` | — | — | 128 |
-| 15 | ReLU |  | `32×2×2` | `32×2×2` | — | 128 | — |
-| 16 | Flatten |  | `32×2×2` | `128` | — | — | — |
-| 17 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 18 | ReLU |  | `32` | `32` | — | 32 | — |
-| 19 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **23,899** | **4,512** | **896** |
+| | **Total** | | | | **23,899** | **7,200** | **896** |
 
 #### GTSRB · `NS1` (no pooling)
 
@@ -2155,151 +1373,6 @@ German traffic signs, resized to 32×32. The only 43-class family.
 | 16 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
 | | **Total** | | | | **15,475** | **3,616** | **0** |
 
-#### GTSRB · `NA1` (average pooling)
-
-<a id="gtsrb-na1"></a>
-
-`c4s2 a` — narrow, average pool; 1 conv, 1 pool. Test accuracy **71.70%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 3 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 4 | Flatten |  | `4×8×8` | `256` | — | — | — |
-| 5 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 6 | ReLU |  | `32` | `32` | — | 32 | — |
-| 7 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **9,839** | **288** | **256** |
-
-#### GTSRB · `NA2` (average pooling)
-
-<a id="gtsrb-na2"></a>
-
-`c4s2 a c8 a` — narrow, average pool; 2 convs, 2 pools. Test accuracy **64.90%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 3 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 5 | AvgPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 6 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 7 | Flatten |  | `8×4×4` | `128` | — | — | — |
-| 8 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **6,039** | **416** | **384** |
-
-#### GTSRB · `NA3` (average pooling)
-
-<a id="gtsrb-na3"></a>
-
-`c4s2 a c8 c8 a` — narrow, average pool; 3 convs, 2 pools. Test accuracy **69.39%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 3 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 7 | AvgPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 8 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 9 | Flatten |  | `8×4×4` | `128` | — | — | — |
-| 10 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 11 | ReLU |  | `32` | `32` | — | 32 | — |
-| 12 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **6,623** | **928** | **384** |
-
-#### GTSRB · `NA4` (average pooling)
-
-<a id="gtsrb-na4"></a>
-
-`c4s2 c4 a c8 c8 a` — narrow, average pool; 4 convs, 2 pools. Test accuracy **78.67%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×16×16` | `4×16×16` | 148 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 5 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 7 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 10 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 11 | Flatten |  | `8×4×4` | `128` | — | — | — |
-| 12 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 13 | ReLU |  | `32` | `32` | — | 32 | — |
-| 14 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **6,771** | **1,952** | **384** |
-
-#### GTSRB · `NA5` (average pooling)
-
-<a id="gtsrb-na5"></a>
-
-`c4s2 c4 a c8 c8 a c16 a` — narrow, average pool; 5 convs, 3 pools. Test accuracy **78.42%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×16×16` | `4×16×16` | 148 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 5 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 7 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 10 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×4×4` | `16×4×4` | 1,168 | — | — |
-| 12 | AvgPool | 2×2, stride 2 | `16×4×4` | `16×2×2` | — | — | 64 |
-| 13 | ReLU |  | `16×2×2` | `16×2×2` | — | 64 | — |
-| 14 | Flatten |  | `16×2×2` | `64` | — | — | — |
-| 15 | FC32 | 64 → 32 | `64` | `32` | 2,080 | — | — |
-| 16 | ReLU |  | `32` | `32` | — | 32 | — |
-| 17 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **5,891** | **2,016** | **448** |
-
-#### GTSRB · `NA6` (average pooling)
-
-<a id="gtsrb-na6"></a>
-
-`c4s2 c4 a c8 c8 a c16 c16 a` — narrow, average pool; 6 convs, 3 pools. Test accuracy **78.05%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×16×16` | `4×16×16` | 148 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 5 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 7 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 10 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×4×4` | `16×4×4` | 1,168 | — | — |
-| 12 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 13 | Conv16 | 3×3, stride 1, pad 1 | `16×4×4` | `16×4×4` | 2,320 | — | — |
-| 14 | AvgPool | 2×2, stride 2 | `16×4×4` | `16×2×2` | — | — | 64 |
-| 15 | ReLU |  | `16×2×2` | `16×2×2` | — | 64 | — |
-| 16 | Flatten |  | `16×2×2` | `64` | — | — | — |
-| 17 | FC32 | 64 → 32 | `64` | `32` | 2,080 | — | — |
-| 18 | ReLU |  | `32` | `32` | — | 32 | — |
-| 19 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **8,211** | **2,272** | **448** |
-
 #### GTSRB · `NAB1` (average pooling, ReLU before the pool)
 
 <a id="gtsrb-nab1"></a>
@@ -2322,7 +1395,7 @@ German traffic signs, resized to 32×32. The only 43-class family.
 
 <a id="gtsrb-nab2"></a>
 
-`c4s2 a c8 a` — narrow, average pool, ReLU before the pool; 2 convs, 2 pools. Test accuracy **75.39%**.
+`c4s2 a c8` — narrow, average pool, ReLU before the pool; 2 convs, 1 pool. Test accuracy **83.20%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
@@ -2332,12 +1405,11 @@ German traffic signs, resized to 32×32. The only 43-class family.
 | 3 | AvgPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
 | 4 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
 | 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 6 | AvgPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 7 | Flatten |  | `8×4×4` | `128` | — | — | — |
-| 8 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **6,039** | **1,568** | **384** |
+| 6 | Flatten |  | `8×8×8` | `512` | — | — | — |
+| 7 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
+| 8 | ReLU |  | `32` | `32` | — | 32 | — |
+| 9 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
+| | **Total** | | | | **18,327** | **1,568** | **256** |
 
 #### GTSRB · `NAB3` (average pooling, ReLU before the pool)
 
@@ -2445,151 +1517,6 @@ German traffic signs, resized to 32×32. The only 43-class family.
 | 19 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
 | | **Total** | | | | **8,211** | **3,616** | **448** |
 
-#### GTSRB · `NP1` (max pooling)
-
-<a id="gtsrb-np1"></a>
-
-`c4s2 p` — narrow, max pool; 1 conv, 1 pool. Test accuracy **80.08%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 3 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 4 | Flatten |  | `4×8×8` | `256` | — | — | — |
-| 5 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 6 | ReLU |  | `32` | `32` | — | 32 | — |
-| 7 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **9,839** | **288** | **256** |
-
-#### GTSRB · `NP2` (max pooling)
-
-<a id="gtsrb-np2"></a>
-
-`c4s2 p c8 p` — narrow, max pool; 2 convs, 2 pools. Test accuracy **70.40%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 3 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 5 | MaxPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 6 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 7 | Flatten |  | `8×4×4` | `128` | — | — | — |
-| 8 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **6,039** | **416** | **384** |
-
-#### GTSRB · `NP3` (max pooling)
-
-<a id="gtsrb-np3"></a>
-
-`c4s2 p c8 c8 p` — narrow, max pool; 3 convs, 2 pools. Test accuracy **76.25%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 3 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 7 | MaxPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 8 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 9 | Flatten |  | `8×4×4` | `128` | — | — | — |
-| 10 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 11 | ReLU |  | `32` | `32` | — | 32 | — |
-| 12 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **6,623** | **928** | **384** |
-
-#### GTSRB · `NP4` (max pooling)
-
-<a id="gtsrb-np4"></a>
-
-`c4s2 c4 p c8 c8 p` — narrow, max pool; 4 convs, 2 pools. Test accuracy **81.10%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×16×16` | `4×16×16` | 148 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 5 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 7 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 10 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 11 | Flatten |  | `8×4×4` | `128` | — | — | — |
-| 12 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 13 | ReLU |  | `32` | `32` | — | 32 | — |
-| 14 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **6,771** | **1,952** | **384** |
-
-#### GTSRB · `NP5` (max pooling)
-
-<a id="gtsrb-np5"></a>
-
-`c4s2 c4 p c8 c8 p c16 p` — narrow, max pool; 5 convs, 3 pools. Test accuracy **81.37%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×16×16` | `4×16×16` | 148 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 5 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 7 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 10 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×4×4` | `16×4×4` | 1,168 | — | — |
-| 12 | MaxPool | 2×2, stride 2 | `16×4×4` | `16×2×2` | — | — | 64 |
-| 13 | ReLU |  | `16×2×2` | `16×2×2` | — | 64 | — |
-| 14 | Flatten |  | `16×2×2` | `64` | — | — | — |
-| 15 | FC32 | 64 → 32 | `64` | `32` | 2,080 | — | — |
-| 16 | ReLU |  | `32` | `32` | — | 32 | — |
-| 17 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **5,891** | **2,016** | **448** |
-
-#### GTSRB · `NP6` (max pooling)
-
-<a id="gtsrb-np6"></a>
-
-`c4s2 c4 p c8 c8 p c16 c16 p` — narrow, max pool; 6 convs, 3 pools. Test accuracy **81.39%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×16×16` | `4×16×16` | 148 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 5 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 7 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 10 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×4×4` | `16×4×4` | 1,168 | — | — |
-| 12 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 13 | Conv16 | 3×3, stride 1, pad 1 | `16×4×4` | `16×4×4` | 2,320 | — | — |
-| 14 | MaxPool | 2×2, stride 2 | `16×4×4` | `16×2×2` | — | — | 64 |
-| 15 | ReLU |  | `16×2×2` | `16×2×2` | — | 64 | — |
-| 16 | Flatten |  | `16×2×2` | `64` | — | — | — |
-| 17 | FC32 | 64 → 32 | `64` | `32` | 2,080 | — | — |
-| 18 | ReLU |  | `32` | `32` | — | 32 | — |
-| 19 | FC43 | 32 → 43 | `32` | `43` | 1,419 | — | — |
-| | **Total** | | | | **8,211** | **2,272** | **448** |
-
 ---
 
 ## CIFAR-10
@@ -2611,27 +1538,16 @@ Natural images across 10 object classes.
 | [`S5`](#cifar-s5) | 5 | 0 | 6,688 | 0 | 30,330 | 74.79% |
 | [`S6`](#cifar-s6) | 6 | 0 | 7,200 | 0 | 39,578 | 76.30% |
 
-### Wide -- average pooling
+### Wide -- average pooling, ReLU before the pool
 
 | id | convs | pools | ReLUs | pool | params | test acc |
 |---|---:|---:|---:|---:|---:|---:|
-| [`A1`](#cifar-a1) | 1 | 1 | 544 | 512 | 17,138 | 54.44% |
-| [`A2`](#cifar-a2) | 2 | 2 | 800 | 768 | 10,114 | 56.45% |
-| [`A3`](#cifar-a3) | 3 | 2 | 1,824 | 768 | 12,434 | 62.34% |
-| [`A4`](#cifar-a4) | 4 | 2 | 3,872 | 768 | 13,018 | 70.02% |
-| [`A5`](#cifar-a5) | 5 | 3 | 4,000 | 896 | 13,562 | 69.72% |
-| [`A6`](#cifar-a6) | 6 | 3 | 4,512 | 896 | 22,810 | 73.41% |
-
-### Wide -- max pooling
-
-| id | convs | pools | ReLUs | pool | params | test acc |
-|---|---:|---:|---:|---:|---:|---:|
-| [`P1`](#cifar-p1) | 1 | 1 | 544 | 512 | 17,138 | 61.29% |
-| [`P2`](#cifar-p2) | 2 | 2 | 800 | 768 | 10,114 | 65.55% |
-| [`P3`](#cifar-p3) | 3 | 2 | 1,824 | 768 | 12,434 | 69.02% |
-| [`P4`](#cifar-p4) | 4 | 2 | 3,872 | 768 | 13,018 | 71.07% |
-| [`P5`](#cifar-p5) | 5 | 3 | 4,000 | 896 | 13,562 | 71.77% |
-| [`P6`](#cifar-p6) | 6 | 3 | 4,512 | 896 | 22,810 | 74.26% |
+| [`AB1`](#cifar-ab1) | 1 | 1 | 2,080 | 512 | 17,138 | 61.20% |
+| [`AB2`](#cifar-ab2) | 2 | 1 | 3,104 | 512 | 34,690 | 67.99% |
+| [`AB3`](#cifar-ab3) | 3 | 2 | 4,128 | 768 | 12,434 | 70.33% |
+| [`AB4`](#cifar-ab4) | 4 | 2 | 6,176 | 768 | 13,018 | 71.49% |
+| [`AB5`](#cifar-ab5) | 5 | 3 | 6,688 | 896 | 13,562 | 73.68% |
+| [`AB6`](#cifar-ab6) | 6 | 3 | 7,200 | 896 | 22,810 | 75.35% |
 
 ### Narrow -- no pooling
 
@@ -2644,38 +1560,16 @@ Natural images across 10 object classes.
 | [`NS5`](#cifar-ns5) | 5 | 0 | 3,360 | 0 | 12,066 | 65.47% |
 | [`NS6`](#cifar-ns6) | 6 | 0 | 3,616 | 0 | 14,386 | 66.27% |
 
-### Narrow -- average pooling
-
-| id | convs | pools | ReLUs | pool | params | test acc |
-|---|---:|---:|---:|---:|---:|---:|
-| [`NA1`](#cifar-na1) | 1 | 1 | 288 | 256 | 8,750 | 50.14% |
-| [`NA2`](#cifar-na2) | 2 | 2 | 416 | 384 | 4,950 | 51.34% |
-| [`NA3`](#cifar-na3) | 3 | 2 | 928 | 384 | 5,534 | 55.16% |
-| [`NA4`](#cifar-na4) | 4 | 2 | 1,952 | 384 | 5,682 | 57.78% |
-| [`NA5`](#cifar-na5) | 5 | 3 | 2,016 | 448 | 4,802 | 57.74% |
-| [`NA6`](#cifar-na6) | 6 | 3 | 2,272 | 448 | 7,122 | 60.87% |
-
 ### Narrow -- average pooling, ReLU before the pool
 
 | id | convs | pools | ReLUs | pool | params | test acc |
 |---|---:|---:|---:|---:|---:|---:|
 | [`NAB1`](#cifar-nab1) | 1 | 1 | 1,056 | 256 | 8,750 | 54.31% |
-| [`NAB2`](#cifar-nab2) | 2 | 2 | 1,568 | 384 | 4,950 | 57.01% |
+| [`NAB2`](#cifar-nab2) | 2 | 1 | 1,568 | 256 | 17,238 | 58.15% |
 | [`NAB3`](#cifar-nab3) | 3 | 2 | 2,080 | 384 | 5,534 | 57.09% |
 | [`NAB4`](#cifar-nab4) | 4 | 2 | 3,104 | 384 | 5,682 | 61.23% |
 | [`NAB5`](#cifar-nab5) | 5 | 3 | 3,360 | 448 | 4,802 | 59.88% |
 | [`NAB6`](#cifar-nab6) | 6 | 3 | 3,616 | 448 | 7,122 | 62.60% |
-
-### Narrow -- max pooling
-
-| id | convs | pools | ReLUs | pool | params | test acc |
-|---|---:|---:|---:|---:|---:|---:|
-| [`NP1`](#cifar-np1) | 1 | 1 | 288 | 256 | 8,750 | 54.19% |
-| [`NP2`](#cifar-np2) | 2 | 2 | 416 | 384 | 4,950 | 55.50% |
-| [`NP3`](#cifar-np3) | 3 | 2 | 928 | 384 | 5,534 | 57.62% |
-| [`NP4`](#cifar-np4) | 4 | 2 | 1,952 | 384 | 5,682 | 58.90% |
-| [`NP5`](#cifar-np5) | 5 | 3 | 2,016 | 448 | 4,802 | 59.17% |
-| [`NP6`](#cifar-np6) | 6 | 3 | 2,272 | 448 | 7,122 | 61.04% |
 
 #### CIFAR-10 · `S1` (no pooling)
 
@@ -2809,73 +1703,72 @@ Natural images across 10 object classes.
 | 16 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
 | | **Total** | | | | **39,578** | **7,200** | **0** |
 
-#### CIFAR-10 · `A1` (average pooling)
+#### CIFAR-10 · `AB1` (average pooling, ReLU before the pool)
 
-<a id="cifar-a1"></a>
+<a id="cifar-ab1"></a>
 
-`c8s2 a` — wide, average pool; 1 conv, 1 pool. Test accuracy **54.44%**.
+`c8s2 a` — wide, average pool, ReLU before the pool; 1 conv, 1 pool. Test accuracy **61.20%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
 | — | *input* | | | `3×32×32` | — | — | — |
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 3 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
+| 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
+| 3 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
 | 4 | Flatten |  | `8×8×8` | `512` | — | — | — |
 | 5 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
 | 6 | ReLU |  | `32` | `32` | — | 32 | — |
 | 7 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **17,138** | **544** | **512** |
+| | **Total** | | | | **17,138** | **2,080** | **512** |
 
-#### CIFAR-10 · `A2` (average pooling)
+#### CIFAR-10 · `AB2` (average pooling, ReLU before the pool)
 
-<a id="cifar-a2"></a>
+<a id="cifar-ab2"></a>
 
-`c8s2 a c16 a` — wide, average pool; 2 convs, 2 pools. Test accuracy **56.45%**.
+`c8s2 a c16` — wide, average pool, ReLU before the pool; 2 convs, 1 pool. Test accuracy **67.99%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
 | — | *input* | | | `3×32×32` | — | — | — |
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 3 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
+| 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
+| 3 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
 | 4 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 5 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 6 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 7 | Flatten |  | `16×4×4` | `256` | — | — | — |
-| 8 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **10,114** | **800** | **768** |
+| 5 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
+| 6 | Flatten |  | `16×8×8` | `1024` | — | — | — |
+| 7 | FC32 | 1024 → 32 | `1024` | `32` | 32,800 | — | — |
+| 8 | ReLU |  | `32` | `32` | — | 32 | — |
+| 9 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
+| | **Total** | | | | **34,690** | **3,104** | **512** |
 
-#### CIFAR-10 · `A3` (average pooling)
+#### CIFAR-10 · `AB3` (average pooling, ReLU before the pool)
 
-<a id="cifar-a3"></a>
+<a id="cifar-ab3"></a>
 
-`c8s2 a c16 c16 a` — wide, average pool; 3 convs, 2 pools. Test accuracy **62.34%**.
+`c8s2 a c16 c16 a` — wide, average pool, ReLU before the pool; 3 convs, 2 pools. Test accuracy **70.33%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
 | — | *input* | | | `3×32×32` | — | — | — |
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 3 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
+| 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
+| 3 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
 | 4 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
 | 5 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
 | 6 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 7 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 8 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
+| 7 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
+| 8 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
 | 9 | Flatten |  | `16×4×4` | `256` | — | — | — |
 | 10 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
 | 11 | ReLU |  | `32` | `32` | — | 32 | — |
 | 12 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **12,434** | **1,824** | **768** |
+| | **Total** | | | | **12,434** | **4,128** | **768** |
 
-#### CIFAR-10 · `A4` (average pooling)
+#### CIFAR-10 · `AB4` (average pooling, ReLU before the pool)
 
-<a id="cifar-a4"></a>
+<a id="cifar-ab4"></a>
 
-`c8s2 c8 a c16 c16 a` — wide, average pool; 4 convs, 2 pools. Test accuracy **70.02%**.
+`c8s2 c8 a c16 c16 a` — wide, average pool, ReLU before the pool; 4 convs, 2 pools. Test accuracy **71.49%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
@@ -2883,24 +1776,24 @@ Natural images across 10 object classes.
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
 | 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
 | 3 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
+| 4 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
+| 5 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
 | 6 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
 | 7 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
 | 8 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 10 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
+| 9 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
+| 10 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
 | 11 | Flatten |  | `16×4×4` | `256` | — | — | — |
 | 12 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
 | 13 | ReLU |  | `32` | `32` | — | 32 | — |
 | 14 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **13,018** | **3,872** | **768** |
+| | **Total** | | | | **13,018** | **6,176** | **768** |
 
-#### CIFAR-10 · `A5` (average pooling)
+#### CIFAR-10 · `AB5` (average pooling, ReLU before the pool)
 
-<a id="cifar-a5"></a>
+<a id="cifar-ab5"></a>
 
-`c8s2 c8 a c16 c16 a c32 a` — wide, average pool; 5 convs, 3 pools. Test accuracy **69.72%**.
+`c8s2 c8 a c16 c16 a c32 a` — wide, average pool, ReLU before the pool; 5 convs, 3 pools. Test accuracy **73.68%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
@@ -2908,27 +1801,27 @@ Natural images across 10 object classes.
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
 | 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
 | 3 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
+| 4 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
+| 5 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
 | 6 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
 | 7 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
 | 8 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 10 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
+| 9 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
+| 10 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
 | 11 | Conv32 | 3×3, stride 1, pad 1 | `16×4×4` | `32×4×4` | 4,640 | — | — |
-| 12 | AvgPool | 2×2, stride 2 | `32×4×4` | `32×2×2` | — | — | 128 |
-| 13 | ReLU |  | `32×2×2` | `32×2×2` | — | 128 | — |
+| 12 | ReLU |  | `32×4×4` | `32×4×4` | — | 512 | — |
+| 13 | AvgPool | 2×2, stride 2 | `32×4×4` | `32×2×2` | — | — | 128 |
 | 14 | Flatten |  | `32×2×2` | `128` | — | — | — |
 | 15 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
 | 16 | ReLU |  | `32` | `32` | — | 32 | — |
 | 17 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **13,562** | **4,000** | **896** |
+| | **Total** | | | | **13,562** | **6,688** | **896** |
 
-#### CIFAR-10 · `A6` (average pooling)
+#### CIFAR-10 · `AB6` (average pooling, ReLU before the pool)
 
-<a id="cifar-a6"></a>
+<a id="cifar-ab6"></a>
 
-`c8s2 c8 a c16 c16 a c32 c32 a` — wide, average pool; 6 convs, 3 pools. Test accuracy **73.41%**.
+`c8s2 c8 a c16 c16 a c32 c32 a` — wide, average pool, ReLU before the pool; 6 convs, 3 pools. Test accuracy **75.35%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
@@ -2936,168 +1829,23 @@ Natural images across 10 object classes.
 | 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
 | 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
 | 3 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
+| 4 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
+| 5 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
 | 6 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
 | 7 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
 | 8 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 10 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
+| 9 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
+| 10 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
 | 11 | Conv32 | 3×3, stride 1, pad 1 | `16×4×4` | `32×4×4` | 4,640 | — | — |
 | 12 | ReLU |  | `32×4×4` | `32×4×4` | — | 512 | — |
 | 13 | Conv32 | 3×3, stride 1, pad 1 | `32×4×4` | `32×4×4` | 9,248 | — | — |
-| 14 | AvgPool | 2×2, stride 2 | `32×4×4` | `32×2×2` | — | — | 128 |
-| 15 | ReLU |  | `32×2×2` | `32×2×2` | — | 128 | — |
+| 14 | ReLU |  | `32×4×4` | `32×4×4` | — | 512 | — |
+| 15 | AvgPool | 2×2, stride 2 | `32×4×4` | `32×2×2` | — | — | 128 |
 | 16 | Flatten |  | `32×2×2` | `128` | — | — | — |
 | 17 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
 | 18 | ReLU |  | `32` | `32` | — | 32 | — |
 | 19 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **22,810** | **4,512** | **896** |
-
-#### CIFAR-10 · `P1` (max pooling)
-
-<a id="cifar-p1"></a>
-
-`c8s2 p` — wide, max pool; 1 conv, 1 pool. Test accuracy **61.29%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 3 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 4 | Flatten |  | `8×8×8` | `512` | — | — | — |
-| 5 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
-| 6 | ReLU |  | `32` | `32` | — | 32 | — |
-| 7 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **17,138** | **544** | **512** |
-
-#### CIFAR-10 · `P2` (max pooling)
-
-<a id="cifar-p2"></a>
-
-`c8s2 p c16 p` — wide, max pool; 2 convs, 2 pools. Test accuracy **65.55%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 3 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 4 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 5 | MaxPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 6 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 7 | Flatten |  | `16×4×4` | `256` | — | — | — |
-| 8 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **10,114** | **800** | **768** |
-
-#### CIFAR-10 · `P3` (max pooling)
-
-<a id="cifar-p3"></a>
-
-`c8s2 p c16 c16 p` — wide, max pool; 3 convs, 2 pools. Test accuracy **69.02%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 3 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 4 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 5 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 7 | MaxPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 8 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 9 | Flatten |  | `16×4×4` | `256` | — | — | — |
-| 10 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 11 | ReLU |  | `32` | `32` | — | 32 | — |
-| 12 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **12,434** | **1,824** | **768** |
-
-#### CIFAR-10 · `P4` (max pooling)
-
-<a id="cifar-p4"></a>
-
-`c8s2 c8 p c16 c16 p` — wide, max pool; 4 convs, 2 pools. Test accuracy **71.07%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 3 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 7 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 8 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 10 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 11 | Flatten |  | `16×4×4` | `256` | — | — | — |
-| 12 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 13 | ReLU |  | `32` | `32` | — | 32 | — |
-| 14 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **13,018** | **3,872** | **768** |
-
-#### CIFAR-10 · `P5` (max pooling)
-
-<a id="cifar-p5"></a>
-
-`c8s2 c8 p c16 c16 p c32 p` — wide, max pool; 5 convs, 3 pools. Test accuracy **71.77%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 3 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 7 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 8 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 10 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 11 | Conv32 | 3×3, stride 1, pad 1 | `16×4×4` | `32×4×4` | 4,640 | — | — |
-| 12 | MaxPool | 2×2, stride 2 | `32×4×4` | `32×2×2` | — | — | 128 |
-| 13 | ReLU |  | `32×2×2` | `32×2×2` | — | 128 | — |
-| 14 | Flatten |  | `32×2×2` | `128` | — | — | — |
-| 15 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 16 | ReLU |  | `32` | `32` | — | 32 | — |
-| 17 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **13,562** | **4,000** | **896** |
-
-#### CIFAR-10 · `P6` (max pooling)
-
-<a id="cifar-p6"></a>
-
-`c8s2 c8 p c16 c16 p c32 c32 p` — wide, max pool; 6 convs, 3 pools. Test accuracy **74.26%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×32×32` | `8×16×16` | 392 | — | — |
-| 2 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 3 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 7 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 8 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 10 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 11 | Conv32 | 3×3, stride 1, pad 1 | `16×4×4` | `32×4×4` | 4,640 | — | — |
-| 12 | ReLU |  | `32×4×4` | `32×4×4` | — | 512 | — |
-| 13 | Conv32 | 3×3, stride 1, pad 1 | `32×4×4` | `32×4×4` | 9,248 | — | — |
-| 14 | MaxPool | 2×2, stride 2 | `32×4×4` | `32×2×2` | — | — | 128 |
-| 15 | ReLU |  | `32×2×2` | `32×2×2` | — | 128 | — |
-| 16 | Flatten |  | `32×2×2` | `128` | — | — | — |
-| 17 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 18 | ReLU |  | `32` | `32` | — | 32 | — |
-| 19 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **22,810** | **4,512** | **896** |
+| | **Total** | | | | **22,810** | **7,200** | **896** |
 
 #### CIFAR-10 · `NS1` (no pooling)
 
@@ -3231,151 +1979,6 @@ Natural images across 10 object classes.
 | 16 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
 | | **Total** | | | | **14,386** | **3,616** | **0** |
 
-#### CIFAR-10 · `NA1` (average pooling)
-
-<a id="cifar-na1"></a>
-
-`c4s2 a` — narrow, average pool; 1 conv, 1 pool. Test accuracy **50.14%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 3 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 4 | Flatten |  | `4×8×8` | `256` | — | — | — |
-| 5 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 6 | ReLU |  | `32` | `32` | — | 32 | — |
-| 7 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **8,750** | **288** | **256** |
-
-#### CIFAR-10 · `NA2` (average pooling)
-
-<a id="cifar-na2"></a>
-
-`c4s2 a c8 a` — narrow, average pool; 2 convs, 2 pools. Test accuracy **51.34%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 3 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 5 | AvgPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 6 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 7 | Flatten |  | `8×4×4` | `128` | — | — | — |
-| 8 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **4,950** | **416** | **384** |
-
-#### CIFAR-10 · `NA3` (average pooling)
-
-<a id="cifar-na3"></a>
-
-`c4s2 a c8 c8 a` — narrow, average pool; 3 convs, 2 pools. Test accuracy **55.16%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 3 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 7 | AvgPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 8 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 9 | Flatten |  | `8×4×4` | `128` | — | — | — |
-| 10 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 11 | ReLU |  | `32` | `32` | — | 32 | — |
-| 12 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **5,534** | **928** | **384** |
-
-#### CIFAR-10 · `NA4` (average pooling)
-
-<a id="cifar-na4"></a>
-
-`c4s2 c4 a c8 c8 a` — narrow, average pool; 4 convs, 2 pools. Test accuracy **57.78%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×16×16` | `4×16×16` | 148 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 5 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 7 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 10 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 11 | Flatten |  | `8×4×4` | `128` | — | — | — |
-| 12 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 13 | ReLU |  | `32` | `32` | — | 32 | — |
-| 14 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **5,682** | **1,952** | **384** |
-
-#### CIFAR-10 · `NA5` (average pooling)
-
-<a id="cifar-na5"></a>
-
-`c4s2 c4 a c8 c8 a c16 a` — narrow, average pool; 5 convs, 3 pools. Test accuracy **57.74%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×16×16` | `4×16×16` | 148 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 5 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 7 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 10 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×4×4` | `16×4×4` | 1,168 | — | — |
-| 12 | AvgPool | 2×2, stride 2 | `16×4×4` | `16×2×2` | — | — | 64 |
-| 13 | ReLU |  | `16×2×2` | `16×2×2` | — | 64 | — |
-| 14 | Flatten |  | `16×2×2` | `64` | — | — | — |
-| 15 | FC32 | 64 → 32 | `64` | `32` | 2,080 | — | — |
-| 16 | ReLU |  | `32` | `32` | — | 32 | — |
-| 17 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **4,802** | **2,016** | **448** |
-
-#### CIFAR-10 · `NA6` (average pooling)
-
-<a id="cifar-na6"></a>
-
-`c4s2 c4 a c8 c8 a c16 c16 a` — narrow, average pool; 6 convs, 3 pools. Test accuracy **60.87%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×16×16` | `4×16×16` | 148 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 5 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 7 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 10 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×4×4` | `16×4×4` | 1,168 | — | — |
-| 12 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 13 | Conv16 | 3×3, stride 1, pad 1 | `16×4×4` | `16×4×4` | 2,320 | — | — |
-| 14 | AvgPool | 2×2, stride 2 | `16×4×4` | `16×2×2` | — | — | 64 |
-| 15 | ReLU |  | `16×2×2` | `16×2×2` | — | 64 | — |
-| 16 | Flatten |  | `16×2×2` | `64` | — | — | — |
-| 17 | FC32 | 64 → 32 | `64` | `32` | 2,080 | — | — |
-| 18 | ReLU |  | `32` | `32` | — | 32 | — |
-| 19 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **7,122** | **2,272** | **448** |
-
 #### CIFAR-10 · `NAB1` (average pooling, ReLU before the pool)
 
 <a id="cifar-nab1"></a>
@@ -3398,7 +2001,7 @@ Natural images across 10 object classes.
 
 <a id="cifar-nab2"></a>
 
-`c4s2 a c8 a` — narrow, average pool, ReLU before the pool; 2 convs, 2 pools. Test accuracy **57.01%**.
+`c4s2 a c8` — narrow, average pool, ReLU before the pool; 2 convs, 1 pool. Test accuracy **58.15%**.
 
 | # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
 |---:|---|---|---|---|---:|---:|---:|
@@ -3408,12 +2011,11 @@ Natural images across 10 object classes.
 | 3 | AvgPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
 | 4 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
 | 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 6 | AvgPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 7 | Flatten |  | `8×4×4` | `128` | — | — | — |
-| 8 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **4,950** | **1,568** | **384** |
+| 6 | Flatten |  | `8×8×8` | `512` | — | — | — |
+| 7 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
+| 8 | ReLU |  | `32` | `32` | — | 32 | — |
+| 9 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
+| | **Total** | | | | **17,238** | **1,568** | **256** |
 
 #### CIFAR-10 · `NAB3` (average pooling, ReLU before the pool)
 
@@ -3521,151 +2123,6 @@ Natural images across 10 object classes.
 | 19 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
 | | **Total** | | | | **7,122** | **3,616** | **448** |
 
-#### CIFAR-10 · `NP1` (max pooling)
-
-<a id="cifar-np1"></a>
-
-`c4s2 p` — narrow, max pool; 1 conv, 1 pool. Test accuracy **54.19%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 3 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 4 | Flatten |  | `4×8×8` | `256` | — | — | — |
-| 5 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 6 | ReLU |  | `32` | `32` | — | 32 | — |
-| 7 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **8,750** | **288** | **256** |
-
-#### CIFAR-10 · `NP2` (max pooling)
-
-<a id="cifar-np2"></a>
-
-`c4s2 p c8 p` — narrow, max pool; 2 convs, 2 pools. Test accuracy **55.50%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 3 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 5 | MaxPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 6 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 7 | Flatten |  | `8×4×4` | `128` | — | — | — |
-| 8 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **4,950** | **416** | **384** |
-
-#### CIFAR-10 · `NP3` (max pooling)
-
-<a id="cifar-np3"></a>
-
-`c4s2 p c8 c8 p` — narrow, max pool; 3 convs, 2 pools. Test accuracy **57.62%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 3 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 5 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 7 | MaxPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 8 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 9 | Flatten |  | `8×4×4` | `128` | — | — | — |
-| 10 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 11 | ReLU |  | `32` | `32` | — | 32 | — |
-| 12 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **5,534** | **928** | **384** |
-
-#### CIFAR-10 · `NP4` (max pooling)
-
-<a id="cifar-np4"></a>
-
-`c4s2 c4 p c8 c8 p` — narrow, max pool; 4 convs, 2 pools. Test accuracy **58.90%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×16×16` | `4×16×16` | 148 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 5 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 7 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 10 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 11 | Flatten |  | `8×4×4` | `128` | — | — | — |
-| 12 | FC32 | 128 → 32 | `128` | `32` | 4,128 | — | — |
-| 13 | ReLU |  | `32` | `32` | — | 32 | — |
-| 14 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **5,682** | **1,952** | **384** |
-
-#### CIFAR-10 · `NP5` (max pooling)
-
-<a id="cifar-np5"></a>
-
-`c4s2 c4 p c8 c8 p c16 p` — narrow, max pool; 5 convs, 3 pools. Test accuracy **59.17%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×16×16` | `4×16×16` | 148 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 5 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 7 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 10 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×4×4` | `16×4×4` | 1,168 | — | — |
-| 12 | MaxPool | 2×2, stride 2 | `16×4×4` | `16×2×2` | — | — | 64 |
-| 13 | ReLU |  | `16×2×2` | `16×2×2` | — | 64 | — |
-| 14 | Flatten |  | `16×2×2` | `64` | — | — | — |
-| 15 | FC32 | 64 → 32 | `64` | `32` | 2,080 | — | — |
-| 16 | ReLU |  | `32` | `32` | — | 32 | — |
-| 17 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **4,802** | **2,016** | **448** |
-
-#### CIFAR-10 · `NP6` (max pooling)
-
-<a id="cifar-np6"></a>
-
-`c4s2 c4 p c8 c8 p c16 c16 p` — narrow, max pool; 6 convs, 3 pools. Test accuracy **61.04%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×32×32` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×32×32` | `4×16×16` | 196 | — | — |
-| 2 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×16×16` | `4×16×16` | 148 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `4×16×16` | `4×8×8` | — | — | 256 |
-| 5 | ReLU |  | `4×8×8` | `4×8×8` | — | 256 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×8×8` | `8×8×8` | 296 | — | — |
-| 7 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×8×8` | `8×8×8` | 584 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `8×8×8` | `8×4×4` | — | — | 128 |
-| 10 | ReLU |  | `8×4×4` | `8×4×4` | — | 128 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×4×4` | `16×4×4` | 1,168 | — | — |
-| 12 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 13 | Conv16 | 3×3, stride 1, pad 1 | `16×4×4` | `16×4×4` | 2,320 | — | — |
-| 14 | MaxPool | 2×2, stride 2 | `16×4×4` | `16×2×2` | — | — | 64 |
-| 15 | ReLU |  | `16×2×2` | `16×2×2` | — | 64 | — |
-| 16 | Flatten |  | `16×2×2` | `64` | — | — | — |
-| 17 | FC32 | 64 → 32 | `64` | `32` | 2,080 | — | — |
-| 18 | ReLU |  | `32` | `32` | — | 32 | — |
-| 19 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **7,122** | **2,272** | **448** |
-
 ---
 
 ## Imagenette-64
@@ -3687,28 +2144,6 @@ The 10-class ImageNet subset from fast.ai, resized so the shorter side is 72 the
 | [`S5`](#imagenette-s5) | 5 | 0 | 26,656 | 0 | 79,482 | 74.55% |
 | [`S6`](#imagenette-s6) | 6 | 0 | 28,704 | 0 | 88,730 | 75.90% |
 
-### Wide -- average pooling
-
-| id | convs | pools | ReLUs | pool | params | test acc |
-|---|---:|---:|---:|---:|---:|---:|
-| [`A1`](#imagenette-a1) | 1 | 1 | 2,080 | 2,048 | 66,290 | 57.86% |
-| [`A2`](#imagenette-a2) | 2 | 2 | 3,104 | 3,072 | 34,690 | 63.75% |
-| [`A3`](#imagenette-a3) | 3 | 2 | 7,200 | 3,072 | 37,010 | 67.31% |
-| [`A4`](#imagenette-a4) | 4 | 2 | 15,392 | 3,072 | 37,594 | 70.22% |
-| [`A5`](#imagenette-a5) | 5 | 3 | 15,904 | 3,584 | 25,850 | 73.35% |
-| [`A6`](#imagenette-a6) | 6 | 3 | 17,952 | 3,584 | 35,098 | 74.06% |
-
-### Wide -- max pooling
-
-| id | convs | pools | ReLUs | pool | params | test acc |
-|---|---:|---:|---:|---:|---:|---:|
-| [`P1`](#imagenette-p1) | 1 | 1 | 2,080 | 2,048 | 66,290 | 64.89% |
-| [`P2`](#imagenette-p2) | 2 | 2 | 3,104 | 3,072 | 34,690 | 70.19% |
-| [`P3`](#imagenette-p3) | 3 | 2 | 7,200 | 3,072 | 37,010 | 71.39% |
-| [`P4`](#imagenette-p4) | 4 | 2 | 15,392 | 3,072 | 37,594 | 73.45% |
-| [`P5`](#imagenette-p5) | 5 | 3 | 15,904 | 3,584 | 25,850 | 74.50% |
-| [`P6`](#imagenette-p6) | 6 | 3 | 17,952 | 3,584 | 35,098 | 76.25% |
-
 ### Narrow -- no pooling
 
 | id | convs | pools | ReLUs | pool | params | test acc |
@@ -3719,28 +2154,6 @@ The 10-class ImageNet subset from fast.ai, resized so the shorter side is 72 the
 | [`NS4`](#imagenette-ns4) | 4 | 0 | 12,320 | 0 | 67,346 | 67.31% |
 | [`NS5`](#imagenette-ns5) | 5 | 0 | 13,344 | 0 | 36,642 | 68.61% |
 | [`NS6`](#imagenette-ns6) | 6 | 0 | 14,368 | 0 | 38,962 | 71.26% |
-
-### Narrow -- average pooling
-
-| id | convs | pools | ReLUs | pool | params | test acc |
-|---|---:|---:|---:|---:|---:|---:|
-| [`NA1`](#imagenette-na1) | 1 | 1 | 1,056 | 1,024 | 33,326 | 50.01% |
-| [`NA2`](#imagenette-na2) | 2 | 2 | 1,568 | 1,536 | 17,238 | 55.97% |
-| [`NA3`](#imagenette-na3) | 3 | 2 | 3,616 | 1,536 | 17,822 | 63.29% |
-| [`NA4`](#imagenette-na4) | 4 | 2 | 7,712 | 1,536 | 17,970 | 62.80% |
-| [`NA5`](#imagenette-na5) | 5 | 3 | 7,968 | 1,792 | 10,946 | 65.20% |
-| [`NA6`](#imagenette-na6) | 6 | 3 | 8,992 | 1,792 | 13,266 | 66.90% |
-
-### Narrow -- max pooling
-
-| id | convs | pools | ReLUs | pool | params | test acc |
-|---|---:|---:|---:|---:|---:|---:|
-| [`NP1`](#imagenette-np1) | 1 | 1 | 1,056 | 1,024 | 33,326 | 57.73% |
-| [`NP2`](#imagenette-np2) | 2 | 2 | 1,568 | 1,536 | 17,238 | 64.10% |
-| [`NP3`](#imagenette-np3) | 3 | 2 | 3,616 | 1,536 | 17,822 | 65.76% |
-| [`NP4`](#imagenette-np4) | 4 | 2 | 7,712 | 1,536 | 17,970 | 66.93% |
-| [`NP5`](#imagenette-np5) | 5 | 3 | 7,968 | 1,792 | 10,946 | 67.87% |
-| [`NP6`](#imagenette-np6) | 6 | 3 | 8,992 | 1,792 | 13,266 | 68.71% |
 
 #### Imagenette-64 · `S1` (no pooling)
 
@@ -3874,296 +2287,6 @@ The 10-class ImageNet subset from fast.ai, resized so the shorter side is 72 the
 | 16 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
 | | **Total** | | | | **88,730** | **28,704** | **0** |
 
-#### Imagenette-64 · `A1` (average pooling)
-
-<a id="imagenette-a1"></a>
-
-`c8s2 a` — wide, average pool; 1 conv, 1 pool. Test accuracy **57.86%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×64×64` | `8×32×32` | 392 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `8×32×32` | `8×16×16` | — | — | 2,048 |
-| 3 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 4 | Flatten |  | `8×16×16` | `2048` | — | — | — |
-| 5 | FC32 | 2048 → 32 | `2048` | `32` | 65,568 | — | — |
-| 6 | ReLU |  | `32` | `32` | — | 32 | — |
-| 7 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **66,290** | **2,080** | **2,048** |
-
-#### Imagenette-64 · `A2` (average pooling)
-
-<a id="imagenette-a2"></a>
-
-`c8s2 a c16 a` — wide, average pool; 2 convs, 2 pools. Test accuracy **63.75%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×64×64` | `8×32×32` | 392 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `8×32×32` | `8×16×16` | — | — | 2,048 |
-| 3 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 4 | Conv16 | 3×3, stride 1, pad 1 | `8×16×16` | `16×16×16` | 1,168 | — | — |
-| 5 | AvgPool | 2×2, stride 2 | `16×16×16` | `16×8×8` | — | — | 1,024 |
-| 6 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 7 | Flatten |  | `16×8×8` | `1024` | — | — | — |
-| 8 | FC32 | 1024 → 32 | `1024` | `32` | 32,800 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **34,690** | **3,104** | **3,072** |
-
-#### Imagenette-64 · `A3` (average pooling)
-
-<a id="imagenette-a3"></a>
-
-`c8s2 a c16 c16 a` — wide, average pool; 3 convs, 2 pools. Test accuracy **67.31%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×64×64` | `8×32×32` | 392 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `8×32×32` | `8×16×16` | — | — | 2,048 |
-| 3 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 4 | Conv16 | 3×3, stride 1, pad 1 | `8×16×16` | `16×16×16` | 1,168 | — | — |
-| 5 | ReLU |  | `16×16×16` | `16×16×16` | — | 4,096 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `16×16×16` | `16×16×16` | 2,320 | — | — |
-| 7 | AvgPool | 2×2, stride 2 | `16×16×16` | `16×8×8` | — | — | 1,024 |
-| 8 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 9 | Flatten |  | `16×8×8` | `1024` | — | — | — |
-| 10 | FC32 | 1024 → 32 | `1024` | `32` | 32,800 | — | — |
-| 11 | ReLU |  | `32` | `32` | — | 32 | — |
-| 12 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **37,010** | **7,200** | **3,072** |
-
-#### Imagenette-64 · `A4` (average pooling)
-
-<a id="imagenette-a4"></a>
-
-`c8s2 c8 a c16 c16 a` — wide, average pool; 4 convs, 2 pools. Test accuracy **70.22%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×64×64` | `8×32×32` | 392 | — | — |
-| 2 | ReLU |  | `8×32×32` | `8×32×32` | — | 8,192 | — |
-| 3 | Conv8 | 3×3, stride 1, pad 1 | `8×32×32` | `8×32×32` | 584 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `8×32×32` | `8×16×16` | — | — | 2,048 |
-| 5 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `8×16×16` | `16×16×16` | 1,168 | — | — |
-| 7 | ReLU |  | `16×16×16` | `16×16×16` | — | 4,096 | — |
-| 8 | Conv16 | 3×3, stride 1, pad 1 | `16×16×16` | `16×16×16` | 2,320 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `16×16×16` | `16×8×8` | — | — | 1,024 |
-| 10 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 11 | Flatten |  | `16×8×8` | `1024` | — | — | — |
-| 12 | FC32 | 1024 → 32 | `1024` | `32` | 32,800 | — | — |
-| 13 | ReLU |  | `32` | `32` | — | 32 | — |
-| 14 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **37,594** | **15,392** | **3,072** |
-
-#### Imagenette-64 · `A5` (average pooling)
-
-<a id="imagenette-a5"></a>
-
-`c8s2 c8 a c16 c16 a c32 a` — wide, average pool; 5 convs, 3 pools. Test accuracy **73.35%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×64×64` | `8×32×32` | 392 | — | — |
-| 2 | ReLU |  | `8×32×32` | `8×32×32` | — | 8,192 | — |
-| 3 | Conv8 | 3×3, stride 1, pad 1 | `8×32×32` | `8×32×32` | 584 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `8×32×32` | `8×16×16` | — | — | 2,048 |
-| 5 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `8×16×16` | `16×16×16` | 1,168 | — | — |
-| 7 | ReLU |  | `16×16×16` | `16×16×16` | — | 4,096 | — |
-| 8 | Conv16 | 3×3, stride 1, pad 1 | `16×16×16` | `16×16×16` | 2,320 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `16×16×16` | `16×8×8` | — | — | 1,024 |
-| 10 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 11 | Conv32 | 3×3, stride 1, pad 1 | `16×8×8` | `32×8×8` | 4,640 | — | — |
-| 12 | AvgPool | 2×2, stride 2 | `32×8×8` | `32×4×4` | — | — | 512 |
-| 13 | ReLU |  | `32×4×4` | `32×4×4` | — | 512 | — |
-| 14 | Flatten |  | `32×4×4` | `512` | — | — | — |
-| 15 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
-| 16 | ReLU |  | `32` | `32` | — | 32 | — |
-| 17 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **25,850** | **15,904** | **3,584** |
-
-#### Imagenette-64 · `A6` (average pooling)
-
-<a id="imagenette-a6"></a>
-
-`c8s2 c8 a c16 c16 a c32 c32 a` — wide, average pool; 6 convs, 3 pools. Test accuracy **74.06%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×64×64` | `8×32×32` | 392 | — | — |
-| 2 | ReLU |  | `8×32×32` | `8×32×32` | — | 8,192 | — |
-| 3 | Conv8 | 3×3, stride 1, pad 1 | `8×32×32` | `8×32×32` | 584 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `8×32×32` | `8×16×16` | — | — | 2,048 |
-| 5 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `8×16×16` | `16×16×16` | 1,168 | — | — |
-| 7 | ReLU |  | `16×16×16` | `16×16×16` | — | 4,096 | — |
-| 8 | Conv16 | 3×3, stride 1, pad 1 | `16×16×16` | `16×16×16` | 2,320 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `16×16×16` | `16×8×8` | — | — | 1,024 |
-| 10 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 11 | Conv32 | 3×3, stride 1, pad 1 | `16×8×8` | `32×8×8` | 4,640 | — | — |
-| 12 | ReLU |  | `32×8×8` | `32×8×8` | — | 2,048 | — |
-| 13 | Conv32 | 3×3, stride 1, pad 1 | `32×8×8` | `32×8×8` | 9,248 | — | — |
-| 14 | AvgPool | 2×2, stride 2 | `32×8×8` | `32×4×4` | — | — | 512 |
-| 15 | ReLU |  | `32×4×4` | `32×4×4` | — | 512 | — |
-| 16 | Flatten |  | `32×4×4` | `512` | — | — | — |
-| 17 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
-| 18 | ReLU |  | `32` | `32` | — | 32 | — |
-| 19 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **35,098** | **17,952** | **3,584** |
-
-#### Imagenette-64 · `P1` (max pooling)
-
-<a id="imagenette-p1"></a>
-
-`c8s2 p` — wide, max pool; 1 conv, 1 pool. Test accuracy **64.89%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×64×64` | `8×32×32` | 392 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `8×32×32` | `8×16×16` | — | — | 2,048 |
-| 3 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 4 | Flatten |  | `8×16×16` | `2048` | — | — | — |
-| 5 | FC32 | 2048 → 32 | `2048` | `32` | 65,568 | — | — |
-| 6 | ReLU |  | `32` | `32` | — | 32 | — |
-| 7 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **66,290** | **2,080** | **2,048** |
-
-#### Imagenette-64 · `P2` (max pooling)
-
-<a id="imagenette-p2"></a>
-
-`c8s2 p c16 p` — wide, max pool; 2 convs, 2 pools. Test accuracy **70.19%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×64×64` | `8×32×32` | 392 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `8×32×32` | `8×16×16` | — | — | 2,048 |
-| 3 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 4 | Conv16 | 3×3, stride 1, pad 1 | `8×16×16` | `16×16×16` | 1,168 | — | — |
-| 5 | MaxPool | 2×2, stride 2 | `16×16×16` | `16×8×8` | — | — | 1,024 |
-| 6 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 7 | Flatten |  | `16×8×8` | `1024` | — | — | — |
-| 8 | FC32 | 1024 → 32 | `1024` | `32` | 32,800 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **34,690** | **3,104** | **3,072** |
-
-#### Imagenette-64 · `P3` (max pooling)
-
-<a id="imagenette-p3"></a>
-
-`c8s2 p c16 c16 p` — wide, max pool; 3 convs, 2 pools. Test accuracy **71.39%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×64×64` | `8×32×32` | 392 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `8×32×32` | `8×16×16` | — | — | 2,048 |
-| 3 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 4 | Conv16 | 3×3, stride 1, pad 1 | `8×16×16` | `16×16×16` | 1,168 | — | — |
-| 5 | ReLU |  | `16×16×16` | `16×16×16` | — | 4,096 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `16×16×16` | `16×16×16` | 2,320 | — | — |
-| 7 | MaxPool | 2×2, stride 2 | `16×16×16` | `16×8×8` | — | — | 1,024 |
-| 8 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 9 | Flatten |  | `16×8×8` | `1024` | — | — | — |
-| 10 | FC32 | 1024 → 32 | `1024` | `32` | 32,800 | — | — |
-| 11 | ReLU |  | `32` | `32` | — | 32 | — |
-| 12 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **37,010** | **7,200** | **3,072** |
-
-#### Imagenette-64 · `P4` (max pooling)
-
-<a id="imagenette-p4"></a>
-
-`c8s2 c8 p c16 c16 p` — wide, max pool; 4 convs, 2 pools. Test accuracy **73.45%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×64×64` | `8×32×32` | 392 | — | — |
-| 2 | ReLU |  | `8×32×32` | `8×32×32` | — | 8,192 | — |
-| 3 | Conv8 | 3×3, stride 1, pad 1 | `8×32×32` | `8×32×32` | 584 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `8×32×32` | `8×16×16` | — | — | 2,048 |
-| 5 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `8×16×16` | `16×16×16` | 1,168 | — | — |
-| 7 | ReLU |  | `16×16×16` | `16×16×16` | — | 4,096 | — |
-| 8 | Conv16 | 3×3, stride 1, pad 1 | `16×16×16` | `16×16×16` | 2,320 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `16×16×16` | `16×8×8` | — | — | 1,024 |
-| 10 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 11 | Flatten |  | `16×8×8` | `1024` | — | — | — |
-| 12 | FC32 | 1024 → 32 | `1024` | `32` | 32,800 | — | — |
-| 13 | ReLU |  | `32` | `32` | — | 32 | — |
-| 14 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **37,594** | **15,392** | **3,072** |
-
-#### Imagenette-64 · `P5` (max pooling)
-
-<a id="imagenette-p5"></a>
-
-`c8s2 c8 p c16 c16 p c32 p` — wide, max pool; 5 convs, 3 pools. Test accuracy **74.50%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×64×64` | `8×32×32` | 392 | — | — |
-| 2 | ReLU |  | `8×32×32` | `8×32×32` | — | 8,192 | — |
-| 3 | Conv8 | 3×3, stride 1, pad 1 | `8×32×32` | `8×32×32` | 584 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `8×32×32` | `8×16×16` | — | — | 2,048 |
-| 5 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `8×16×16` | `16×16×16` | 1,168 | — | — |
-| 7 | ReLU |  | `16×16×16` | `16×16×16` | — | 4,096 | — |
-| 8 | Conv16 | 3×3, stride 1, pad 1 | `16×16×16` | `16×16×16` | 2,320 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `16×16×16` | `16×8×8` | — | — | 1,024 |
-| 10 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 11 | Conv32 | 3×3, stride 1, pad 1 | `16×8×8` | `32×8×8` | 4,640 | — | — |
-| 12 | MaxPool | 2×2, stride 2 | `32×8×8` | `32×4×4` | — | — | 512 |
-| 13 | ReLU |  | `32×4×4` | `32×4×4` | — | 512 | — |
-| 14 | Flatten |  | `32×4×4` | `512` | — | — | — |
-| 15 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
-| 16 | ReLU |  | `32` | `32` | — | 32 | — |
-| 17 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **25,850** | **15,904** | **3,584** |
-
-#### Imagenette-64 · `P6` (max pooling)
-
-<a id="imagenette-p6"></a>
-
-`c8s2 c8 p c16 c16 p c32 c32 p` — wide, max pool; 6 convs, 3 pools. Test accuracy **76.25%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv8 | 4×4, stride 2, pad 1 | `3×64×64` | `8×32×32` | 392 | — | — |
-| 2 | ReLU |  | `8×32×32` | `8×32×32` | — | 8,192 | — |
-| 3 | Conv8 | 3×3, stride 1, pad 1 | `8×32×32` | `8×32×32` | 584 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `8×32×32` | `8×16×16` | — | — | 2,048 |
-| 5 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 6 | Conv16 | 3×3, stride 1, pad 1 | `8×16×16` | `16×16×16` | 1,168 | — | — |
-| 7 | ReLU |  | `16×16×16` | `16×16×16` | — | 4,096 | — |
-| 8 | Conv16 | 3×3, stride 1, pad 1 | `16×16×16` | `16×16×16` | 2,320 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `16×16×16` | `16×8×8` | — | — | 1,024 |
-| 10 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 11 | Conv32 | 3×3, stride 1, pad 1 | `16×8×8` | `32×8×8` | 4,640 | — | — |
-| 12 | ReLU |  | `32×8×8` | `32×8×8` | — | 2,048 | — |
-| 13 | Conv32 | 3×3, stride 1, pad 1 | `32×8×8` | `32×8×8` | 9,248 | — | — |
-| 14 | MaxPool | 2×2, stride 2 | `32×8×8` | `32×4×4` | — | — | 512 |
-| 15 | ReLU |  | `32×4×4` | `32×4×4` | — | 512 | — |
-| 16 | Flatten |  | `32×4×4` | `512` | — | — | — |
-| 17 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
-| 18 | ReLU |  | `32` | `32` | — | 32 | — |
-| 19 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **35,098** | **17,952** | **3,584** |
-
 #### Imagenette-64 · `NS1` (no pooling)
 
 <a id="imagenette-ns1"></a>
@@ -4296,302 +2419,13 @@ The 10-class ImageNet subset from fast.ai, resized so the shorter side is 72 the
 | 16 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
 | | **Total** | | | | **38,962** | **14,368** | **0** |
 
-#### Imagenette-64 · `NA1` (average pooling)
-
-<a id="imagenette-na1"></a>
-
-`c4s2 a` — narrow, average pool; 1 conv, 1 pool. Test accuracy **50.01%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×64×64` | `4×32×32` | 196 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `4×32×32` | `4×16×16` | — | — | 1,024 |
-| 3 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 4 | Flatten |  | `4×16×16` | `1024` | — | — | — |
-| 5 | FC32 | 1024 → 32 | `1024` | `32` | 32,800 | — | — |
-| 6 | ReLU |  | `32` | `32` | — | 32 | — |
-| 7 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **33,326** | **1,056** | **1,024** |
-
-#### Imagenette-64 · `NA2` (average pooling)
-
-<a id="imagenette-na2"></a>
-
-`c4s2 a c8 a` — narrow, average pool; 2 convs, 2 pools. Test accuracy **55.97%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×64×64` | `4×32×32` | 196 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `4×32×32` | `4×16×16` | — | — | 1,024 |
-| 3 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×16×16` | `8×16×16` | 296 | — | — |
-| 5 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 6 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 7 | Flatten |  | `8×8×8` | `512` | — | — | — |
-| 8 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **17,238** | **1,568** | **1,536** |
-
-#### Imagenette-64 · `NA3` (average pooling)
-
-<a id="imagenette-na3"></a>
-
-`c4s2 a c8 c8 a` — narrow, average pool; 3 convs, 2 pools. Test accuracy **63.29%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×64×64` | `4×32×32` | 196 | — | — |
-| 2 | AvgPool | 2×2, stride 2 | `4×32×32` | `4×16×16` | — | — | 1,024 |
-| 3 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×16×16` | `8×16×16` | 296 | — | — |
-| 5 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 7 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 8 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 9 | Flatten |  | `8×8×8` | `512` | — | — | — |
-| 10 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
-| 11 | ReLU |  | `32` | `32` | — | 32 | — |
-| 12 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **17,822** | **3,616** | **1,536** |
-
-#### Imagenette-64 · `NA4` (average pooling)
-
-<a id="imagenette-na4"></a>
-
-`c4s2 c4 a c8 c8 a` — narrow, average pool; 4 convs, 2 pools. Test accuracy **62.80%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×64×64` | `4×32×32` | 196 | — | — |
-| 2 | ReLU |  | `4×32×32` | `4×32×32` | — | 4,096 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×32×32` | `4×32×32` | 148 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `4×32×32` | `4×16×16` | — | — | 1,024 |
-| 5 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×16×16` | `8×16×16` | 296 | — | — |
-| 7 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 10 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 11 | Flatten |  | `8×8×8` | `512` | — | — | — |
-| 12 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
-| 13 | ReLU |  | `32` | `32` | — | 32 | — |
-| 14 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **17,970** | **7,712** | **1,536** |
-
-#### Imagenette-64 · `NA5` (average pooling)
-
-<a id="imagenette-na5"></a>
-
-`c4s2 c4 a c8 c8 a c16 a` — narrow, average pool; 5 convs, 3 pools. Test accuracy **65.20%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×64×64` | `4×32×32` | 196 | — | — |
-| 2 | ReLU |  | `4×32×32` | `4×32×32` | — | 4,096 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×32×32` | `4×32×32` | 148 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `4×32×32` | `4×16×16` | — | — | 1,024 |
-| 5 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×16×16` | `8×16×16` | 296 | — | — |
-| 7 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 10 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 12 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 13 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 14 | Flatten |  | `16×4×4` | `256` | — | — | — |
-| 15 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 16 | ReLU |  | `32` | `32` | — | 32 | — |
-| 17 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **10,946** | **7,968** | **1,792** |
-
-#### Imagenette-64 · `NA6` (average pooling)
-
-<a id="imagenette-na6"></a>
-
-`c4s2 c4 a c8 c8 a c16 c16 a` — narrow, average pool; 6 convs, 3 pools. Test accuracy **66.90%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×64×64` | `4×32×32` | 196 | — | — |
-| 2 | ReLU |  | `4×32×32` | `4×32×32` | — | 4,096 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×32×32` | `4×32×32` | 148 | — | — |
-| 4 | AvgPool | 2×2, stride 2 | `4×32×32` | `4×16×16` | — | — | 1,024 |
-| 5 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×16×16` | `8×16×16` | 296 | — | — |
-| 7 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 9 | AvgPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 10 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 12 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 13 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 14 | AvgPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 15 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 16 | Flatten |  | `16×4×4` | `256` | — | — | — |
-| 17 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 18 | ReLU |  | `32` | `32` | — | 32 | — |
-| 19 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **13,266** | **8,992** | **1,792** |
-
-#### Imagenette-64 · `NP1` (max pooling)
-
-<a id="imagenette-np1"></a>
-
-`c4s2 p` — narrow, max pool; 1 conv, 1 pool. Test accuracy **57.73%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×64×64` | `4×32×32` | 196 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `4×32×32` | `4×16×16` | — | — | 1,024 |
-| 3 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 4 | Flatten |  | `4×16×16` | `1024` | — | — | — |
-| 5 | FC32 | 1024 → 32 | `1024` | `32` | 32,800 | — | — |
-| 6 | ReLU |  | `32` | `32` | — | 32 | — |
-| 7 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **33,326** | **1,056** | **1,024** |
-
-#### Imagenette-64 · `NP2` (max pooling)
-
-<a id="imagenette-np2"></a>
-
-`c4s2 p c8 p` — narrow, max pool; 2 convs, 2 pools. Test accuracy **64.10%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×64×64` | `4×32×32` | 196 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `4×32×32` | `4×16×16` | — | — | 1,024 |
-| 3 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×16×16` | `8×16×16` | 296 | — | — |
-| 5 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 6 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 7 | Flatten |  | `8×8×8` | `512` | — | — | — |
-| 8 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
-| 9 | ReLU |  | `32` | `32` | — | 32 | — |
-| 10 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **17,238** | **1,568** | **1,536** |
-
-#### Imagenette-64 · `NP3` (max pooling)
-
-<a id="imagenette-np3"></a>
-
-`c4s2 p c8 c8 p` — narrow, max pool; 3 convs, 2 pools. Test accuracy **65.76%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×64×64` | `4×32×32` | 196 | — | — |
-| 2 | MaxPool | 2×2, stride 2 | `4×32×32` | `4×16×16` | — | — | 1,024 |
-| 3 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 4 | Conv8 | 3×3, stride 1, pad 1 | `4×16×16` | `8×16×16` | 296 | — | — |
-| 5 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 7 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 8 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 9 | Flatten |  | `8×8×8` | `512` | — | — | — |
-| 10 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
-| 11 | ReLU |  | `32` | `32` | — | 32 | — |
-| 12 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **17,822** | **3,616** | **1,536** |
-
-#### Imagenette-64 · `NP4` (max pooling)
-
-<a id="imagenette-np4"></a>
-
-`c4s2 c4 p c8 c8 p` — narrow, max pool; 4 convs, 2 pools. Test accuracy **66.93%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×64×64` | `4×32×32` | 196 | — | — |
-| 2 | ReLU |  | `4×32×32` | `4×32×32` | — | 4,096 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×32×32` | `4×32×32` | 148 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `4×32×32` | `4×16×16` | — | — | 1,024 |
-| 5 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×16×16` | `8×16×16` | 296 | — | — |
-| 7 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 10 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 11 | Flatten |  | `8×8×8` | `512` | — | — | — |
-| 12 | FC32 | 512 → 32 | `512` | `32` | 16,416 | — | — |
-| 13 | ReLU |  | `32` | `32` | — | 32 | — |
-| 14 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **17,970** | **7,712** | **1,536** |
-
-#### Imagenette-64 · `NP5` (max pooling)
-
-<a id="imagenette-np5"></a>
-
-`c4s2 c4 p c8 c8 p c16 p` — narrow, max pool; 5 convs, 3 pools. Test accuracy **67.87%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×64×64` | `4×32×32` | 196 | — | — |
-| 2 | ReLU |  | `4×32×32` | `4×32×32` | — | 4,096 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×32×32` | `4×32×32` | 148 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `4×32×32` | `4×16×16` | — | — | 1,024 |
-| 5 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×16×16` | `8×16×16` | 296 | — | — |
-| 7 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 10 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 12 | MaxPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 13 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 14 | Flatten |  | `16×4×4` | `256` | — | — | — |
-| 15 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 16 | ReLU |  | `32` | `32` | — | 32 | — |
-| 17 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **10,946** | **7,968** | **1,792** |
-
-#### Imagenette-64 · `NP6` (max pooling)
-
-<a id="imagenette-np6"></a>
-
-`c4s2 c4 p c8 c8 p c16 c16 p` — narrow, max pool; 6 convs, 3 pools. Test accuracy **68.71%**.
-
-| # | Layer | Config | Input shape | Output shape | Params | ReLUs | Pool |
-|---:|---|---|---|---|---:|---:|---:|
-| — | *input* | | | `3×64×64` | — | — | — |
-| 1 | Conv4 | 4×4, stride 2, pad 1 | `3×64×64` | `4×32×32` | 196 | — | — |
-| 2 | ReLU |  | `4×32×32` | `4×32×32` | — | 4,096 | — |
-| 3 | Conv4 | 3×3, stride 1, pad 1 | `4×32×32` | `4×32×32` | 148 | — | — |
-| 4 | MaxPool | 2×2, stride 2 | `4×32×32` | `4×16×16` | — | — | 1,024 |
-| 5 | ReLU |  | `4×16×16` | `4×16×16` | — | 1,024 | — |
-| 6 | Conv8 | 3×3, stride 1, pad 1 | `4×16×16` | `8×16×16` | 296 | — | — |
-| 7 | ReLU |  | `8×16×16` | `8×16×16` | — | 2,048 | — |
-| 8 | Conv8 | 3×3, stride 1, pad 1 | `8×16×16` | `8×16×16` | 584 | — | — |
-| 9 | MaxPool | 2×2, stride 2 | `8×16×16` | `8×8×8` | — | — | 512 |
-| 10 | ReLU |  | `8×8×8` | `8×8×8` | — | 512 | — |
-| 11 | Conv16 | 3×3, stride 1, pad 1 | `8×8×8` | `16×8×8` | 1,168 | — | — |
-| 12 | ReLU |  | `16×8×8` | `16×8×8` | — | 1,024 | — |
-| 13 | Conv16 | 3×3, stride 1, pad 1 | `16×8×8` | `16×8×8` | 2,320 | — | — |
-| 14 | MaxPool | 2×2, stride 2 | `16×8×8` | `16×4×4` | — | — | 256 |
-| 15 | ReLU |  | `16×4×4` | `16×4×4` | — | 256 | — |
-| 16 | Flatten |  | `16×4×4` | `256` | — | — | — |
-| 17 | FC32 | 256 → 32 | `256` | `32` | 8,224 | — | — |
-| 18 | ReLU |  | `32` | `32` | — | 32 | — |
-| 19 | FC10 | 32 → 10 | `32` | `10` | 330 | — | — |
-| | **Total** | | | | **13,266** | **8,992** | **1,792** |
-
 ---
 
 ## How the same architecture scales across datasets
 
-The 42 architectures are identical everywhere; only the **input resolution**, the **input
-channel count** and the **class count** change. They propagate differently:
+The 24 architectures are identical on every dataset they are trained on (`AB`/`NAB` skip
+Imagenette-64); only the **input resolution**, the **input channel count** and the **class count**
+change. They propagate differently:
 
 **Resolution drives ReLU count.** Feature maps scale with input area, so Imagenette at 64×64 has
 about 4× the ReLUs of the same architecture at 32×32. `S6` runs 5,312 ReLUs on MNIST,
@@ -4615,13 +2449,14 @@ shallow un-pooled models feed a large feature map straight into `FC32`:
 | `S1` | MNIST | 1,568 | 50,208 | 99% |
 | `S1` | CIFAR-10 | 2,048 | 65,568 | 99% |
 | `S1` | Imagenette-64 | 8,192 | 262,176 | 100% |
-| `P1` | Imagenette-64 | 2,048 | 65,568 | 99% |
-| `NA1` | Imagenette-64 | 1,024 | 32,800 | 98% |
+| `AB1` | CIFAR-10 | 512 | 16,416 | 96% |
+| `NAB1` | CIFAR-10 | 256 | 8,224 | 94% |
 | `S6` | Imagenette-64 | 2,048 | 65,568 | 74% |
 
-This is the clearest structural reason the pooled and narrow variants are cheaper at shallow
+This is the clearest structural reason the pooled and narrow variants are smaller at shallow
 depth: a single 2×2 pool before the head cuts the flatten width by 4× and the head's parameters
-with it, and halving the channel width cuts it again.
+with it, and halving the channel width cuts it again. For `AB`/`NAB` the saving is in parameters
+only — their ReLU count equals the strided twin's, so the solver's case splits are unchanged.
 
 ---
 
@@ -4629,11 +2464,11 @@ with it, and halving the channel width cuts it again.
 
 - **Generated from:** `data/models/{mnist,gtsrb,cifar,imagenette}/cnn-bench/*.onnx`, read with
   `onnx.shape_inference` and walked node by node.
-- **Cross-checked against:** each dataset's `cnn-bench/manifest.csv`. All 144 models agree on
+- **Cross-checked against:** each dataset's `cnn-bench/manifest.csv`. All 84 models agree on
   parameters, ReLU neurons and pool neurons.
 - **Architecture source:** [`python_scripts/cnn_bench/archs.py`](../../python_scripts/cnn_bench/README.md);
   the id list is read from `archs.FAMILY`, so this file follows the grid automatically.
-- **Ops in every exported graph:** `Conv`, `Relu`, `MaxPool`, `AveragePool`, `Flatten`, `Gemm` —
+- **Ops across the exported graphs:** `Conv`, `Relu`, `Flatten`, `Gemm`, plus `AveragePool` in `AB`/`NAB` —
   the subset `OnnxParser` supports. No BatchNorm, no Dropout, no Softmax, no `Reshape`.
 - **Input domain:** `[0,1]` for all four datasets, which is already `Network2`'s default, so
   `--input-min` / `--input-max` are not needed.

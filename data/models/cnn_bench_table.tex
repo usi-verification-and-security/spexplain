@@ -1,7 +1,7 @@
 \begin{table}[t]
 \centering
 \small
-\caption{CNN benchmark family. Every network ends with FC(32)+ReLU and a linear classifier. S$d$ downsamples with stride-2 convolutions, P$d$ with $2{\times}2$ max pooling and A$d$ with $2{\times}2$ average pooling; the N-prefixed ids are the narrow (4/8/16-channel) twins. At a given $d$ the three pooling variants have the same depth and number of ReLUs. The table is split by channel width and then by pooling kind, and within each block the rows are ordered smallest first, by ReLU count ascending (the same order on every dataset). \#ReLU = ReLU neurons, \#Pool = pooling output neurons, Acc = top-1 test accuracy (\%).}
+\caption{CNN benchmark family. Every network ends with FC(32)+ReLU and a linear classifier. S$d$ downsamples with stride-2 convolutions and AB$d$ with $2{\times}2$ average pooling, the ReLU placed before the pool; the N-prefixed ids are the narrow (4/8/16-channel) twins. At a given $d$ the two variants have the same depth and number of ReLUs. The table is split by channel width and then by pooling kind, and within each block the rows are ordered smallest first, by ReLU count ascending (the same order on every dataset). \#ReLU = ReLU neurons, \#Pool = pooling output neurons, Acc = top-1 test accuracy (\%).}
 \label{tab:cnn-bench}
 \begin{tabular}{llrrrrrrrrrrrr}
 \toprule
@@ -17,29 +17,13 @@ S4 & 4/0 & 4736 & 0 & 99.35 & 6176 & 0 & 94.45 & 6176 & 0 & 73.39 & 24608 & 0 & 
 S5 & 5/0 & 5024 & 0 & 99.52 & 6688 & 0 & 94.64 & 6688 & 0 & 74.79 & 26656 & 0 & 74.55 \\
 S6 & 6/0 & 5312 & 0 & 99.51 & 7200 & 0 & 95.62 & 7200 & 0 & 76.30 & 28704 & 0 & 75.90 \\
 \midrule
-\multicolumn{14}{l}{\textit{Wide --- average pooling}} \\
-A1 & 1/1 & 424 & 392 & 97.22 & 544 & 512 & 77.65 & 544 & 512 & 54.44 & 2080 & 2048 & 57.86 \\
-A2 & 2/2 & 568 & 536 & 97.53 & 800 & 768 & 71.76 & 800 & 768 & 56.45 & 3104 & 3072 & 63.75 \\
-A3 & 3/2 & 1352 & 536 & 98.74 & 1824 & 768 & 83.40 & 1824 & 768 & 62.35 & 7200 & 3072 & 67.31 \\
-A4 & 4/2 & 2920 & 536 & 99.10 & 3872 & 768 & 90.93 & 3872 & 768 & 70.02 & 15392 & 3072 & 70.22 \\
-A5 & 5/3 & 2952 & 568 & 99.17 & 4000 & 896 & 89.93 & 4000 & 896 & 69.72 & 15904 & 3584 & 73.35 \\
-A6 & 6/3 & 3240 & 568 & 99.21 & 4512 & 896 & 90.77 & 4512 & 896 & 73.41 & 17952 & 3584 & 74.06 \\
-\midrule
 \multicolumn{14}{l}{\textit{Wide --- average pooling, ReLU before the pool}} \\
 AB1 & 1/1 & 1600 & 392 & 98.35 & 2080 & 512 & 83.06 & 2080 & 512 & 61.20 & -- & -- & -- \\
-AB2 & 2/2 & 2384 & 536 & 98.85 & 3104 & 768 & 83.33 & 3104 & 768 & 67.59 & -- & -- & -- \\
+AB2 & 2/1 & 2384 & 392 & 99.11 & 3104 & 512 & 87.74 & 3104 & 512 & 67.99 & -- & -- & -- \\
 AB3 & 3/2 & 3168 & 536 & 99.03 & 4128 & 768 & 89.02 & 4128 & 768 & 70.33 & -- & -- & -- \\
 AB4 & 4/2 & 4736 & 536 & 99.33 & 6176 & 768 & 92.69 & 6176 & 768 & 71.49 & -- & -- & -- \\
 AB5 & 5/3 & 5024 & 568 & 99.34 & 6688 & 896 & 91.73 & 6688 & 896 & 73.68 & -- & -- & -- \\
 AB6 & 6/3 & 5312 & 568 & 99.38 & 7200 & 896 & 93.05 & 7200 & 896 & 75.35 & -- & -- & -- \\
-\midrule
-\multicolumn{14}{l}{\textit{Wide --- max pooling}} \\
-P1 & 1/1 & 424 & 392 & 98.10 & 544 & 512 & 85.52 & 544 & 512 & 61.29 & 2080 & 2048 & 64.89 \\
-P2 & 2/2 & 568 & 536 & 98.56 & 800 & 768 & 84.77 & 800 & 768 & 65.55 & 3104 & 3072 & 70.19 \\
-P3 & 3/2 & 1352 & 536 & 99.00 & 1824 & 768 & 88.96 & 1824 & 768 & 69.02 & 7200 & 3072 & 71.39 \\
-P4 & 4/2 & 2920 & 536 & 99.32 & 3872 & 768 & 92.31 & 3872 & 768 & 71.07 & 15392 & 3072 & 73.45 \\
-P5 & 5/3 & 2952 & 568 & 99.30 & 4000 & 896 & 92.30 & 4000 & 896 & 71.77 & 15904 & 3584 & 74.50 \\
-P6 & 6/3 & 3240 & 568 & 99.35 & 4512 & 896 & 92.37 & 4512 & 896 & 74.26 & 17952 & 3584 & 76.25 \\
 \midrule
 \multicolumn{14}{l}{\textit{Narrow --- no pooling}} \\
 NS1 & 1/0 & 816 & 0 & 98.21 & 1056 & 0 & 84.68 & 1056 & 0 & 55.11 & 4128 & 0 & 55.59 \\
@@ -49,29 +33,13 @@ NS4 & 4/0 & 2384 & 0 & 99.00 & 3104 & 0 & 90.37 & 3104 & 0 & 62.54 & 12320 & 0 &
 NS5 & 5/0 & 2528 & 0 & 98.98 & 3360 & 0 & 90.04 & 3360 & 0 & 65.47 & 13344 & 0 & 68.61 \\
 NS6 & 6/0 & 2672 & 0 & 99.15 & 3616 & 0 & 89.72 & 3616 & 0 & 66.27 & 14368 & 0 & 71.26 \\
 \midrule
-\multicolumn{14}{l}{\textit{Narrow --- average pooling}} \\
-NA1 & 1/1 & 228 & 196 & 96.43 & 288 & 256 & 71.70 & 288 & 256 & 50.14 & 1056 & 1024 & 50.01 \\
-NA2 & 2/2 & 300 & 268 & 95.43 & 416 & 384 & 64.90 & 416 & 384 & 51.34 & 1568 & 1536 & 55.97 \\
-NA3 & 3/2 & 692 & 268 & 97.78 & 928 & 384 & 69.39 & 928 & 384 & 55.16 & 3616 & 1536 & 63.29 \\
-NA4 & 4/2 & 1476 & 268 & 98.27 & 1952 & 384 & 78.67 & 1952 & 384 & 57.78 & 7712 & 1536 & 62.80 \\
-NA5 & 5/3 & 1492 & 284 & 97.99 & 2016 & 448 & 78.42 & 2016 & 448 & 57.74 & 7968 & 1792 & 65.20 \\
-NA6 & 6/3 & 1636 & 284 & 98.53 & 2272 & 448 & 78.05 & 2272 & 448 & 60.87 & 8992 & 1792 & 66.90 \\
-\midrule
 \multicolumn{14}{l}{\textit{Narrow --- average pooling, ReLU before the pool}} \\
 NAB1 & 1/1 & 816 & 196 & 97.40 & 1056 & 256 & 77.59 & 1056 & 256 & 54.31 & -- & -- & -- \\
-NAB2 & 2/2 & 1208 & 268 & 97.71 & 1568 & 384 & 75.39 & 1568 & 384 & 57.01 & -- & -- & -- \\
+NAB2 & 2/1 & 1208 & 196 & 98.68 & 1568 & 256 & 83.20 & 1568 & 256 & 58.15 & -- & -- & -- \\
 NAB3 & 3/2 & 1600 & 268 & 98.24 & 2080 & 384 & 77.72 & 2080 & 384 & 57.09 & -- & -- & -- \\
 NAB4 & 4/2 & 2384 & 268 & 98.66 & 3104 & 384 & 84.73 & 3104 & 384 & 61.23 & -- & -- & -- \\
 NAB5 & 5/3 & 2528 & 284 & 98.53 & 3360 & 448 & 81.30 & 3360 & 448 & 59.88 & -- & -- & -- \\
 NAB6 & 6/3 & 2672 & 284 & 98.84 & 3616 & 448 & 83.25 & 3616 & 448 & 62.60 & -- & -- & -- \\
-\midrule
-\multicolumn{14}{l}{\textit{Narrow --- max pooling}} \\
-NP1 & 1/1 & 228 & 196 & 96.84 & 288 & 256 & 80.08 & 288 & 256 & 54.19 & 1056 & 1024 & 57.73 \\
-NP2 & 2/2 & 300 & 268 & 97.36 & 416 & 384 & 70.40 & 416 & 384 & 55.50 & 1568 & 1536 & 64.10 \\
-NP3 & 3/2 & 692 & 268 & 97.86 & 928 & 384 & 76.25 & 928 & 384 & 57.62 & 3616 & 1536 & 65.76 \\
-NP4 & 4/2 & 1476 & 268 & 98.41 & 1952 & 384 & 81.10 & 1952 & 384 & 58.90 & 7712 & 1536 & 66.93 \\
-NP5 & 5/3 & 1492 & 284 & 98.56 & 2016 & 448 & 81.37 & 2016 & 448 & 59.17 & 7968 & 1792 & 67.87 \\
-NP6 & 6/3 & 1636 & 284 & 98.77 & 2272 & 448 & 81.39 & 2272 & 448 & 61.04 & 8992 & 1792 & 68.71 \\
 \bottomrule
 \end{tabular}
 \end{table}
