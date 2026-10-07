@@ -2,12 +2,12 @@ id,dataset,tokens,layers,input_shape,num_classes,convs,maxpools,pool_type,varian
 S1,imagenette,c8s2,Conv8/2 - FC32 - FC,3x64x64,10,1,0,none,S,1,8224,0,262898,60,0.7098,0.6239,0.6239,0.9340,0,1.82e-05,Conv Flatten Gemm Relu,28,S1.onnx
 S2,imagenette,c8s2 c16s2,Conv8/2 - Conv16/2 - FC32 - FC,3x64x64,10,2,0,none,S,2,12320,0,133890,60,0.7990,0.6762,0.6762,0.9531,0,6.62e-06,Conv Flatten Gemm Relu,32,S2.onnx
 S3,imagenette,c8s2 c16s2 c16,Conv8/2 - Conv16/2 - Conv16 - FC32 - FC,3x64x64,10,3,0,none,S,3,16416,0,136210,60,0.8380,0.7195,0.7195,0.9582,0,8.90e-06,Conv Flatten Gemm Relu,35,S3.onnx
-S4,imagenette,c8s2 c8 c16s2 c16,Conv8/2 - Conv8 - Conv16/2 - Conv16 - FC32 - FC,3x64x64,10,4,0,none,S,4,24608,0,136794,60,0.8342,0.7287,0.7287,0.9557,0,7.93e-06,Conv Flatten Gemm Relu,43,S4.onnx
-S5,imagenette,c8s2 c8 c16s2 c16 c32s2,Conv8/2 - Conv8 - Conv16/2 - Conv16 - Conv32/2 - FC32 - FC,3x64x64,10,5,0,none,S,5,26656,0,79482,60,0.8657,0.7455,0.7455,0.9699,0,5.42e-06,Conv Flatten Gemm Relu,354,S5.onnx
+S4,imagenette,c8s2 c16s2 c16 c16,Conv8/2 - Conv16/2 - Conv16 - Conv16 - FC32 - FC,3x64x64,10,4,0,none,S,4,20512,0,138530,60,0.8450,0.7338,0.7338,0.9595,0,7.72e-06,Conv Flatten Gemm Relu,39,S4.onnx
+S5,imagenette,c8s2 c16s2 c16 c16 c16,Conv8/2 - Conv16/2 - Conv16 - Conv16 - Conv16 - FC32 - FC,3x64x64,10,5,0,none,S,5,24608,0,140850,60,0.8457,0.7350,0.7350,0.9597,0,1.07e-05,Conv Flatten Gemm Relu,43,S5.onnx
 S6,imagenette,c8s2 c8 c16s2 c16 c32s2 c32,Conv8/2 - Conv8 - Conv16/2 - Conv16 - Conv32/2 - Conv32 - FC32 - FC,3x64x64,10,6,0,none,S,6,28704,0,88730,60,0.8905,0.7590,0.7590,0.9676,0,6.53e-06,Conv Flatten Gemm Relu,386,S6.onnx
 NS1,imagenette,c4s2,Conv4/2 - FC32 - FC,3x64x64,10,1,0,none,NS,1,4128,0,131630,60,0.6241,0.5559,0.5559,0.9116,0,9.06e-06,Conv Flatten Gemm Relu,24,NS1.onnx
 NS2,imagenette,c4s2 c8s2,Conv4/2 - Conv8/2 - FC32 - FC,3x64x64,10,2,0,none,NS,2,6176,0,66614,60,0.7094,0.6403,0.6403,0.9350,0,4.17e-06,Conv Flatten Gemm Relu,27,NS2.onnx
 NS3,imagenette,c4s2 c8s2 c8,Conv4/2 - Conv8/2 - Conv8 - FC32 - FC,3x64x64,10,3,0,none,NS,3,8224,0,67198,60,0.7310,0.6566,0.6566,0.9434,0,6.91e-06,Conv Flatten Gemm Relu,29,NS3.onnx
-NS4,imagenette,c4s2 c4 c8s2 c8,Conv4/2 - Conv4 - Conv8/2 - Conv8 - FC32 - FC,3x64x64,10,4,0,none,NS,4,12320,0,67346,60,0.7506,0.6731,0.6731,0.9536,0,9.82e-06,Conv Flatten Gemm Relu,34,NS4.onnx
-NS5,imagenette,c4s2 c4 c8s2 c8 c16s2,Conv4/2 - Conv4 - Conv8/2 - Conv8 - Conv16/2 - FC32 - FC,3x64x64,10,5,0,none,NS,5,13344,0,36642,60,0.7624,0.6861,0.6861,0.9534,0,9.48e-06,Conv Flatten Gemm Relu,248,NS5.onnx
+NS4,imagenette,c4s2 c8s2 c8 c8,Conv4/2 - Conv8/2 - Conv8 - Conv8 - FC32 - FC,3x64x64,10,4,0,none,NS,4,10272,0,67782,60,0.7281,0.6561,0.6561,0.9511,0,1.03e-05,Conv Flatten Gemm Relu,31,NS4.onnx
+NS5,imagenette,c4s2 c8s2 c8 c8 c8,Conv4/2 - Conv8/2 - Conv8 - Conv8 - Conv8 - FC32 - FC,3x64x64,10,5,0,none,NS,5,12320,0,68366,60,0.7246,0.6484,0.6484,0.9496,0,6.74e-06,Conv Flatten Gemm Relu,32,NS5.onnx
 NS6,imagenette,c4s2 c4 c8s2 c8 c16s2 c16,Conv4/2 - Conv4 - Conv8/2 - Conv8 - Conv16/2 - Conv16 - FC32 - FC,3x64x64,10,6,0,none,NS,6,14368,0,38962,60,0.7846,0.7126,0.7126,0.9549,0,1.42e-05,Conv Flatten Gemm Relu,282,NS6.onnx

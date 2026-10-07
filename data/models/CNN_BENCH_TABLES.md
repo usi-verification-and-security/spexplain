@@ -17,8 +17,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | S1 | 1 | 0 | Conv8/2 - FC32 - FC |
 | S2 | 2 | 0 | Conv8/2 - Conv16/2 - FC32 - FC |
 | S3 | 3 | 0 | Conv8/2 - Conv16/2 - Conv16 - FC32 - FC |
-| S4 | 4 | 0 | Conv8/2 - Conv8 - Conv16/2 - Conv16 - FC32 - FC |
-| S5 | 5 | 0 | Conv8/2 - Conv8 - Conv16/2 - Conv16 - Conv32/2 - FC32 - FC |
+| S4 | 4 | 0 | Conv8/2 - Conv16/2 - Conv16 - Conv16 - FC32 - FC |
+| S5 | 5 | 0 | Conv8/2 - Conv16/2 - Conv16 - Conv16 - Conv16 - FC32 - FC |
 | S6 | 6 | 0 | Conv8/2 - Conv8 - Conv16/2 - Conv16 - Conv32/2 - Conv32 - FC32 - FC |
 
 *Average pooling, ReLU before the pool.* `AB<d>` / `NAB<d>` -- 2x2 average pooling with the ReLU *before* the pool (mnist/gtsrb/cifar only). Each output is the mean of its window, an affine map: no fresh variable and **no disjunction**.
@@ -28,8 +28,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | AB1 | 1 | 1 | Conv8/2 - AvgPool - FC32 - FC |
 | AB2 | 2 | 1 | Conv8/2 - AvgPool - Conv16 - FC32 - FC |
 | AB3 | 3 | 2 | Conv8/2 - AvgPool - Conv16 - Conv16 - AvgPool - FC32 - FC |
-| AB4 | 4 | 2 | Conv8/2 - Conv8 - AvgPool - Conv16 - Conv16 - AvgPool - FC32 - FC |
-| AB5 | 5 | 3 | Conv8/2 - Conv8 - AvgPool - Conv16 - Conv16 - AvgPool - Conv32 - AvgPool - FC32 - FC |
+| AB4 | 4 | 2 | Conv8/2 - AvgPool - Conv16 - Conv16 - Conv16 - AvgPool - FC32 - FC |
+| AB5 | 5 | 2 | Conv8/2 - AvgPool - Conv16 - Conv16 - Conv16 - Conv16 - AvgPool - FC32 - FC |
 | AB6 | 6 | 3 | Conv8/2 - Conv8 - AvgPool - Conv16 - Conv16 - AvgPool - Conv32 - Conv32 - AvgPool - FC32 - FC |
 
 ### Narrow (4/8/16 channels)
@@ -43,8 +43,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | NS1 | 1 | 0 | Conv4/2 - FC32 - FC |
 | NS2 | 2 | 0 | Conv4/2 - Conv8/2 - FC32 - FC |
 | NS3 | 3 | 0 | Conv4/2 - Conv8/2 - Conv8 - FC32 - FC |
-| NS4 | 4 | 0 | Conv4/2 - Conv4 - Conv8/2 - Conv8 - FC32 - FC |
-| NS5 | 5 | 0 | Conv4/2 - Conv4 - Conv8/2 - Conv8 - Conv16/2 - FC32 - FC |
+| NS4 | 4 | 0 | Conv4/2 - Conv8/2 - Conv8 - Conv8 - FC32 - FC |
+| NS5 | 5 | 0 | Conv4/2 - Conv8/2 - Conv8 - Conv8 - Conv8 - FC32 - FC |
 | NS6 | 6 | 0 | Conv4/2 - Conv4 - Conv8/2 - Conv8 - Conv16/2 - Conv16 - FC32 - FC |
 
 *Average pooling, ReLU before the pool.* `AB<d>` / `NAB<d>` -- 2x2 average pooling with the ReLU *before* the pool (mnist/gtsrb/cifar only). Each output is the mean of its window, an affine map: no fresh variable and **no disjunction**.
@@ -54,8 +54,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | NAB1 | 1 | 1 | Conv4/2 - AvgPool - FC32 - FC |
 | NAB2 | 2 | 1 | Conv4/2 - AvgPool - Conv8 - FC32 - FC |
 | NAB3 | 3 | 2 | Conv4/2 - AvgPool - Conv8 - Conv8 - AvgPool - FC32 - FC |
-| NAB4 | 4 | 2 | Conv4/2 - Conv4 - AvgPool - Conv8 - Conv8 - AvgPool - FC32 - FC |
-| NAB5 | 5 | 3 | Conv4/2 - Conv4 - AvgPool - Conv8 - Conv8 - AvgPool - Conv16 - AvgPool - FC32 - FC |
+| NAB4 | 4 | 2 | Conv4/2 - AvgPool - Conv8 - Conv8 - Conv8 - AvgPool - FC32 - FC |
+| NAB5 | 5 | 2 | Conv4/2 - AvgPool - Conv8 - Conv8 - Conv8 - Conv8 - AvgPool - FC32 - FC |
 | NAB6 | 6 | 3 | Conv4/2 - Conv4 - AvgPool - Conv8 - Conv8 - AvgPool - Conv16 - Conv16 - AvgPool - FC32 - FC |
 
 ## MNIST (1x28x28, 10 classes)
@@ -67,8 +67,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | S1 | 1600 | 0 | 50674 | 98.62 | 98.64 | 99.98 | 99.00 | pass (2e-06) | 15 | 16 |
 | S2 | 2384 | 0 | 27650 | 99.11 | 99.06 | 100.00 | 99.00 | pass (2e-06) | 15 | 17 |
 | S3 | 3168 | 0 | 29970 | 99.36 | 99.36 | 99.99 | 99.00 | pass (2e-06) | 15 | 20 |
-| S4 | 4736 | 0 | 30554 | 99.43 | 99.35 | 99.99 | 99.00 | pass (1e-06) | 15 | 27 |
-| S5 | 5024 | 0 | 22906 | 99.54 | 99.52 | 99.99 | 99.00 | pass (1e-06) | 15 | 28 |
+| S4 | 3952 | 0 | 32290 | 99.46 | 99.34 | 100.00 | 100.00 | pass (2e-06) | 15 | 26 |
+| S5 | 4736 | 0 | 34610 | 99.51 | 99.42 | 99.98 | 99.00 | pass (1e-06) | 15 | 31 |
 | S6 | 5312 | 0 | 32154 | 99.62 | 99.51 | 100.00 | 99.00 | pass (1e-06) | 15 | 32 |
 
 ### MNIST -- Wide, average pooling, ReLU before the pool
@@ -78,8 +78,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | AB1 | 1600 | 392 | 13042 | 98.16 | 98.35 | 99.99 | 96.00 | pass (2e-06) | 15 | 17 |
 | AB2 | 2384 | 392 | 26754 | 99.15 | 99.11 | 99.99 | 99.00 | pass (2e-06) | 15 | 20 |
 | AB3 | 3168 | 536 | 8594 | 99.12 | 99.03 | 99.98 | 99.00 | pass (2e-06) | 15 | 26 |
-| AB4 | 4736 | 536 | 9178 | 99.33 | 99.33 | 99.99 | 99.00 | pass (2e-06) | 15 | 29 |
-| AB5 | 5024 | 568 | 10234 | 99.50 | 99.34 | 100.00 | 100.00 | pass (1e-06) | 15 | 31 |
+| AB4 | 3952 | 536 | 10914 | 99.24 | 99.15 | 100.00 | 99.00 | pass (1e-06) | 15 | 28 |
+| AB5 | 4736 | 536 | 13234 | 99.33 | 99.13 | 99.99 | 100.00 | pass (1e-06) | 15 | 29 |
 | AB6 | 5312 | 568 | 19482 | 99.60 | 99.38 | 100.00 | 100.00 | pass (1e-06) | 15 | 34 |
 
 ### MNIST -- Narrow, no pooling
@@ -89,8 +89,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | NS1 | 816 | 0 | 25518 | 98.11 | 98.21 | 99.97 | 96.00 | pass (3e-06) | 15 | 18 |
 | NS2 | 1208 | 0 | 13494 | 98.47 | 98.57 | 100.00 | 97.00 | pass (4e-06) | 15 | 22 |
 | NS3 | 1600 | 0 | 14078 | 98.81 | 98.84 | 100.00 | 97.00 | pass (2e-06) | 15 | 26 |
-| NS4 | 2384 | 0 | 14226 | 99.03 | 99.00 | 99.99 | 98.00 | pass (2e-06) | 15 | 27 |
-| NS5 | 2528 | 0 | 8354 | 98.97 | 98.98 | 99.99 | 100.00 | pass (2e-06) | 15 | 30 |
+| NS4 | 1992 | 0 | 14662 | 99.02 | 98.95 | 100.00 | 99.00 | pass (2e-06) | 15 | 34 |
+| NS5 | 2384 | 0 | 15246 | 98.92 | 98.97 | 99.99 | 99.00 | pass (1e-06) | 15 | 33 |
 | NS6 | 2672 | 0 | 10674 | 99.23 | 99.15 | 100.00 | 99.00 | pass (2e-06) | 15 | 32 |
 
 ### MNIST -- Narrow, average pooling, ReLU before the pool
@@ -100,8 +100,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | NAB1 | 816 | 196 | 6702 | 97.16 | 97.40 | 99.96 | 97.00 | pass (3e-06) | 15 | 18 |
 | NAB2 | 1208 | 196 | 13270 | 98.48 | 98.68 | 99.98 | 98.00 | pass (2e-06) | 15 | 24 |
 | NAB3 | 1600 | 268 | 3614 | 98.08 | 98.24 | 100.00 | 98.00 | pass (2e-06) | 15 | 25 |
-| NAB4 | 2384 | 268 | 3762 | 98.51 | 98.66 | 100.00 | 100.00 | pass (2e-06) | 15 | 37 |
-| NAB5 | 2528 | 284 | 3138 | 98.50 | 98.53 | 99.98 | 98.00 | pass (2e-06) | 15 | 32 |
+| NAB4 | 1992 | 268 | 4198 | 98.34 | 98.63 | 100.00 | 98.00 | pass (2e-06) | 15 | 29 |
+| NAB5 | 2384 | 268 | 4782 | 98.52 | 98.63 | 99.99 | 99.00 | pass (2e-06) | 15 | 30 |
 | NAB6 | 2672 | 284 | 5458 | 98.96 | 98.84 | 99.99 | 99.00 | pass (1e-06) | 15 | 36 |
 
 ## GTSRB (3x32x32, 43 classes)
@@ -113,8 +113,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | S1 | 2080 | 0 | 67379 | 97.77 | 86.20 | 97.70 | 89.00 | pass (6e-06) | 50 | 25 |
 | S2 | 3104 | 0 | 36675 | 99.12 | 90.78 | 98.35 | 90.00 | pass (4e-06) | 50 | 29 |
 | S3 | 4128 | 0 | 38995 | 99.58 | 92.61 | 98.57 | 92.00 | pass (4e-06) | 50 | 35 |
-| S4 | 6176 | 0 | 39579 | 99.80 | 94.45 | 99.24 | 95.00 | pass (4e-06) | 50 | 43 |
-| S5 | 6688 | 0 | 31419 | 99.77 | 94.64 | 98.81 | 95.00 | pass (4e-06) | 50 | 47 |
+| S4 | 5152 | 0 | 41315 | 99.71 | 94.02 | 98.87 | 93.00 | pass (4e-06) | 50 | 40 |
+| S5 | 6176 | 0 | 43635 | 99.76 | 94.97 | 98.68 | 98.00 | pass (5e-06) | 50 | 47 |
 | S6 | 7200 | 0 | 40667 | 99.88 | 95.62 | 99.26 | 95.00 | pass (3e-06) | 50 | 53 |
 
 ### GTSRB -- Wide, average pooling, ReLU before the pool
@@ -124,8 +124,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | AB1 | 2080 | 512 | 18227 | 95.28 | 83.06 | 97.60 | 82.00 | pass (8e-06) | 50 | 26 |
 | AB2 | 3104 | 512 | 35779 | 98.67 | 87.74 | 98.54 | 86.00 | pass (6e-06) | 50 | 31 |
 | AB3 | 4128 | 768 | 13523 | 97.89 | 89.02 | 97.91 | 90.00 | pass (8e-06) | 50 | 37 |
-| AB4 | 6176 | 768 | 14107 | 99.28 | 92.69 | 99.00 | 93.00 | pass (5e-06) | 50 | 44 |
-| AB5 | 6688 | 896 | 14651 | 99.17 | 91.73 | 98.29 | 92.00 | pass (5e-06) | 50 | 49 |
+| AB4 | 5152 | 768 | 15843 | 98.52 | 90.97 | 98.34 | 92.00 | pass (5e-06) | 50 | 44 |
+| AB5 | 6176 | 768 | 18163 | 98.83 | 91.29 | 98.50 | 90.00 | pass (5e-06) | 50 | 46 |
 | AB6 | 7200 | 896 | 23899 | 99.66 | 93.05 | 98.62 | 92.00 | pass (4e-06) | 50 | 59 |
 
 ### GTSRB -- Narrow, no pooling
@@ -135,8 +135,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | NS1 | 1056 | 0 | 34415 | 95.53 | 84.68 | 97.18 | 85.00 | pass (8e-06) | 50 | 24 |
 | NS2 | 1568 | 0 | 18551 | 96.78 | 86.44 | 98.15 | 86.00 | pass (6e-06) | 50 | 29 |
 | NS3 | 2080 | 0 | 19135 | 97.65 | 87.97 | 98.23 | 84.00 | pass (7e-06) | 50 | 38 |
-| NS4 | 3104 | 0 | 19283 | 98.19 | 90.37 | 98.71 | 90.00 | pass (5e-06) | 50 | 43 |
-| NS5 | 3360 | 0 | 13155 | 97.90 | 90.04 | 97.99 | 90.00 | pass (5e-06) | 50 | 47 |
+| NS4 | 2592 | 0 | 19719 | 97.76 | 87.61 | 97.63 | 87.00 | pass (8e-06) | 50 | 46 |
+| NS5 | 3104 | 0 | 20303 | 97.16 | 88.00 | 97.68 | 88.00 | pass (8e-06) | 50 | 50 |
 | NS6 | 3616 | 0 | 15475 | 98.27 | 89.72 | 98.09 | 94.00 | pass (6e-06) | 50 | 54 |
 
 ### GTSRB -- Narrow, average pooling, ReLU before the pool
@@ -146,8 +146,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | NAB1 | 1056 | 256 | 9839 | 89.76 | 77.59 | 95.50 | 74.00 | pass (9e-06) | 50 | 27 |
 | NAB2 | 1568 | 256 | 18327 | 95.20 | 83.20 | 97.08 | 87.00 | pass (7e-06) | 50 | 36 |
 | NAB3 | 2080 | 384 | 6623 | 87.94 | 77.72 | 95.87 | 76.00 | pass (7e-06) | 50 | 42 |
-| NAB4 | 3104 | 384 | 6771 | 93.48 | 84.73 | 97.46 | 89.00 | pass (5e-06) | 50 | 51 |
-| NAB5 | 3360 | 448 | 5891 | 91.02 | 81.30 | 96.34 | 82.00 | pass (6e-06) | 50 | 54 |
+| NAB4 | 2592 | 384 | 7207 | 90.37 | 80.44 | 95.66 | 83.00 | pass (6e-06) | 50 | 42 |
+| NAB5 | 3104 | 384 | 7791 | 92.45 | 81.84 | 95.59 | 86.00 | pass (7e-06) | 50 | 46 |
 | NAB6 | 3616 | 448 | 8211 | 93.32 | 83.25 | 97.47 | 86.00 | pass (6e-06) | 50 | 60 |
 
 ## CIFAR-10 (3x32x32, 10 classes)
@@ -159,8 +159,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | S1 | 2080 | 0 | 66290 | 62.02 | 61.36 | 95.91 | 64.00 | pass (2e-06) | 80 | 62 |
 | S2 | 3104 | 0 | 35586 | 68.79 | 67.78 | 97.16 | 66.00 | pass (2e-06) | 80 | 83 |
 | S3 | 4128 | 0 | 37906 | 72.69 | 70.54 | 97.72 | 78.00 | pass (3e-06) | 80 | 96 |
-| S4 | 6176 | 0 | 38490 | 74.73 | 73.39 | 98.21 | 76.00 | pass (2e-06) | 80 | 122 |
-| S5 | 6688 | 0 | 30330 | 76.87 | 74.79 | 98.28 | 78.00 | pass (2e-06) | 80 | 130 |
+| S4 | 5152 | 0 | 40226 | 74.18 | 71.86 | 98.03 | 76.00 | pass (3e-06) | 80 | 114 |
+| S5 | 6176 | 0 | 42546 | 75.72 | 73.07 | 98.19 | 80.00 | pass (3e-06) | 80 | 131 |
 | S6 | 7200 | 0 | 39578 | 78.73 | 76.30 | 98.40 | 82.00 | pass (3e-06) | 80 | 150 |
 
 ### CIFAR-10 -- Wide, average pooling, ReLU before the pool
@@ -170,8 +170,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | AB1 | 2080 | 512 | 17138 | 61.78 | 61.20 | 95.79 | 66.00 | pass (3e-06) | 80 | 78 |
 | AB2 | 3104 | 512 | 34690 | 69.65 | 67.99 | 97.18 | 71.00 | pass (2e-06) | 80 | 89 |
 | AB3 | 4128 | 768 | 12434 | 71.17 | 70.33 | 97.69 | 77.00 | pass (2e-06) | 80 | 112 |
-| AB4 | 6176 | 768 | 13018 | 72.48 | 71.49 | 98.00 | 74.00 | pass (2e-06) | 80 | 133 |
-| AB5 | 6688 | 896 | 13562 | 75.10 | 73.68 | 98.37 | 77.00 | pass (2e-06) | 80 | 161 |
+| AB4 | 5152 | 768 | 14754 | 73.66 | 71.96 | 97.87 | 84.00 | pass (2e-06) | 80 | 124 |
+| AB5 | 6176 | 768 | 17074 | 73.98 | 71.56 | 97.92 | 78.00 | pass (3e-06) | 80 | 132 |
 | AB6 | 7200 | 896 | 22810 | 77.76 | 75.35 | 98.36 | 76.00 | pass (2e-06) | 80 | 169 |
 
 ### CIFAR-10 -- Narrow, no pooling
@@ -181,8 +181,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | NS1 | 1056 | 0 | 33326 | 55.94 | 55.11 | 94.64 | 60.00 | pass (3e-06) | 80 | 71 |
 | NS2 | 1568 | 0 | 17462 | 59.22 | 58.63 | 95.46 | 54.00 | pass (3e-06) | 80 | 91 |
 | NS3 | 2080 | 0 | 18046 | 62.75 | 61.88 | 96.16 | 68.00 | pass (3e-06) | 80 | 112 |
-| NS4 | 3104 | 0 | 18194 | 63.17 | 62.54 | 96.03 | 62.00 | pass (3e-06) | 80 | 121 |
-| NS5 | 3360 | 0 | 12066 | 66.12 | 65.47 | 96.84 | 64.00 | pass (3e-06) | 80 | 133 |
+| NS4 | 2592 | 0 | 18630 | 62.84 | 61.74 | 96.42 | 65.00 | pass (2e-06) | 80 | 135 |
+| NS5 | 3104 | 0 | 19214 | 62.12 | 61.48 | 96.22 | 61.00 | pass (3e-06) | 80 | 143 |
 | NS6 | 3616 | 0 | 14386 | 67.18 | 66.27 | 96.86 | 69.00 | pass (4e-06) | 80 | 150 |
 
 ### CIFAR-10 -- Narrow, average pooling, ReLU before the pool
@@ -192,8 +192,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | NAB1 | 1056 | 256 | 8750 | 54.48 | 54.31 | 94.48 | 50.00 | pass (3e-06) | 80 | 78 |
 | NAB2 | 1568 | 256 | 17238 | 58.70 | 58.15 | 95.37 | 60.00 | pass (2e-06) | 80 | 99 |
 | NAB3 | 2080 | 384 | 5534 | 58.39 | 57.09 | 95.40 | 63.00 | pass (2e-06) | 80 | 111 |
-| NAB4 | 3104 | 384 | 5682 | 61.46 | 61.23 | 95.82 | 60.00 | pass (2e-06) | 80 | 132 |
-| NAB5 | 3360 | 448 | 4802 | 60.28 | 59.88 | 95.91 | 59.00 | pass (2e-06) | 80 | 157 |
+| NAB4 | 2592 | 384 | 6118 | 60.15 | 59.57 | 95.75 | 64.00 | pass (2e-06) | 80 | 122 |
+| NAB5 | 3104 | 384 | 6702 | 61.59 | 60.62 | 95.93 | 63.00 | pass (2e-06) | 80 | 134 |
 | NAB6 | 3616 | 448 | 7122 | 63.41 | 62.60 | 96.17 | 63.00 | pass (2e-06) | 80 | 174 |
 
 ## Imagenette-64 (3x64x64, 10 classes)
@@ -205,8 +205,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | S1 | 8224 | 0 | 262898 | 70.98 | 62.39 | 93.40 | 60.00 | pass (2e-06) | 60 | 28 |
 | S2 | 12320 | 0 | 133890 | 79.90 | 67.62 | 95.31 | 75.00 | pass (2e-06) | 60 | 32 |
 | S3 | 16416 | 0 | 136210 | 83.80 | 71.95 | 95.82 | 76.00 | pass (2e-06) | 60 | 35 |
-| S4 | 24608 | 0 | 136794 | 83.42 | 72.87 | 95.57 | 75.00 | pass (3e-06) | 60 | 43 |
-| S5 | 26656 | 0 | 79482 | 86.57 | 74.55 | 96.99 | 73.00 | pass (2e-06) | 60 | 354 |
+| S4 | 20512 | 0 | 138530 | 84.50 | 73.38 | 95.95 | 74.00 | pass (6e-06) | 60 | 39 |
+| S5 | 24608 | 0 | 140850 | 84.57 | 73.50 | 95.97 | 72.00 | pass (3e-06) | 60 | 43 |
 | S6 | 28704 | 0 | 88730 | 89.05 | 75.90 | 96.76 | 81.00 | pass (3e-06) | 60 | 386 |
 
 ### Imagenette-64 -- Narrow, no pooling
@@ -216,8 +216,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | NS1 | 4128 | 0 | 131630 | 62.41 | 55.59 | 91.16 | 54.00 | pass (3e-06) | 60 | 24 |
 | NS2 | 6176 | 0 | 66614 | 70.94 | 64.03 | 93.50 | 73.00 | pass (2e-06) | 60 | 27 |
 | NS3 | 8224 | 0 | 67198 | 73.10 | 65.66 | 94.34 | 66.00 | pass (2e-06) | 60 | 29 |
-| NS4 | 12320 | 0 | 67346 | 75.06 | 67.31 | 95.36 | 74.00 | pass (3e-06) | 60 | 34 |
-| NS5 | 13344 | 0 | 36642 | 76.24 | 68.61 | 95.34 | 69.00 | pass (4e-06) | 60 | 248 |
+| NS4 | 10272 | 0 | 67782 | 72.81 | 65.61 | 95.11 | 68.00 | pass (2e-06) | 60 | 31 |
+| NS5 | 12320 | 0 | 68366 | 72.46 | 64.84 | 94.96 | 62.00 | pass (2e-06) | 60 | 32 |
 | NS6 | 14368 | 0 | 38962 | 78.46 | 71.26 | 95.49 | 73.00 | pass (3e-06) | 60 | 282 |
 
 ## Summary: test accuracy (%) / ReLUs
@@ -229,8 +229,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | S1 | 98.64 / 1600 | 86.20 / 2080 | 61.36 / 2080 | 62.39 / 8224 |
 | S2 | 99.06 / 2384 | 90.78 / 3104 | 67.78 / 3104 | 67.62 / 12320 |
 | S3 | 99.36 / 3168 | 92.61 / 4128 | 70.54 / 4128 | 71.95 / 16416 |
-| S4 | 99.35 / 4736 | 94.45 / 6176 | 73.39 / 6176 | 72.87 / 24608 |
-| S5 | 99.52 / 5024 | 94.64 / 6688 | 74.79 / 6688 | 74.55 / 26656 |
+| S4 | 99.34 / 3952 | 94.02 / 5152 | 71.86 / 5152 | 73.38 / 20512 |
+| S5 | 99.42 / 4736 | 94.97 / 6176 | 73.07 / 6176 | 73.50 / 24608 |
 | S6 | 99.51 / 5312 | 95.62 / 7200 | 76.30 / 7200 | 75.90 / 28704 |
 
 ### Wide -- average pooling, ReLU before the pool
@@ -240,8 +240,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | AB1 | 98.35 / 1600 | 83.06 / 2080 | 61.20 / 2080 | -- |
 | AB2 | 99.11 / 2384 | 87.74 / 3104 | 67.99 / 3104 | -- |
 | AB3 | 99.03 / 3168 | 89.02 / 4128 | 70.33 / 4128 | -- |
-| AB4 | 99.33 / 4736 | 92.69 / 6176 | 71.49 / 6176 | -- |
-| AB5 | 99.34 / 5024 | 91.73 / 6688 | 73.68 / 6688 | -- |
+| AB4 | 99.15 / 3952 | 90.97 / 5152 | 71.96 / 5152 | -- |
+| AB5 | 99.13 / 4736 | 91.29 / 6176 | 71.56 / 6176 | -- |
 | AB6 | 99.38 / 5312 | 93.05 / 7200 | 75.35 / 7200 | -- |
 
 ### Narrow -- no pooling
@@ -251,8 +251,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | NS1 | 98.21 / 816 | 84.68 / 1056 | 55.11 / 1056 | 55.59 / 4128 |
 | NS2 | 98.57 / 1208 | 86.44 / 1568 | 58.63 / 1568 | 64.03 / 6176 |
 | NS3 | 98.84 / 1600 | 87.97 / 2080 | 61.88 / 2080 | 65.66 / 8224 |
-| NS4 | 99.00 / 2384 | 90.37 / 3104 | 62.54 / 3104 | 67.31 / 12320 |
-| NS5 | 98.98 / 2528 | 90.04 / 3360 | 65.47 / 3360 | 68.61 / 13344 |
+| NS4 | 98.95 / 1992 | 87.61 / 2592 | 61.74 / 2592 | 65.61 / 10272 |
+| NS5 | 98.97 / 2384 | 88.00 / 3104 | 61.48 / 3104 | 64.84 / 12320 |
 | NS6 | 99.15 / 2672 | 89.72 / 3616 | 66.27 / 3616 | 71.26 / 14368 |
 
 ### Narrow -- average pooling, ReLU before the pool
@@ -262,8 +262,8 @@ Split by channel width, then by pooling kind; within each group the models are o
 | NAB1 | 97.40 / 816 | 77.59 / 1056 | 54.31 / 1056 | -- |
 | NAB2 | 98.68 / 1208 | 83.20 / 1568 | 58.15 / 1568 | -- |
 | NAB3 | 98.24 / 1600 | 77.72 / 2080 | 57.09 / 2080 | -- |
-| NAB4 | 98.66 / 2384 | 84.73 / 3104 | 61.23 / 3104 | -- |
-| NAB5 | 98.53 / 2528 | 81.30 / 3360 | 59.88 / 3360 | -- |
+| NAB4 | 98.63 / 1992 | 80.44 / 2592 | 59.57 / 2592 | -- |
+| NAB5 | 98.63 / 2384 | 81.84 / 3104 | 60.62 / 3104 | -- |
 | NAB6 | 98.84 / 2672 | 83.25 / 3616 | 62.60 / 3616 | -- |
 
 ## explain-onnx smoke test (sample 0, default `itp` strategy)
