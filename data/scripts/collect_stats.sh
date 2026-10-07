@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 SCRIPTS_DIR=$(dirname "$0")
 
@@ -11,6 +11,8 @@ function usage {
     printf "OPTIONS:\n"
     printf "\t--exclude-column <name>\t\tExclude given column\n"
     printf "\t--average-variant [<regex>]\t\tAverage columns for all rows of each variant [matching the regex] (can be repeated)\n"
+    printf "ENV. VARIABLES:\n"
+    printf "\tALLOW_PARTIAL=1\t\tAccept experiments that processed only the first samples of the dataset\n"
 
     [[ -n $1 ]] && exit $1
 }
@@ -112,14 +114,14 @@ function compute_term_size {
     local phi_file="$1"
     local n_lines=$2
 
-    grep -o '=' "$phi_file" | wc -l | { tr -d '\n'; printf "/$n_lines\n"; } | bc -l | xargs -i printf $FORMAT_nterms {}
+    grep -o '=' "$phi_file" | wc -l | { tr -d '\n'; printf "/$n_lines\n"; } | bc -l | xargs -I{} printf $FORMAT_nterms {}
 }
 
 function compute_mb_size {
     local phi_file="$1"
     local n_lines=$2
 
-    du -ck "$phi_file" | tail -n 1 | sed 's/^\([0-9]*\)[^0-9].*$/\1/' | { tr -d '\n'; printf "/($n_lines*1000)\n"; } | bc -l | xargs -i printf $FORMAT_size_mb {}
+    du -ck "$phi_file" | tail -n 1 | sed 's/^\([0-9]*\)[^0-9].*$/\1/' | { tr -d '\n'; printf "/($n_lines*1000)\n"; } | bc -l | xargs -I{} printf $FORMAT_size_mb {}
 }
 
 PRINTED_HEADER=0
@@ -129,9 +131,15 @@ function print_header {
     local n_features=$2
     local timeout_per=$3
     local n_correct=$4
+    local partial_of=$5
 
     (( $PRINTED_HEADER )) || {
-        printf 'Dataset size: %d\n' $dataset_size
+        HEADER_DATASET_SIZE=$dataset_size
+        if [[ -n $partial_of ]]; then
+            printf 'Dataset size: %d (partial: first %d of %d samples)\n' $dataset_size $dataset_size $partial_of
+        else
+            printf 'Dataset size: %d\n' $dataset_size
+        fi
         printf 'Number of features: %d\n' $n_features
         [[ -n $timeout_per ]] && printf 'Timeout per sample [s]: %s\n' $timeout_per
         printf 'Classification accuracy: %s%%\n' $n_correct
@@ -258,13 +266,17 @@ for vidx in ${!VARIANTS[@]}; do
             cleanup 1
         }
 
-        stats=$($STATS_SCRIPT "$stats_file" 2>$ERR_FILE)
+        stats=$(awk -v allow_partial="${ALLOW_PARTIAL:-0}" -f "$STATS_SCRIPT" "$stats_file" 2>$ERR_FILE)
         size=$(sed -n 's/^Total:[^0-9]*\([0-9]*\)$/\1/p' <<<"$stats")
+        partial_of=$(sed -n 's/^Partial of:[^0-9]*\([0-9]*\)$/\1/p' <<<"$stats")
         features=$(sed -n 's/^Features:[^0-9]*\([0-9]*\)$/\1/p' <<<"$stats")
         timeout_per=$(sed -n 's/^Timeout per[^0-9]*\([0-9].*\)$/\1/p' <<<"$stats")
         n_correct=$(sed -n 's/^[^#]*#correct classifications[^0-9]*\([0-9][^%]*\)%$/\1/p' <<<"$stats")
 
-        print_header "$size" "$features" "$timeout_per" "$n_correct"
+        print_header "$size" "$features" "$timeout_per" "$n_correct" "$partial_of"
+        [[ -n $size && $size != $HEADER_DATASET_SIZE ]] && {
+            printf "WARNING: %s processed %s samples, but the header says %s; its row is not directly comparable.\n" "$experiment_full" "$size" "$HEADER_DATASET_SIZE" >&2
+        }
 
         time_str=$(sed -n 's/^user[^0-9]*\([0-9].*\)$/\1/p' <"$time_file")
         if [[ -z $time_str ]]; then
@@ -290,7 +302,7 @@ for vidx in ${!VARIANTS[@]}; do
             perc_completed=$(sed -n 's/^.*#completed: \([^%]*\)%.*$/\1/p' <<<"$stats")
             nchecks=$(sed -n 's/^.*#checks: \(.*\)$/\1/p' <<<"$stats")
 
-            n_timeouts=$(grep '<null>' <"$times_file" | wc -l)
+            n_timeouts=$(grep -c '<null>' <"$times_file")
             [[ $n_timeouts == $n_timeouts_stats ]] || {
                 printf "%s: encountered inconsistency: stats.n_timeouts != n_timeouts(times): %s != %s\n" $experiment_stem "$n_timeouts_stats" "$n_timeouts" >&2
                 cleanup 3

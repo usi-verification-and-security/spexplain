@@ -78,10 +78,14 @@ END {
 
    if (total_cnt > 0) {
       print("Total: " total_cnt)
-      if (max_samples == "") {
-         assert(total_cnt == dataset_size, "total_cnt == dataset_size: " total_cnt " == " dataset_size)
+      expected_cnt = (max_samples == "") ? dataset_size : max_samples
+      # allow_partial (set via -v): accept runs that processed only the first samples
+      if (allow_partial && total_cnt < expected_cnt) {
+         print("Partial of: " expected_cnt)
+      } else if (max_samples == "") {
+         assert(total_cnt == dataset_size, "total_cnt == dataset_size: " total_cnt " == " dataset_size " (set ALLOW_PARTIAL=1 to accept partial runs)")
       } else {
-         assert(total_cnt == max_samples, "total_cnt == max_samples: " total_cnt " == " max_samples)
+         assert(total_cnt == max_samples, "total_cnt == max_samples: " total_cnt " == " max_samples " (set ALLOW_PARTIAL=1 to accept partial runs)")
       }
 
       if (cnt_checks > 0) {
