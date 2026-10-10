@@ -90,11 +90,11 @@ void MarabouVerifier::assertSampleModel() {
     pimpl->assertSampleModel(getNetwork());
 }
 
-void MarabouVerifier::addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool /*explanationTerm*/) {
+void MarabouVerifier::addUpperBoundImpl(LayerIndex layer, NodeIndex var, Float value, bool /*strict*/, bool /*explanationTerm*/) {
     pimpl->addUpperBound(layer, var, value);
 }
 
-void MarabouVerifier::addLowerBound(LayerIndex layer, NodeIndex var, Float value, bool /*explanationTerm*/) {
+void MarabouVerifier::addLowerBoundImpl(LayerIndex layer, NodeIndex var, Float value, bool /*strict*/, bool /*explanationTerm*/) {
     pimpl->addLowerBound(layer, var, value);
 }
 

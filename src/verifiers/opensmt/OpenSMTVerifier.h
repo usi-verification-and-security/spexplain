@@ -32,8 +32,6 @@ public:
     void addTerm(::opensmt::PTRef const &);
     void addExplanationTerm(::opensmt::PTRef const &, std::string termNamePrefix = "");
 
-    void addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) override;
-    void addLowerBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) override;
     // Ensure that equalities and intervals correspond to just one assertion
     void addEquality(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) override;
     void addInterval(LayerIndex layer, NodeIndex var, Float lo, Float hi, bool explanationTerm = false) override;
@@ -61,6 +59,11 @@ public:
     void printSmtLib2Query(std::ostream &) const override;
 
 protected:
+    void addUpperBoundImpl(LayerIndex layer, NodeIndex var, Float value, bool strict = false,
+                           bool explanationTerm = false) override;
+    void addLowerBoundImpl(LayerIndex layer, NodeIndex var, Float value, bool strict = false,
+                           bool explanationTerm = false) override;
+
     void initImpl(spexplain::Network const &) override;
 
     void pushImpl() override;

@@ -419,21 +419,22 @@ void Framework::Expand::assertClassification(Network::Classification const & cls
 
     auto const & label = cls.label;
 
+    constexpr Float zero = 0;
+
     assert(network.nClasses() >= 2);
     if (network.nClasses() > 2) {
-        verifierPtr->addClassificationConstraint(label, 0);
+        verifierPtr->addClassificationConstraint(label, zero);
         return;
     }
 
     // With single output value, the flip in classification means flipping the value across 0
-    constexpr Float threshold = 0.015625f;
     assert(label == 0 || label == 1);
     if (label == 1) {
-        // <= -threshold
-        verifierPtr->addUpperBound(outputLayerIndex, 0, -threshold);
+        // >= 0 --> < 0
+        verifierPtr->addStrictUpperBound(outputLayerIndex, 0, zero);
     } else {
-        // >= threshold
-        verifierPtr->addLowerBound(outputLayerIndex, 0, threshold);
+        // < 0 --> >= 0
+        verifierPtr->addLowerBound(outputLayerIndex, 0, zero);
     }
 }
 
