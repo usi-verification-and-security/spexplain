@@ -49,8 +49,8 @@ Per-layer architecture tables for every model are in [section 12](#12-architectu
   | dataset | range |
   |---|---|
   | MNIST | 97.4-99.5% |
-  | GTSRB | 77.6-95.6% |
-  | CIFAR-10 | 54.3-76.3% |
+  | GTSRB | 77.1-95.6% |
+  | CIFAR-10 | 54.1-76.3% |
   | Imagenette-64 | 55.6-75.9% |
 
 - **Validation:** for all 84 models, spexplain's `onnx-eval` (OnnxParser + Network2) reproduces
@@ -88,10 +88,14 @@ The whole grid is derived from one table of strided token lists, so it cannot dr
 depth 2, where the final `a` is left out so `AB2` has a single pool (`c8s2 a c16`);
 `NS<d>`/`NAB<d>` are the 4/8/16 twins of `S<d>`/`AB<d>`. `archs.py` asserts all of this,
 including that `AB<d>` and `S<d>` (and `NAB<d>` and `NS<d>`) agree on ReLU counts for every dataset.
-`S4`/`S5` (and with them `AB4`/`AB5`, `NS4`/`NS5`, `NAB4`/`NAB5`) were redesigned as `c8s2 c16s2 c16 c16`
-and `c8s2 c16s2 c16 c16 c16`, so `S1`..`S5` step evenly in ReLU count: each extra conv adds one 16-channel
-map at 1/4 resolution (+784 ReLUs on MNIST, +1,024 on GTSRB/CIFAR-10, +4,096 on Imagenette-64; half that
-for `NS<d>`). These eight were retrained; every number in this report is from the new models.
+`S4`/`S5` (and with them `AB4`/`AB5`, `NS4`/`NS5`, `NAB4`/`NAB5`) were redesigned (2026-10-11) as
+`c8s2 c8 c8s2 c8` and `c8s2 c8 c8s2 c16 c32s2`: the same strided skeleton as `S6` -- every plain conv right
+after a stride-2 one, never two plain convs at one resolution -- with narrower widths, so `S1`..`S6` still
+step evenly in ReLU count (+1,024 per depth on GTSRB/CIFAR-10, +4,096 on Imagenette-64; on MNIST +784 up to
+`S4`, then +680; half that for `NS<d>`). The previous `c8s2 c16s2 c16 c16 [c16]` design (git tag
+`cnn45-v1`) stacked 2-3 plain convs at 7x7/8x8 and explained far worse. These eight were retrained; every
+number in this report is from the new models. The thinner depth-4 models cost accuracy on CIFAR-10 and
+Imagenette-64 (`S4` 66.96% vs. 71.86% before, `NS4` 55.69% vs. 61.74% on CIFAR-10).
 
 ### ReLU placement
 
@@ -123,8 +127,8 @@ The ReLU is never dropped.
 | `S1` | 1 | 0 | Conv8/2 - FC32 - FC |
 | `S2` | 2 | 0 | Conv8/2 - Conv16/2 - FC32 - FC |
 | `S3` | 3 | 0 | Conv8/2 - Conv16/2 - Conv16 - FC32 - FC |
-| `S4` | 4 | 0 | Conv8/2 - Conv16/2 - Conv16 - Conv16 - FC32 - FC |
-| `S5` | 5 | 0 | Conv8/2 - Conv16/2 - Conv16 - Conv16 - Conv16 - FC32 - FC |
+| `S4` | 4 | 0 | Conv8/2 - Conv8 - Conv8/2 - Conv8 - FC32 - FC |
+| `S5` | 5 | 0 | Conv8/2 - Conv8 - Conv8/2 - Conv16 - Conv32/2 - FC32 - FC |
 | `S6` | 6 | 0 | Conv8/2 - Conv8 - Conv16/2 - Conv16 - Conv32/2 - Conv32 - FC32 - FC |
 
 *Average pooling, ReLU before the pool.* `AB<d>` / `NAB<d>` -- 2x2 average pooling with the ReLU *before* the pool (mnist/gtsrb/cifar only). Each output is the mean of its window, an affine map: no fresh variable and **no disjunction**.
@@ -134,13 +138,13 @@ The ReLU is never dropped.
 | `AB1` | 1 | 1 | Conv8/2 - AvgPool - FC32 - FC |
 | `AB2` | 2 | 1 | Conv8/2 - AvgPool - Conv16 - FC32 - FC |
 | `AB3` | 3 | 2 | Conv8/2 - AvgPool - Conv16 - Conv16 - AvgPool - FC32 - FC |
-| `AB4` | 4 | 2 | Conv8/2 - AvgPool - Conv16 - Conv16 - Conv16 - AvgPool - FC32 - FC |
-| `AB5` | 5 | 2 | Conv8/2 - AvgPool - Conv16 - Conv16 - Conv16 - Conv16 - AvgPool - FC32 - FC |
+| `AB4` | 4 | 2 | Conv8/2 - Conv8 - AvgPool - Conv8 - Conv8 - AvgPool - FC32 - FC |
+| `AB5` | 5 | 3 | Conv8/2 - Conv8 - AvgPool - Conv8 - Conv16 - AvgPool - Conv32 - AvgPool - FC32 - FC |
 | `AB6` | 6 | 3 | Conv8/2 - Conv8 - AvgPool - Conv16 - Conv16 - AvgPool - Conv32 - Conv32 - AvgPool - FC32 - FC |
 
 #### Narrow (4/8/16 channels)
 
-`NS<d>` / `NAB<d>` -- the half-width twins of the wide models, 4/8/16 channels. Same depth, same token sequence, same downsampling; roughly half the ReLUs and 1.8-3.6x fewer parameters.
+`NS<d>` / `NAB<d>` -- the half-width twins of the wide models, 4/8/16 channels. Same depth, same token sequence, same downsampling; roughly half the ReLUs and 1.9-3.6x fewer parameters.
 
 *No pooling.* `S<d>` / `NS<d>` -- downsampling is done by stride-2 convolutions, so there is no pooling layer at all and nothing beyond the ReLUs to encode.
 
@@ -149,8 +153,8 @@ The ReLU is never dropped.
 | `NS1` | 1 | 0 | Conv4/2 - FC32 - FC |
 | `NS2` | 2 | 0 | Conv4/2 - Conv8/2 - FC32 - FC |
 | `NS3` | 3 | 0 | Conv4/2 - Conv8/2 - Conv8 - FC32 - FC |
-| `NS4` | 4 | 0 | Conv4/2 - Conv8/2 - Conv8 - Conv8 - FC32 - FC |
-| `NS5` | 5 | 0 | Conv4/2 - Conv8/2 - Conv8 - Conv8 - Conv8 - FC32 - FC |
+| `NS4` | 4 | 0 | Conv4/2 - Conv4 - Conv4/2 - Conv4 - FC32 - FC |
+| `NS5` | 5 | 0 | Conv4/2 - Conv4 - Conv4/2 - Conv8 - Conv16/2 - FC32 - FC |
 | `NS6` | 6 | 0 | Conv4/2 - Conv4 - Conv8/2 - Conv8 - Conv16/2 - Conv16 - FC32 - FC |
 
 *Average pooling, ReLU before the pool.* `AB<d>` / `NAB<d>` -- 2x2 average pooling with the ReLU *before* the pool (mnist/gtsrb/cifar only). Each output is the mean of its window, an affine map: no fresh variable and **no disjunction**.
@@ -160,8 +164,8 @@ The ReLU is never dropped.
 | `NAB1` | 1 | 1 | Conv4/2 - AvgPool - FC32 - FC |
 | `NAB2` | 2 | 1 | Conv4/2 - AvgPool - Conv8 - FC32 - FC |
 | `NAB3` | 3 | 2 | Conv4/2 - AvgPool - Conv8 - Conv8 - AvgPool - FC32 - FC |
-| `NAB4` | 4 | 2 | Conv4/2 - AvgPool - Conv8 - Conv8 - Conv8 - AvgPool - FC32 - FC |
-| `NAB5` | 5 | 2 | Conv4/2 - AvgPool - Conv8 - Conv8 - Conv8 - Conv8 - AvgPool - FC32 - FC |
+| `NAB4` | 4 | 2 | Conv4/2 - Conv4 - AvgPool - Conv4 - Conv4 - AvgPool - FC32 - FC |
+| `NAB5` | 5 | 3 | Conv4/2 - Conv4 - AvgPool - Conv4 - Conv8 - AvgPool - Conv16 - AvgPool - FC32 - FC |
 | `NAB6` | 6 | 3 | Conv4/2 - Conv4 - AvgPool - Conv8 - Conv8 - AvgPool - Conv16 - Conv16 - AvgPool - FC32 - FC |
 
 **Branching counts.**
@@ -190,8 +194,8 @@ Test accuracy is top-1 of the **exported ONNX model** under onnxruntime on the f
 | `S1` | 1 | 0 | 1,600 | 0 | 50,674 | 98.62 | **98.64** | 99.98 | 99 | 2e-06 | 16 |
 | `S2` | 2 | 0 | 2,384 | 0 | 27,650 | 99.11 | **99.06** | 100.00 | 99 | 2e-06 | 17 |
 | `S3` | 3 | 0 | 3,168 | 0 | 29,970 | 99.36 | **99.36** | 99.99 | 99 | 2e-06 | 20 |
-| `S4` | 4 | 0 | 3,952 | 0 | 32,290 | 99.46 | **99.34** | 100.00 | 100 | 2e-06 | 26 |
-| `S5` | 5 | 0 | 4,736 | 0 | 34,610 | 99.51 | **99.42** | 99.98 | 99 | 1e-06 | 31 |
+| `S4` | 4 | 0 | 3,952 | 0 | 15,242 | 99.25 | **99.39** | 100.00 | 99 | 1e-06 | 28 |
+| `S5` | 5 | 0 | 4,632 | 0 | 20,722 | 99.51 | **99.43** | 100.00 | 100 | 2e-06 | 40 |
 | `S6` | 6 | 0 | 5,312 | 0 | 32,154 | 99.62 | **99.51** | 100.00 | 99 | 1e-06 | 32 |
 
 #### MNIST -- Wide, average pooling, ReLU before the pool
@@ -201,8 +205,8 @@ Test accuracy is top-1 of the **exported ONNX model** under onnxruntime on the f
 | `AB1` | 1 | 1 | 1,600 | 392 | 13,042 | 98.16 | **98.35** | 99.99 | 96 | 2e-06 | 17 |
 | `AB2` | 2 | 1 | 2,384 | 392 | 26,754 | 99.15 | **99.11** | 99.99 | 99 | 2e-06 | 20 |
 | `AB3` | 3 | 2 | 3,168 | 536 | 8,594 | 99.12 | **99.03** | 99.98 | 99 | 2e-06 | 26 |
-| `AB4` | 4 | 2 | 3,952 | 536 | 10,914 | 99.24 | **99.15** | 100.00 | 99 | 1e-06 | 28 |
-| `AB5` | 5 | 2 | 4,736 | 536 | 13,234 | 99.33 | **99.13** | 99.99 | 100 | 1e-06 | 29 |
+| `AB4` | 4 | 2 | 3,952 | 464 | 4,554 | 99.00 | **99.09** | 99.99 | 99 | 2e-06 | 28 |
+| `AB5` | 5 | 3 | 4,632 | 568 | 8,498 | 99.29 | **99.17** | 100.00 | 100 | 2e-06 | 32 |
 | `AB6` | 6 | 3 | 5,312 | 568 | 19,482 | 99.60 | **99.38** | 100.00 | 100 | 1e-06 | 34 |
 
 #### MNIST -- Narrow, no pooling
@@ -212,8 +216,8 @@ Test accuracy is top-1 of the **exported ONNX model** under onnxruntime on the f
 | `NS1` | 1 | 0 | 816 | 0 | 25,518 | 98.11 | **98.21** | 99.97 | 96 | 3e-06 | 18 |
 | `NS2` | 2 | 0 | 1,208 | 0 | 13,494 | 98.47 | **98.57** | 100.00 | 97 | 4e-06 | 22 |
 | `NS3` | 3 | 0 | 1,600 | 0 | 14,078 | 98.81 | **98.84** | 100.00 | 97 | 2e-06 | 26 |
-| `NS4` | 4 | 0 | 1,992 | 0 | 14,662 | 99.02 | **98.95** | 100.00 | 99 | 2e-06 | 34 |
-| `NS5` | 5 | 0 | 2,384 | 0 | 15,246 | 98.92 | **98.97** | 99.99 | 99 | 1e-06 | 33 |
+| `NS4` | 4 | 0 | 1,992 | 0 | 7,258 | 98.40 | **98.69** | 99.97 | 98 | 2e-06 | 31 |
+| `NS5` | 5 | 0 | 2,332 | 0 | 7,806 | 98.81 | **98.90** | 99.99 | 99 | 2e-06 | 34 |
 | `NS6` | 6 | 0 | 2,672 | 0 | 10,674 | 99.23 | **99.15** | 100.00 | 99 | 2e-06 | 32 |
 
 #### MNIST -- Narrow, average pooling, ReLU before the pool
@@ -223,8 +227,8 @@ Test accuracy is top-1 of the **exported ONNX model** under onnxruntime on the f
 | `NAB1` | 1 | 1 | 816 | 196 | 6,702 | 97.16 | **97.40** | 99.96 | 97 | 3e-06 | 18 |
 | `NAB2` | 2 | 1 | 1,208 | 196 | 13,270 | 98.48 | **98.68** | 99.98 | 98 | 2e-06 | 24 |
 | `NAB3` | 3 | 2 | 1,600 | 268 | 3,614 | 98.08 | **98.24** | 100.00 | 98 | 2e-06 | 25 |
-| `NAB4` | 4 | 2 | 1,992 | 268 | 4,198 | 98.34 | **98.63** | 100.00 | 98 | 2e-06 | 29 |
-| `NAB5` | 5 | 2 | 2,384 | 268 | 4,782 | 98.52 | **98.63** | 99.99 | 99 | 2e-06 | 30 |
+| `NAB4` | 4 | 2 | 1,992 | 232 | 2,026 | 97.54 | **97.71** | 99.96 | 97 | 2e-06 | 29 |
+| `NAB5` | 5 | 3 | 2,332 | 284 | 2,702 | 98.18 | **98.28** | 99.98 | 99 | 2e-06 | 36 |
 | `NAB6` | 6 | 3 | 2,672 | 284 | 5,458 | 98.96 | **98.84** | 99.99 | 99 | 1e-06 | 36 |
 
 ### GTSRB (3x32x32, 43 classes, 50 epochs)
@@ -236,8 +240,8 @@ Test accuracy is top-1 of the **exported ONNX model** under onnxruntime on the f
 | `S1` | 1 | 0 | 2,080 | 0 | 67,379 | 97.77 | **86.20** | 97.70 | 89 | 6e-06 | 25 |
 | `S2` | 2 | 0 | 3,104 | 0 | 36,675 | 99.12 | **90.78** | 98.35 | 90 | 4e-06 | 29 |
 | `S3` | 3 | 0 | 4,128 | 0 | 38,995 | 99.58 | **92.61** | 98.57 | 92 | 4e-06 | 35 |
-| `S4` | 4 | 0 | 5,152 | 0 | 41,315 | 99.71 | **94.02** | 98.87 | 93 | 4e-06 | 40 |
-| `S5` | 5 | 0 | 6,176 | 0 | 43,635 | 99.76 | **94.97** | 98.68 | 98 | 5e-06 | 47 |
+| `S4` | 4 | 0 | 5,152 | 0 | 20,427 | 98.90 | **92.65** | 98.94 | 92 | 4e-06 | 48 |
+| `S5` | 5 | 0 | 6,176 | 0 | 29,235 | 99.76 | **94.24** | 98.72 | 92 | 4e-06 | 49 |
 | `S6` | 6 | 0 | 7,200 | 0 | 40,667 | 99.88 | **95.62** | 99.26 | 95 | 3e-06 | 53 |
 
 #### GTSRB -- Wide, average pooling, ReLU before the pool
@@ -247,8 +251,8 @@ Test accuracy is top-1 of the **exported ONNX model** under onnxruntime on the f
 | `AB1` | 1 | 1 | 2,080 | 512 | 18,227 | 95.28 | **83.06** | 97.60 | 82 | 8e-06 | 26 |
 | `AB2` | 2 | 1 | 3,104 | 512 | 35,779 | 98.67 | **87.74** | 98.54 | 86 | 6e-06 | 31 |
 | `AB3` | 3 | 2 | 4,128 | 768 | 13,523 | 97.89 | **89.02** | 97.91 | 90 | 8e-06 | 37 |
-| `AB4` | 4 | 2 | 5,152 | 768 | 15,843 | 98.52 | **90.97** | 98.34 | 92 | 5e-06 | 44 |
-| `AB5` | 5 | 2 | 6,176 | 768 | 18,163 | 98.83 | **91.29** | 98.50 | 90 | 5e-06 | 46 |
+| `AB4` | 4 | 2 | 5,152 | 640 | 7,691 | 96.86 | **90.78** | 98.61 | 93 | 7e-06 | 46 |
+| `AB5` | 5 | 3 | 6,176 | 896 | 12,915 | 98.70 | **92.00** | 98.57 | 95 | 4e-06 | 53 |
 | `AB6` | 6 | 3 | 7,200 | 896 | 23,899 | 99.66 | **93.05** | 98.62 | 92 | 4e-06 | 59 |
 
 #### GTSRB -- Narrow, no pooling
@@ -258,8 +262,8 @@ Test accuracy is top-1 of the **exported ONNX model** under onnxruntime on the f
 | `NS1` | 1 | 0 | 1,056 | 0 | 34,415 | 95.53 | **84.68** | 97.18 | 85 | 8e-06 | 24 |
 | `NS2` | 2 | 0 | 1,568 | 0 | 18,551 | 96.78 | **86.44** | 98.15 | 86 | 6e-06 | 29 |
 | `NS3` | 3 | 0 | 2,080 | 0 | 19,135 | 97.65 | **87.97** | 98.23 | 84 | 7e-06 | 38 |
-| `NS4` | 4 | 0 | 2,592 | 0 | 19,719 | 97.76 | **87.61** | 97.63 | 87 | 8e-06 | 46 |
-| `NS5` | 5 | 0 | 3,104 | 0 | 20,303 | 97.16 | **88.00** | 97.68 | 88 | 8e-06 | 50 |
+| `NS4` | 4 | 0 | 2,592 | 0 | 10,395 | 95.54 | **86.84** | 97.89 | 85 | 6e-06 | 69 |
+| `NS5` | 5 | 0 | 3,104 | 0 | 12,607 | 96.67 | **87.49** | 97.78 | 89 | 6e-06 | 59 |
 | `NS6` | 6 | 0 | 3,616 | 0 | 15,475 | 98.27 | **89.72** | 98.09 | 94 | 6e-06 | 54 |
 
 #### GTSRB -- Narrow, average pooling, ReLU before the pool
@@ -269,8 +273,8 @@ Test accuracy is top-1 of the **exported ONNX model** under onnxruntime on the f
 | `NAB1` | 1 | 1 | 1,056 | 256 | 9,839 | 89.76 | **77.59** | 95.50 | 74 | 9e-06 | 27 |
 | `NAB2` | 2 | 1 | 1,568 | 256 | 18,327 | 95.20 | **83.20** | 97.08 | 87 | 7e-06 | 36 |
 | `NAB3` | 3 | 2 | 2,080 | 384 | 6,623 | 87.94 | **77.72** | 95.87 | 76 | 7e-06 | 42 |
-| `NAB4` | 4 | 2 | 2,592 | 384 | 7,207 | 90.37 | **80.44** | 95.66 | 83 | 6e-06 | 42 |
-| `NAB5` | 5 | 2 | 3,104 | 384 | 7,791 | 92.45 | **81.84** | 95.59 | 86 | 7e-06 | 46 |
+| `NAB4` | 4 | 2 | 2,592 | 320 | 4,139 | 84.77 | **77.15** | 95.76 | 82 | 5e-06 | 56 |
+| `NAB5` | 5 | 3 | 3,104 | 448 | 5,455 | 89.68 | **81.46** | 96.57 | 85 | 6e-06 | 57 |
 | `NAB6` | 6 | 3 | 3,616 | 448 | 8,211 | 93.32 | **83.25** | 97.47 | 86 | 6e-06 | 60 |
 
 ### CIFAR-10 (3x32x32, 10 classes, 80 epochs)
@@ -282,8 +286,8 @@ Test accuracy is top-1 of the **exported ONNX model** under onnxruntime on the f
 | `S1` | 1 | 0 | 2,080 | 0 | 66,290 | 62.02 | **61.36** | 95.91 | 64 | 2e-06 | 62 |
 | `S2` | 2 | 0 | 3,104 | 0 | 35,586 | 68.79 | **67.78** | 97.16 | 66 | 2e-06 | 83 |
 | `S3` | 3 | 0 | 4,128 | 0 | 37,906 | 72.69 | **70.54** | 97.72 | 78 | 3e-06 | 96 |
-| `S4` | 4 | 0 | 5,152 | 0 | 40,226 | 74.18 | **71.86** | 98.03 | 76 | 3e-06 | 114 |
-| `S5` | 5 | 0 | 6,176 | 0 | 42,546 | 75.72 | **73.07** | 98.19 | 80 | 3e-06 | 131 |
+| `S4` | 4 | 0 | 5,152 | 0 | 19,338 | 67.90 | **66.96** | 96.96 | 70 | 3e-06 | 123 |
+| `S5` | 5 | 0 | 6,176 | 0 | 28,146 | 75.59 | **73.50** | 98.11 | 78 | 3e-06 | 133 |
 | `S6` | 6 | 0 | 7,200 | 0 | 39,578 | 78.73 | **76.30** | 98.40 | 82 | 3e-06 | 150 |
 
 #### CIFAR-10 -- Wide, average pooling, ReLU before the pool
@@ -293,8 +297,8 @@ Test accuracy is top-1 of the **exported ONNX model** under onnxruntime on the f
 | `AB1` | 1 | 1 | 2,080 | 512 | 17,138 | 61.78 | **61.20** | 95.79 | 66 | 3e-06 | 78 |
 | `AB2` | 2 | 1 | 3,104 | 512 | 34,690 | 69.65 | **67.99** | 97.18 | 71 | 2e-06 | 89 |
 | `AB3` | 3 | 2 | 4,128 | 768 | 12,434 | 71.17 | **70.33** | 97.69 | 77 | 2e-06 | 112 |
-| `AB4` | 4 | 2 | 5,152 | 768 | 14,754 | 73.66 | **71.96** | 97.87 | 84 | 2e-06 | 124 |
-| `AB5` | 5 | 2 | 6,176 | 768 | 17,074 | 73.98 | **71.56** | 97.92 | 78 | 3e-06 | 132 |
+| `AB4` | 4 | 2 | 5,152 | 640 | 6,602 | 66.36 | **65.83** | 96.93 | 63 | 3e-06 | 124 |
+| `AB5` | 5 | 3 | 6,176 | 896 | 11,826 | 72.31 | **71.28** | 98.00 | 69 | 3e-06 | 143 |
 | `AB6` | 6 | 3 | 7,200 | 896 | 22,810 | 77.76 | **75.35** | 98.36 | 76 | 2e-06 | 169 |
 
 #### CIFAR-10 -- Narrow, no pooling
@@ -304,8 +308,8 @@ Test accuracy is top-1 of the **exported ONNX model** under onnxruntime on the f
 | `NS1` | 1 | 0 | 1,056 | 0 | 33,326 | 55.94 | **55.11** | 94.64 | 60 | 3e-06 | 71 |
 | `NS2` | 2 | 0 | 1,568 | 0 | 17,462 | 59.22 | **58.63** | 95.46 | 54 | 3e-06 | 91 |
 | `NS3` | 3 | 0 | 2,080 | 0 | 18,046 | 62.75 | **61.88** | 96.16 | 68 | 3e-06 | 112 |
-| `NS4` | 4 | 0 | 2,592 | 0 | 18,630 | 62.84 | **61.74** | 96.42 | 65 | 2e-06 | 135 |
-| `NS5` | 5 | 0 | 3,104 | 0 | 19,214 | 62.12 | **61.48** | 96.22 | 61 | 3e-06 | 143 |
+| `NS4` | 4 | 0 | 2,592 | 0 | 9,306 | 56.09 | **55.69** | 94.68 | 56 | 2e-06 | 174 |
+| `NS5` | 5 | 0 | 3,104 | 0 | 11,518 | 62.78 | **62.17** | 96.11 | 58 | 3e-06 | 187 |
 | `NS6` | 6 | 0 | 3,616 | 0 | 14,386 | 67.18 | **66.27** | 96.86 | 69 | 4e-06 | 150 |
 
 #### CIFAR-10 -- Narrow, average pooling, ReLU before the pool
@@ -315,8 +319,8 @@ Test accuracy is top-1 of the **exported ONNX model** under onnxruntime on the f
 | `NAB1` | 1 | 1 | 1,056 | 256 | 8,750 | 54.48 | **54.31** | 94.48 | 50 | 3e-06 | 78 |
 | `NAB2` | 2 | 1 | 1,568 | 256 | 17,238 | 58.70 | **58.15** | 95.37 | 60 | 2e-06 | 99 |
 | `NAB3` | 3 | 2 | 2,080 | 384 | 5,534 | 58.39 | **57.09** | 95.40 | 63 | 2e-06 | 111 |
-| `NAB4` | 4 | 2 | 2,592 | 384 | 6,118 | 60.15 | **59.57** | 95.75 | 64 | 2e-06 | 122 |
-| `NAB5` | 5 | 2 | 3,104 | 384 | 6,702 | 61.59 | **60.62** | 95.93 | 63 | 2e-06 | 134 |
+| `NAB4` | 4 | 2 | 2,592 | 320 | 3,050 | 54.18 | **54.08** | 94.37 | 53 | 2e-06 | 174 |
+| `NAB5` | 5 | 3 | 3,104 | 448 | 4,366 | 58.53 | **58.37** | 95.37 | 59 | 2e-06 | 173 |
 | `NAB6` | 6 | 3 | 3,616 | 448 | 7,122 | 63.41 | **62.60** | 96.17 | 63 | 2e-06 | 174 |
 
 ### Imagenette-64 (3x64x64, 10 classes, 60 epochs)
@@ -328,8 +332,8 @@ Test accuracy is top-1 of the **exported ONNX model** under onnxruntime on the f
 | `S1` | 1 | 0 | 8,224 | 0 | 262,898 | 70.98 | **62.39** | 93.40 | 60 | 2e-06 | 28 |
 | `S2` | 2 | 0 | 12,320 | 0 | 133,890 | 79.90 | **67.62** | 95.31 | 75 | 2e-06 | 32 |
 | `S3` | 3 | 0 | 16,416 | 0 | 136,210 | 83.80 | **71.95** | 95.82 | 76 | 2e-06 | 35 |
-| `S4` | 4 | 0 | 20,512 | 0 | 138,530 | 84.50 | **73.38** | 95.95 | 74 | 6e-06 | 39 |
-| `S5` | 5 | 0 | 24,608 | 0 | 140,850 | 84.57 | **73.50** | 95.97 | 72 | 3e-06 | 43 |
+| `S4` | 4 | 0 | 20,512 | 0 | 68,490 | 78.52 | **70.47** | 95.54 | 68 | 3e-06 | 40 |
+| `S5` | 5 | 0 | 24,608 | 0 | 77,298 | 84.91 | **73.68** | 96.05 | 73 | 3e-06 | 45 |
 | `S6` | 6 | 0 | 28,704 | 0 | 88,730 | 89.05 | **75.90** | 96.76 | 81 | 3e-06 | 386 |
 
 #### Imagenette-64 -- Narrow, no pooling
@@ -339,8 +343,8 @@ Test accuracy is top-1 of the **exported ONNX model** under onnxruntime on the f
 | `NS1` | 1 | 0 | 4,128 | 0 | 131,630 | 62.41 | **55.59** | 91.16 | 54 | 3e-06 | 24 |
 | `NS2` | 2 | 0 | 6,176 | 0 | 66,614 | 70.94 | **64.03** | 93.50 | 73 | 2e-06 | 27 |
 | `NS3` | 3 | 0 | 8,224 | 0 | 67,198 | 73.10 | **65.66** | 94.34 | 66 | 2e-06 | 29 |
-| `NS4` | 4 | 0 | 10,272 | 0 | 67,782 | 72.81 | **65.61** | 95.11 | 68 | 2e-06 | 31 |
-| `NS5` | 5 | 0 | 12,320 | 0 | 68,366 | 72.46 | **64.84** | 94.96 | 62 | 2e-06 | 32 |
+| `NS4` | 4 | 0 | 10,272 | 0 | 33,882 | 66.94 | **61.43** | 93.99 | 65 | 2e-06 | 34 |
+| `NS5` | 5 | 0 | 12,320 | 0 | 36,094 | 73.21 | **64.97** | 93.76 | 68 | 3e-06 | 36 |
 | `NS6` | 6 | 0 | 14,368 | 0 | 38,962 | 78.46 | **71.26** | 95.49 | 73 | 3e-06 | 282 |
 
 ### Observations
@@ -348,8 +352,8 @@ Test accuracy is top-1 of the **exported ONNX model** under onnxruntime on the f
 - **Depth pays off on every dataset.** In every variant on every dataset the d=6 model beats the
   d=1 model, so the family is meaningful at every size.
 - **The narrow family is genuinely cheaper.** `NS`/`NAB` roughly halve the ReLU count of
-  their wide twins and cut parameters by 1.8-3.6x, at a cost of up to 13.2 points of test
-  accuracy (largest on CIFAR-10).
+  their wide twins and cut parameters by 1.9-3.6x, at a cost of up to 13.6 points of test
+  accuracy (largest on GTSRB, `AB4` vs. `NAB4`).
 - **Why parameter counts fall with depth.** The flattened feature size before FC(32) shrinks as
   depth grows, so the shallow models carry most of their weight in one large FC layer.
 
@@ -375,41 +379,41 @@ branching and differs in the downsampling operator and the parameter count.
 | MNIST | `S1` -> `AB1` | 1,600 | 50,674 | 13,042 | 98.64 | 98.35 | -0.29 |
 | MNIST | `S2` -> `AB2` | 2,384 | 27,650 | 26,754 | 99.06 | 99.11 | +0.05 |
 | MNIST | `S3` -> `AB3` | 3,168 | 29,970 | 8,594 | 99.36 | 99.03 | -0.33 |
-| MNIST | `S4` -> `AB4` | 3,952 | 32,290 | 10,914 | 99.34 | 99.15 | -0.19 |
-| MNIST | `S5` -> `AB5` | 4,736 | 34,610 | 13,234 | 99.42 | 99.13 | -0.29 |
+| MNIST | `S4` -> `AB4` | 3,952 | 15,242 | 4,554 | 99.39 | 99.09 | -0.30 |
+| MNIST | `S5` -> `AB5` | 4,632 | 20,722 | 8,498 | 99.43 | 99.17 | -0.26 |
 | MNIST | `S6` -> `AB6` | 5,312 | 32,154 | 19,482 | 99.51 | 99.38 | -0.13 |
 | MNIST | `NS1` -> `NAB1` | 816 | 25,518 | 6,702 | 98.21 | 97.40 | -0.81 |
 | MNIST | `NS2` -> `NAB2` | 1,208 | 13,494 | 13,270 | 98.57 | 98.68 | +0.11 |
 | MNIST | `NS3` -> `NAB3` | 1,600 | 14,078 | 3,614 | 98.84 | 98.24 | -0.60 |
-| MNIST | `NS4` -> `NAB4` | 1,992 | 14,662 | 4,198 | 98.95 | 98.63 | -0.32 |
-| MNIST | `NS5` -> `NAB5` | 2,384 | 15,246 | 4,782 | 98.97 | 98.63 | -0.34 |
+| MNIST | `NS4` -> `NAB4` | 1,992 | 7,258 | 2,026 | 98.69 | 97.71 | -0.98 |
+| MNIST | `NS5` -> `NAB5` | 2,332 | 7,806 | 2,702 | 98.90 | 98.28 | -0.62 |
 | MNIST | `NS6` -> `NAB6` | 2,672 | 10,674 | 5,458 | 99.15 | 98.84 | -0.31 |
 | GTSRB | `S1` -> `AB1` | 2,080 | 67,379 | 18,227 | 86.20 | 83.06 | -3.14 |
 | GTSRB | `S2` -> `AB2` | 3,104 | 36,675 | 35,779 | 90.78 | 87.74 | -3.04 |
 | GTSRB | `S3` -> `AB3` | 4,128 | 38,995 | 13,523 | 92.61 | 89.02 | -3.59 |
-| GTSRB | `S4` -> `AB4` | 5,152 | 41,315 | 15,843 | 94.02 | 90.97 | -3.05 |
-| GTSRB | `S5` -> `AB5` | 6,176 | 43,635 | 18,163 | 94.97 | 91.29 | -3.68 |
+| GTSRB | `S4` -> `AB4` | 5,152 | 20,427 | 7,691 | 92.65 | 90.78 | -1.87 |
+| GTSRB | `S5` -> `AB5` | 6,176 | 29,235 | 12,915 | 94.24 | 92.00 | -2.24 |
 | GTSRB | `S6` -> `AB6` | 7,200 | 40,667 | 23,899 | 95.62 | 93.05 | -2.57 |
 | GTSRB | `NS1` -> `NAB1` | 1,056 | 34,415 | 9,839 | 84.68 | 77.59 | -7.09 |
 | GTSRB | `NS2` -> `NAB2` | 1,568 | 18,551 | 18,327 | 86.44 | 83.20 | -3.24 |
 | GTSRB | `NS3` -> `NAB3` | 2,080 | 19,135 | 6,623 | 87.97 | 77.72 | -10.25 |
-| GTSRB | `NS4` -> `NAB4` | 2,592 | 19,719 | 7,207 | 87.61 | 80.44 | -7.17 |
-| GTSRB | `NS5` -> `NAB5` | 3,104 | 20,303 | 7,791 | 88.00 | 81.84 | -6.16 |
+| GTSRB | `NS4` -> `NAB4` | 2,592 | 10,395 | 4,139 | 86.84 | 77.15 | -9.69 |
+| GTSRB | `NS5` -> `NAB5` | 3,104 | 12,607 | 5,455 | 87.49 | 81.46 | -6.03 |
 | GTSRB | `NS6` -> `NAB6` | 3,616 | 15,475 | 8,211 | 89.72 | 83.25 | -6.47 |
 | CIFAR-10 | `S1` -> `AB1` | 2,080 | 66,290 | 17,138 | 61.36 | 61.20 | -0.16 |
 | CIFAR-10 | `S2` -> `AB2` | 3,104 | 35,586 | 34,690 | 67.78 | 67.99 | +0.21 |
 | CIFAR-10 | `S3` -> `AB3` | 4,128 | 37,906 | 12,434 | 70.54 | 70.33 | -0.21 |
-| CIFAR-10 | `S4` -> `AB4` | 5,152 | 40,226 | 14,754 | 71.86 | 71.96 | +0.10 |
-| CIFAR-10 | `S5` -> `AB5` | 6,176 | 42,546 | 17,074 | 73.07 | 71.56 | -1.51 |
+| CIFAR-10 | `S4` -> `AB4` | 5,152 | 19,338 | 6,602 | 66.96 | 65.83 | -1.13 |
+| CIFAR-10 | `S5` -> `AB5` | 6,176 | 28,146 | 11,826 | 73.50 | 71.28 | -2.22 |
 | CIFAR-10 | `S6` -> `AB6` | 7,200 | 39,578 | 22,810 | 76.30 | 75.35 | -0.95 |
 | CIFAR-10 | `NS1` -> `NAB1` | 1,056 | 33,326 | 8,750 | 55.11 | 54.31 | -0.80 |
 | CIFAR-10 | `NS2` -> `NAB2` | 1,568 | 17,462 | 17,238 | 58.63 | 58.15 | -0.48 |
 | CIFAR-10 | `NS3` -> `NAB3` | 2,080 | 18,046 | 5,534 | 61.88 | 57.09 | -4.79 |
-| CIFAR-10 | `NS4` -> `NAB4` | 2,592 | 18,630 | 6,118 | 61.74 | 59.57 | -2.17 |
-| CIFAR-10 | `NS5` -> `NAB5` | 3,104 | 19,214 | 6,702 | 61.48 | 60.62 | -0.86 |
+| CIFAR-10 | `NS4` -> `NAB4` | 2,592 | 9,306 | 3,050 | 55.69 | 54.08 | -1.61 |
+| CIFAR-10 | `NS5` -> `NAB5` | 3,104 | 11,518 | 4,366 | 62.17 | 58.37 | -3.80 |
 | CIFAR-10 | `NS6` -> `NAB6` | 3,616 | 14,386 | 7,122 | 66.27 | 62.60 | -3.67 |
 
-**Reading.** MNIST: `AB` - `S` -0.33 to +0.05, `NAB` - `NS` -0.81 to +0.11; GTSRB: `AB` - `S` -3.68 to -2.57, `NAB` - `NS` -10.25 to -3.24; CIFAR-10: `AB` - `S` -1.51 to +0.21, `NAB` - `NS` -4.79 to -0.48 points.
+**Reading.** MNIST: `AB` - `S` -0.33 to +0.05, `NAB` - `NS` -0.98 to +0.11; GTSRB: `AB` - `S` -3.59 to -1.87, `NAB` - `NS` -10.25 to -3.24; CIFAR-10: `AB` - `S` -2.22 to +0.21, `NAB` - `NS` -4.79 to -0.48 points.
 
 `AB<d>`/`NAB<d>` are trained on MNIST, GTSRB and CIFAR-10 only, so Imagenette-64 keeps the
 12-model strided family. Everything that enumerates models (`archs.ids_for`, the run scripts,
@@ -452,7 +456,7 @@ the neuron-activation guide interprets the ONNX graph directly.
 1. **Op whitelist.** Each ONNX graph contains only {Conv, Relu, AveragePool, Flatten, Gemm}.
    Passed for 84/84.
 2. **PyTorch vs. onnxruntime.** Maximum relative logit difference on 32 random inputs is
-   **4.5e-05**, against a tolerance of 1e-4. This includes the BatchNorm folding.
+   **4.4e-05**, against a tolerance of 1e-4. This includes the BatchNorm folding.
    - Full-test-set accuracy of the ONNX model equals the PyTorch model's exactly for all
      84 models.
 3. **spexplain Network2 vs. onnxruntime.** `build/onnx-eval` was run on the 100 experiment rows
@@ -528,7 +532,7 @@ The experiment CSVs are now frozen and there is exactly one per dataset:
 | `data/models/<ds>/cnn-bench/<id>.pth` | training checkpoints (with BN) and metadata |
 | `data/models/<ds>/cnn-bench/manifest.csv` | architecture, counts, accuracies and checks per model |
 | `data/models/<ds>/cnn-bench/validation.csv` | Network2 vs. onnxruntime results |
-| `data/models/CNN_BENCH_TABLES.md`, `cnn_bench_table.tex` | generated per-dataset tables |
+| `data/models/CNN_BENCH_TABLES.md`, `paper_tex/cnn_bench_table.tex` | generated per-dataset tables |
 | `data/neuron_activations/<ds>/cnn-bench/<id>.txt` | contrastive-guide activation files (84 files) |
 | `src/spexplain/network/AvgPoolLayer.{h,cpp}` | **new**: average-pool layer |
 | `data/scripts/tacas27/common-cnn`, `{MN,GTS,CIF,IMN}-CNN.sh` | cluster run scripts, `MODEL_IDS` updated to the 24-model family |
@@ -611,32 +615,32 @@ Input `28 x 28 x 1`, 10 classes.
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **3,168** | **3,168** |
 
-**Table 4: Architecture of the MNIST `S4` model.** *wide, strided; tokens `c8s2 c16s2 c16 c16`; 3,952 ReLUs, 0 pool neurons, 32,290 parameters; 3,952 branchings.*
+**Table 4: Architecture of the MNIST `S4` model.** *wide, strided; tokens `c8s2 c8 c8s2 c8`; 3,952 ReLUs, 0 pool neurons, 15,242 parameters; 3,952 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 28 x 28 x 1 | 14 x 14 x 8 | ReLU | 1,568 | 1,568 |
-| Convolution 2D | 14 x 14 x 8 | 7 x 7 x 16 | ReLU | 784 | 784 |
-| Convolution 2D | 7 x 7 x 16 | 7 x 7 x 16 | ReLU | 784 | 784 |
-| Convolution 2D | 7 x 7 x 16 | 7 x 7 x 16 | ReLU | 784 | 784 |
-| Flatten | 7 x 7 x 16 | 784 | - | 0 | 0 |
-| Fully Connected | 784 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 14 x 14 x 8 | 14 x 14 x 8 | ReLU | 1,568 | 1,568 |
+| Convolution 2D | 14 x 14 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
+| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
+| Flatten | 7 x 7 x 8 | 392 | - | 0 | 0 |
+| Fully Connected | 392 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **3,952** | **3,952** |
 
-**Table 5: Architecture of the MNIST `S5` model.** *wide, strided; tokens `c8s2 c16s2 c16 c16 c16`; 4,736 ReLUs, 0 pool neurons, 34,610 parameters; 4,736 branchings.*
+**Table 5: Architecture of the MNIST `S5` model.** *wide, strided; tokens `c8s2 c8 c8s2 c16 c32s2`; 4,632 ReLUs, 0 pool neurons, 20,722 parameters; 4,632 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 28 x 28 x 1 | 14 x 14 x 8 | ReLU | 1,568 | 1,568 |
-| Convolution 2D | 14 x 14 x 8 | 7 x 7 x 16 | ReLU | 784 | 784 |
-| Convolution 2D | 7 x 7 x 16 | 7 x 7 x 16 | ReLU | 784 | 784 |
-| Convolution 2D | 7 x 7 x 16 | 7 x 7 x 16 | ReLU | 784 | 784 |
-| Convolution 2D | 7 x 7 x 16 | 7 x 7 x 16 | ReLU | 784 | 784 |
-| Flatten | 7 x 7 x 16 | 784 | - | 0 | 0 |
-| Fully Connected | 784 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 14 x 14 x 8 | 14 x 14 x 8 | ReLU | 1,568 | 1,568 |
+| Convolution 2D | 14 x 14 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
+| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 16 | ReLU | 784 | 784 |
+| Convolution 2D | 7 x 7 x 16 | 3 x 3 x 32 | ReLU | 288 | 288 |
+| Flatten | 3 x 3 x 32 | 288 | - | 0 | 0 |
+| Fully Connected | 288 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
-| **Total** | | | | **4,736** | **4,736** |
+| **Total** | | | | **4,632** | **4,632** |
 
 **Table 6: Architecture of the MNIST `S6` model.** *wide, strided; tokens `c8s2 c8 c16s2 c16 c32s2 c32`; 5,312 ReLUs, 0 pool neurons, 32,154 parameters; 5,312 branchings.*
 
@@ -694,36 +698,37 @@ Input `28 x 28 x 1`, 10 classes.
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **3,168** | **3,168** |
 
-**Table 10: Architecture of the MNIST `AB4` model.** *wide, average pool, ReLU before the pool; tokens `c8s2 a c16 c16 c16 a`; 3,952 ReLUs, 536 pool neurons, 10,914 parameters; 3,952 branchings.*
+**Table 10: Architecture of the MNIST `AB4` model.** *wide, average pool, ReLU before the pool; tokens `c8s2 c8 a c8 c8 a`; 3,952 ReLUs, 464 pool neurons, 4,554 parameters; 3,952 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 28 x 28 x 1 | 14 x 14 x 8 | ReLU | 1,568 | 1,568 |
+| Convolution 2D | 14 x 14 x 8 | 14 x 14 x 8 | ReLU | 1,568 | 1,568 |
 | Average Pooling 2D | 14 x 14 x 8 | 7 x 7 x 8 | - | 0 | 0 |
-| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 16 | ReLU | 784 | 784 |
-| Convolution 2D | 7 x 7 x 16 | 7 x 7 x 16 | ReLU | 784 | 784 |
-| Convolution 2D | 7 x 7 x 16 | 7 x 7 x 16 | ReLU | 784 | 784 |
-| Average Pooling 2D | 7 x 7 x 16 | 3 x 3 x 16 | - | 0 | 0 |
-| Flatten | 3 x 3 x 16 | 144 | - | 0 | 0 |
-| Fully Connected | 144 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
+| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
+| Average Pooling 2D | 7 x 7 x 8 | 3 x 3 x 8 | - | 0 | 0 |
+| Flatten | 3 x 3 x 8 | 72 | - | 0 | 0 |
+| Fully Connected | 72 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **3,952** | **3,952** |
 
-**Table 11: Architecture of the MNIST `AB5` model.** *wide, average pool, ReLU before the pool; tokens `c8s2 a c16 c16 c16 c16 a`; 4,736 ReLUs, 536 pool neurons, 13,234 parameters; 4,736 branchings.*
+**Table 11: Architecture of the MNIST `AB5` model.** *wide, average pool, ReLU before the pool; tokens `c8s2 c8 a c8 c16 a c32 a`; 4,632 ReLUs, 568 pool neurons, 8,498 parameters; 4,632 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 28 x 28 x 1 | 14 x 14 x 8 | ReLU | 1,568 | 1,568 |
+| Convolution 2D | 14 x 14 x 8 | 14 x 14 x 8 | ReLU | 1,568 | 1,568 |
 | Average Pooling 2D | 14 x 14 x 8 | 7 x 7 x 8 | - | 0 | 0 |
+| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
 | Convolution 2D | 7 x 7 x 8 | 7 x 7 x 16 | ReLU | 784 | 784 |
-| Convolution 2D | 7 x 7 x 16 | 7 x 7 x 16 | ReLU | 784 | 784 |
-| Convolution 2D | 7 x 7 x 16 | 7 x 7 x 16 | ReLU | 784 | 784 |
-| Convolution 2D | 7 x 7 x 16 | 7 x 7 x 16 | ReLU | 784 | 784 |
 | Average Pooling 2D | 7 x 7 x 16 | 3 x 3 x 16 | - | 0 | 0 |
-| Flatten | 3 x 3 x 16 | 144 | - | 0 | 0 |
-| Fully Connected | 144 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 3 x 3 x 16 | 3 x 3 x 32 | ReLU | 288 | 288 |
+| Average Pooling 2D | 3 x 3 x 32 | 1 x 1 x 32 | - | 0 | 0 |
+| Flatten | 1 x 1 x 32 | 32 | - | 0 | 0 |
+| Fully Connected | 32 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
-| **Total** | | | | **4,736** | **4,736** |
+| **Total** | | | | **4,632** | **4,632** |
 
 **Table 12: Architecture of the MNIST `AB6` model.** *wide, average pool, ReLU before the pool; tokens `c8s2 c8 a c16 c16 a c32 c32 a`; 5,312 ReLUs, 568 pool neurons, 19,482 parameters; 5,312 branchings.*
 
@@ -784,32 +789,32 @@ Input `28 x 28 x 1`, 10 classes.
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **1,600** | **1,600** |
 
-**Table 16: Architecture of the MNIST `NS4` model.** *narrow, strided; tokens `c4s2 c8s2 c8 c8`; 1,992 ReLUs, 0 pool neurons, 14,662 parameters; 1,992 branchings.*
+**Table 16: Architecture of the MNIST `NS4` model.** *narrow, strided; tokens `c4s2 c4 c4s2 c4`; 1,992 ReLUs, 0 pool neurons, 7,258 parameters; 1,992 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 28 x 28 x 1 | 14 x 14 x 4 | ReLU | 784 | 784 |
-| Convolution 2D | 14 x 14 x 4 | 7 x 7 x 8 | ReLU | 392 | 392 |
-| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
-| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
-| Flatten | 7 x 7 x 8 | 392 | - | 0 | 0 |
-| Fully Connected | 392 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 14 x 14 x 4 | 14 x 14 x 4 | ReLU | 784 | 784 |
+| Convolution 2D | 14 x 14 x 4 | 7 x 7 x 4 | ReLU | 196 | 196 |
+| Convolution 2D | 7 x 7 x 4 | 7 x 7 x 4 | ReLU | 196 | 196 |
+| Flatten | 7 x 7 x 4 | 196 | - | 0 | 0 |
+| Fully Connected | 196 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **1,992** | **1,992** |
 
-**Table 17: Architecture of the MNIST `NS5` model.** *narrow, strided; tokens `c4s2 c8s2 c8 c8 c8`; 2,384 ReLUs, 0 pool neurons, 15,246 parameters; 2,384 branchings.*
+**Table 17: Architecture of the MNIST `NS5` model.** *narrow, strided; tokens `c4s2 c4 c4s2 c8 c16s2`; 2,332 ReLUs, 0 pool neurons, 7,806 parameters; 2,332 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 28 x 28 x 1 | 14 x 14 x 4 | ReLU | 784 | 784 |
-| Convolution 2D | 14 x 14 x 4 | 7 x 7 x 8 | ReLU | 392 | 392 |
-| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
-| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
-| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
-| Flatten | 7 x 7 x 8 | 392 | - | 0 | 0 |
-| Fully Connected | 392 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 14 x 14 x 4 | 14 x 14 x 4 | ReLU | 784 | 784 |
+| Convolution 2D | 14 x 14 x 4 | 7 x 7 x 4 | ReLU | 196 | 196 |
+| Convolution 2D | 7 x 7 x 4 | 7 x 7 x 8 | ReLU | 392 | 392 |
+| Convolution 2D | 7 x 7 x 8 | 3 x 3 x 16 | ReLU | 144 | 144 |
+| Flatten | 3 x 3 x 16 | 144 | - | 0 | 0 |
+| Fully Connected | 144 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
-| **Total** | | | | **2,384** | **2,384** |
+| **Total** | | | | **2,332** | **2,332** |
 
 **Table 18: Architecture of the MNIST `NS6` model.** *narrow, strided; tokens `c4s2 c4 c8s2 c8 c16s2 c16`; 2,672 ReLUs, 0 pool neurons, 10,674 parameters; 2,672 branchings.*
 
@@ -867,36 +872,37 @@ Input `28 x 28 x 1`, 10 classes.
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **1,600** | **1,600** |
 
-**Table 22: Architecture of the MNIST `NAB4` model.** *narrow, average pool, ReLU before the pool; tokens `c4s2 a c8 c8 c8 a`; 1,992 ReLUs, 268 pool neurons, 4,198 parameters; 1,992 branchings.*
+**Table 22: Architecture of the MNIST `NAB4` model.** *narrow, average pool, ReLU before the pool; tokens `c4s2 c4 a c4 c4 a`; 1,992 ReLUs, 232 pool neurons, 2,026 parameters; 1,992 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 28 x 28 x 1 | 14 x 14 x 4 | ReLU | 784 | 784 |
+| Convolution 2D | 14 x 14 x 4 | 14 x 14 x 4 | ReLU | 784 | 784 |
 | Average Pooling 2D | 14 x 14 x 4 | 7 x 7 x 4 | - | 0 | 0 |
-| Convolution 2D | 7 x 7 x 4 | 7 x 7 x 8 | ReLU | 392 | 392 |
-| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
-| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
-| Average Pooling 2D | 7 x 7 x 8 | 3 x 3 x 8 | - | 0 | 0 |
-| Flatten | 3 x 3 x 8 | 72 | - | 0 | 0 |
-| Fully Connected | 72 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 7 x 7 x 4 | 7 x 7 x 4 | ReLU | 196 | 196 |
+| Convolution 2D | 7 x 7 x 4 | 7 x 7 x 4 | ReLU | 196 | 196 |
+| Average Pooling 2D | 7 x 7 x 4 | 3 x 3 x 4 | - | 0 | 0 |
+| Flatten | 3 x 3 x 4 | 36 | - | 0 | 0 |
+| Fully Connected | 36 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **1,992** | **1,992** |
 
-**Table 23: Architecture of the MNIST `NAB5` model.** *narrow, average pool, ReLU before the pool; tokens `c4s2 a c8 c8 c8 c8 a`; 2,384 ReLUs, 268 pool neurons, 4,782 parameters; 2,384 branchings.*
+**Table 23: Architecture of the MNIST `NAB5` model.** *narrow, average pool, ReLU before the pool; tokens `c4s2 c4 a c4 c8 a c16 a`; 2,332 ReLUs, 284 pool neurons, 2,702 parameters; 2,332 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 28 x 28 x 1 | 14 x 14 x 4 | ReLU | 784 | 784 |
+| Convolution 2D | 14 x 14 x 4 | 14 x 14 x 4 | ReLU | 784 | 784 |
 | Average Pooling 2D | 14 x 14 x 4 | 7 x 7 x 4 | - | 0 | 0 |
+| Convolution 2D | 7 x 7 x 4 | 7 x 7 x 4 | ReLU | 196 | 196 |
 | Convolution 2D | 7 x 7 x 4 | 7 x 7 x 8 | ReLU | 392 | 392 |
-| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
-| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
-| Convolution 2D | 7 x 7 x 8 | 7 x 7 x 8 | ReLU | 392 | 392 |
 | Average Pooling 2D | 7 x 7 x 8 | 3 x 3 x 8 | - | 0 | 0 |
-| Flatten | 3 x 3 x 8 | 72 | - | 0 | 0 |
-| Fully Connected | 72 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 3 x 3 x 8 | 3 x 3 x 16 | ReLU | 144 | 144 |
+| Average Pooling 2D | 3 x 3 x 16 | 1 x 1 x 16 | - | 0 | 0 |
+| Flatten | 1 x 1 x 16 | 16 | - | 0 | 0 |
+| Fully Connected | 16 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
-| **Total** | | | | **2,384** | **2,384** |
+| **Total** | | | | **2,332** | **2,332** |
 
 **Table 24: Architecture of the MNIST `NAB6` model.** *narrow, average pool, ReLU before the pool; tokens `c4s2 c4 a c8 c8 a c16 c16 a`; 2,672 ReLUs, 284 pool neurons, 5,458 parameters; 2,672 branchings.*
 
@@ -961,30 +967,30 @@ Input `32 x 32 x 3`, 43 classes.
 | Output | 32 | 43 | - | 0 | 0 |
 | **Total** | | | | **4,128** | **4,128** |
 
-**Table 28: Architecture of the GTSRB `S4` model.** *wide, strided; tokens `c8s2 c16s2 c16 c16`; 5,152 ReLUs, 0 pool neurons, 41,315 parameters; 5,152 branchings.*
+**Table 28: Architecture of the GTSRB `S4` model.** *wide, strided; tokens `c8s2 c8 c8s2 c8`; 5,152 ReLUs, 0 pool neurons, 20,427 parameters; 5,152 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
-| Convolution 2D | 16 x 16 x 8 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Flatten | 8 x 8 x 16 | 1024 | - | 0 | 0 |
-| Fully Connected | 1024 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 16 x 16 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
+| Convolution 2D | 16 x 16 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
+| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
+| Flatten | 8 x 8 x 8 | 512 | - | 0 | 0 |
+| Fully Connected | 512 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 43 | - | 0 | 0 |
 | **Total** | | | | **5,152** | **5,152** |
 
-**Table 29: Architecture of the GTSRB `S5` model.** *wide, strided; tokens `c8s2 c16s2 c16 c16 c16`; 6,176 ReLUs, 0 pool neurons, 43,635 parameters; 6,176 branchings.*
+**Table 29: Architecture of the GTSRB `S5` model.** *wide, strided; tokens `c8s2 c8 c8s2 c16 c32s2`; 6,176 ReLUs, 0 pool neurons, 29,235 parameters; 6,176 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
-| Convolution 2D | 16 x 16 x 8 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Flatten | 8 x 8 x 16 | 1024 | - | 0 | 0 |
-| Fully Connected | 1024 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 16 x 16 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
+| Convolution 2D | 16 x 16 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
+| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
+| Convolution 2D | 8 x 8 x 16 | 4 x 4 x 32 | ReLU | 512 | 512 |
+| Flatten | 4 x 4 x 32 | 512 | - | 0 | 0 |
+| Fully Connected | 512 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 43 | - | 0 | 0 |
 | **Total** | | | | **6,176** | **6,176** |
 
@@ -1044,34 +1050,35 @@ Input `32 x 32 x 3`, 43 classes.
 | Output | 32 | 43 | - | 0 | 0 |
 | **Total** | | | | **4,128** | **4,128** |
 
-**Table 34: Architecture of the GTSRB `AB4` model.** *wide, average pool, ReLU before the pool; tokens `c8s2 a c16 c16 c16 a`; 5,152 ReLUs, 768 pool neurons, 15,843 parameters; 5,152 branchings.*
+**Table 34: Architecture of the GTSRB `AB4` model.** *wide, average pool, ReLU before the pool; tokens `c8s2 c8 a c8 c8 a`; 5,152 ReLUs, 640 pool neurons, 7,691 parameters; 5,152 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
+| Convolution 2D | 16 x 16 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
 | Average Pooling 2D | 16 x 16 x 8 | 8 x 8 x 8 | - | 0 | 0 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Average Pooling 2D | 8 x 8 x 16 | 4 x 4 x 16 | - | 0 | 0 |
-| Flatten | 4 x 4 x 16 | 256 | - | 0 | 0 |
-| Fully Connected | 256 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
+| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
+| Average Pooling 2D | 8 x 8 x 8 | 4 x 4 x 8 | - | 0 | 0 |
+| Flatten | 4 x 4 x 8 | 128 | - | 0 | 0 |
+| Fully Connected | 128 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 43 | - | 0 | 0 |
 | **Total** | | | | **5,152** | **5,152** |
 
-**Table 35: Architecture of the GTSRB `AB5` model.** *wide, average pool, ReLU before the pool; tokens `c8s2 a c16 c16 c16 c16 a`; 6,176 ReLUs, 768 pool neurons, 18,163 parameters; 6,176 branchings.*
+**Table 35: Architecture of the GTSRB `AB5` model.** *wide, average pool, ReLU before the pool; tokens `c8s2 c8 a c8 c16 a c32 a`; 6,176 ReLUs, 896 pool neurons, 12,915 parameters; 6,176 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
+| Convolution 2D | 16 x 16 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
 | Average Pooling 2D | 16 x 16 x 8 | 8 x 8 x 8 | - | 0 | 0 |
+| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
 | Convolution 2D | 8 x 8 x 8 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
 | Average Pooling 2D | 8 x 8 x 16 | 4 x 4 x 16 | - | 0 | 0 |
-| Flatten | 4 x 4 x 16 | 256 | - | 0 | 0 |
-| Fully Connected | 256 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 4 x 4 x 16 | 4 x 4 x 32 | ReLU | 512 | 512 |
+| Average Pooling 2D | 4 x 4 x 32 | 2 x 2 x 32 | - | 0 | 0 |
+| Flatten | 2 x 2 x 32 | 128 | - | 0 | 0 |
+| Fully Connected | 128 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 43 | - | 0 | 0 |
 | **Total** | | | | **6,176** | **6,176** |
 
@@ -1134,30 +1141,30 @@ Input `32 x 32 x 3`, 43 classes.
 | Output | 32 | 43 | - | 0 | 0 |
 | **Total** | | | | **2,080** | **2,080** |
 
-**Table 40: Architecture of the GTSRB `NS4` model.** *narrow, strided; tokens `c4s2 c8s2 c8 c8`; 2,592 ReLUs, 0 pool neurons, 19,719 parameters; 2,592 branchings.*
+**Table 40: Architecture of the GTSRB `NS4` model.** *narrow, strided; tokens `c4s2 c4 c4s2 c4`; 2,592 ReLUs, 0 pool neurons, 10,395 parameters; 2,592 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 16 x 16 x 4 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Flatten | 8 x 8 x 8 | 512 | - | 0 | 0 |
-| Fully Connected | 512 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 16 x 16 x 4 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
+| Convolution 2D | 16 x 16 x 4 | 8 x 8 x 4 | ReLU | 256 | 256 |
+| Convolution 2D | 8 x 8 x 4 | 8 x 8 x 4 | ReLU | 256 | 256 |
+| Flatten | 8 x 8 x 4 | 256 | - | 0 | 0 |
+| Fully Connected | 256 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 43 | - | 0 | 0 |
 | **Total** | | | | **2,592** | **2,592** |
 
-**Table 41: Architecture of the GTSRB `NS5` model.** *narrow, strided; tokens `c4s2 c8s2 c8 c8 c8`; 3,104 ReLUs, 0 pool neurons, 20,303 parameters; 3,104 branchings.*
+**Table 41: Architecture of the GTSRB `NS5` model.** *narrow, strided; tokens `c4s2 c4 c4s2 c8 c16s2`; 3,104 ReLUs, 0 pool neurons, 12,607 parameters; 3,104 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 16 x 16 x 4 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Flatten | 8 x 8 x 8 | 512 | - | 0 | 0 |
-| Fully Connected | 512 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 16 x 16 x 4 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
+| Convolution 2D | 16 x 16 x 4 | 8 x 8 x 4 | ReLU | 256 | 256 |
+| Convolution 2D | 8 x 8 x 4 | 8 x 8 x 8 | ReLU | 512 | 512 |
+| Convolution 2D | 8 x 8 x 8 | 4 x 4 x 16 | ReLU | 256 | 256 |
+| Flatten | 4 x 4 x 16 | 256 | - | 0 | 0 |
+| Fully Connected | 256 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 43 | - | 0 | 0 |
 | **Total** | | | | **3,104** | **3,104** |
 
@@ -1217,34 +1224,35 @@ Input `32 x 32 x 3`, 43 classes.
 | Output | 32 | 43 | - | 0 | 0 |
 | **Total** | | | | **2,080** | **2,080** |
 
-**Table 46: Architecture of the GTSRB `NAB4` model.** *narrow, average pool, ReLU before the pool; tokens `c4s2 a c8 c8 c8 a`; 2,592 ReLUs, 384 pool neurons, 7,207 parameters; 2,592 branchings.*
+**Table 46: Architecture of the GTSRB `NAB4` model.** *narrow, average pool, ReLU before the pool; tokens `c4s2 c4 a c4 c4 a`; 2,592 ReLUs, 320 pool neurons, 4,139 parameters; 2,592 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
+| Convolution 2D | 16 x 16 x 4 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
 | Average Pooling 2D | 16 x 16 x 4 | 8 x 8 x 4 | - | 0 | 0 |
-| Convolution 2D | 8 x 8 x 4 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Average Pooling 2D | 8 x 8 x 8 | 4 x 4 x 8 | - | 0 | 0 |
-| Flatten | 4 x 4 x 8 | 128 | - | 0 | 0 |
-| Fully Connected | 128 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 8 x 8 x 4 | 8 x 8 x 4 | ReLU | 256 | 256 |
+| Convolution 2D | 8 x 8 x 4 | 8 x 8 x 4 | ReLU | 256 | 256 |
+| Average Pooling 2D | 8 x 8 x 4 | 4 x 4 x 4 | - | 0 | 0 |
+| Flatten | 4 x 4 x 4 | 64 | - | 0 | 0 |
+| Fully Connected | 64 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 43 | - | 0 | 0 |
 | **Total** | | | | **2,592** | **2,592** |
 
-**Table 47: Architecture of the GTSRB `NAB5` model.** *narrow, average pool, ReLU before the pool; tokens `c4s2 a c8 c8 c8 c8 a`; 3,104 ReLUs, 384 pool neurons, 7,791 parameters; 3,104 branchings.*
+**Table 47: Architecture of the GTSRB `NAB5` model.** *narrow, average pool, ReLU before the pool; tokens `c4s2 c4 a c4 c8 a c16 a`; 3,104 ReLUs, 448 pool neurons, 5,455 parameters; 3,104 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
+| Convolution 2D | 16 x 16 x 4 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
 | Average Pooling 2D | 16 x 16 x 4 | 8 x 8 x 4 | - | 0 | 0 |
+| Convolution 2D | 8 x 8 x 4 | 8 x 8 x 4 | ReLU | 256 | 256 |
 | Convolution 2D | 8 x 8 x 4 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
 | Average Pooling 2D | 8 x 8 x 8 | 4 x 4 x 8 | - | 0 | 0 |
-| Flatten | 4 x 4 x 8 | 128 | - | 0 | 0 |
-| Fully Connected | 128 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 4 x 4 x 8 | 4 x 4 x 16 | ReLU | 256 | 256 |
+| Average Pooling 2D | 4 x 4 x 16 | 2 x 2 x 16 | - | 0 | 0 |
+| Flatten | 2 x 2 x 16 | 64 | - | 0 | 0 |
+| Fully Connected | 64 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 43 | - | 0 | 0 |
 | **Total** | | | | **3,104** | **3,104** |
 
@@ -1311,30 +1319,30 @@ Input `32 x 32 x 3`, 10 classes.
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **4,128** | **4,128** |
 
-**Table 52: Architecture of the CIFAR-10 `S4` model.** *wide, strided; tokens `c8s2 c16s2 c16 c16`; 5,152 ReLUs, 0 pool neurons, 40,226 parameters; 5,152 branchings.*
+**Table 52: Architecture of the CIFAR-10 `S4` model.** *wide, strided; tokens `c8s2 c8 c8s2 c8`; 5,152 ReLUs, 0 pool neurons, 19,338 parameters; 5,152 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
-| Convolution 2D | 16 x 16 x 8 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Flatten | 8 x 8 x 16 | 1024 | - | 0 | 0 |
-| Fully Connected | 1024 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 16 x 16 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
+| Convolution 2D | 16 x 16 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
+| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
+| Flatten | 8 x 8 x 8 | 512 | - | 0 | 0 |
+| Fully Connected | 512 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **5,152** | **5,152** |
 
-**Table 53: Architecture of the CIFAR-10 `S5` model.** *wide, strided; tokens `c8s2 c16s2 c16 c16 c16`; 6,176 ReLUs, 0 pool neurons, 42,546 parameters; 6,176 branchings.*
+**Table 53: Architecture of the CIFAR-10 `S5` model.** *wide, strided; tokens `c8s2 c8 c8s2 c16 c32s2`; 6,176 ReLUs, 0 pool neurons, 28,146 parameters; 6,176 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
-| Convolution 2D | 16 x 16 x 8 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Flatten | 8 x 8 x 16 | 1024 | - | 0 | 0 |
-| Fully Connected | 1024 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 16 x 16 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
+| Convolution 2D | 16 x 16 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
+| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
+| Convolution 2D | 8 x 8 x 16 | 4 x 4 x 32 | ReLU | 512 | 512 |
+| Flatten | 4 x 4 x 32 | 512 | - | 0 | 0 |
+| Fully Connected | 512 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **6,176** | **6,176** |
 
@@ -1394,34 +1402,35 @@ Input `32 x 32 x 3`, 10 classes.
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **4,128** | **4,128** |
 
-**Table 58: Architecture of the CIFAR-10 `AB4` model.** *wide, average pool, ReLU before the pool; tokens `c8s2 a c16 c16 c16 a`; 5,152 ReLUs, 768 pool neurons, 14,754 parameters; 5,152 branchings.*
+**Table 58: Architecture of the CIFAR-10 `AB4` model.** *wide, average pool, ReLU before the pool; tokens `c8s2 c8 a c8 c8 a`; 5,152 ReLUs, 640 pool neurons, 6,602 parameters; 5,152 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
+| Convolution 2D | 16 x 16 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
 | Average Pooling 2D | 16 x 16 x 8 | 8 x 8 x 8 | - | 0 | 0 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Average Pooling 2D | 8 x 8 x 16 | 4 x 4 x 16 | - | 0 | 0 |
-| Flatten | 4 x 4 x 16 | 256 | - | 0 | 0 |
-| Fully Connected | 256 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
+| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
+| Average Pooling 2D | 8 x 8 x 8 | 4 x 4 x 8 | - | 0 | 0 |
+| Flatten | 4 x 4 x 8 | 128 | - | 0 | 0 |
+| Fully Connected | 128 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **5,152** | **5,152** |
 
-**Table 59: Architecture of the CIFAR-10 `AB5` model.** *wide, average pool, ReLU before the pool; tokens `c8s2 a c16 c16 c16 c16 a`; 6,176 ReLUs, 768 pool neurons, 17,074 parameters; 6,176 branchings.*
+**Table 59: Architecture of the CIFAR-10 `AB5` model.** *wide, average pool, ReLU before the pool; tokens `c8s2 c8 a c8 c16 a c32 a`; 6,176 ReLUs, 896 pool neurons, 11,826 parameters; 6,176 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
+| Convolution 2D | 16 x 16 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
 | Average Pooling 2D | 16 x 16 x 8 | 8 x 8 x 8 | - | 0 | 0 |
+| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
 | Convolution 2D | 8 x 8 x 8 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 8 x 8 x 16 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
 | Average Pooling 2D | 8 x 8 x 16 | 4 x 4 x 16 | - | 0 | 0 |
-| Flatten | 4 x 4 x 16 | 256 | - | 0 | 0 |
-| Fully Connected | 256 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 4 x 4 x 16 | 4 x 4 x 32 | ReLU | 512 | 512 |
+| Average Pooling 2D | 4 x 4 x 32 | 2 x 2 x 32 | - | 0 | 0 |
+| Flatten | 2 x 2 x 32 | 128 | - | 0 | 0 |
+| Fully Connected | 128 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **6,176** | **6,176** |
 
@@ -1484,30 +1493,30 @@ Input `32 x 32 x 3`, 10 classes.
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **2,080** | **2,080** |
 
-**Table 64: Architecture of the CIFAR-10 `NS4` model.** *narrow, strided; tokens `c4s2 c8s2 c8 c8`; 2,592 ReLUs, 0 pool neurons, 18,630 parameters; 2,592 branchings.*
+**Table 64: Architecture of the CIFAR-10 `NS4` model.** *narrow, strided; tokens `c4s2 c4 c4s2 c4`; 2,592 ReLUs, 0 pool neurons, 9,306 parameters; 2,592 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 16 x 16 x 4 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Flatten | 8 x 8 x 8 | 512 | - | 0 | 0 |
-| Fully Connected | 512 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 16 x 16 x 4 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
+| Convolution 2D | 16 x 16 x 4 | 8 x 8 x 4 | ReLU | 256 | 256 |
+| Convolution 2D | 8 x 8 x 4 | 8 x 8 x 4 | ReLU | 256 | 256 |
+| Flatten | 8 x 8 x 4 | 256 | - | 0 | 0 |
+| Fully Connected | 256 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **2,592** | **2,592** |
 
-**Table 65: Architecture of the CIFAR-10 `NS5` model.** *narrow, strided; tokens `c4s2 c8s2 c8 c8 c8`; 3,104 ReLUs, 0 pool neurons, 19,214 parameters; 3,104 branchings.*
+**Table 65: Architecture of the CIFAR-10 `NS5` model.** *narrow, strided; tokens `c4s2 c4 c4s2 c8 c16s2`; 3,104 ReLUs, 0 pool neurons, 11,518 parameters; 3,104 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
-| Convolution 2D | 16 x 16 x 4 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Flatten | 8 x 8 x 8 | 512 | - | 0 | 0 |
-| Fully Connected | 512 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 16 x 16 x 4 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
+| Convolution 2D | 16 x 16 x 4 | 8 x 8 x 4 | ReLU | 256 | 256 |
+| Convolution 2D | 8 x 8 x 4 | 8 x 8 x 8 | ReLU | 512 | 512 |
+| Convolution 2D | 8 x 8 x 8 | 4 x 4 x 16 | ReLU | 256 | 256 |
+| Flatten | 4 x 4 x 16 | 256 | - | 0 | 0 |
+| Fully Connected | 256 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **3,104** | **3,104** |
 
@@ -1567,34 +1576,35 @@ Input `32 x 32 x 3`, 10 classes.
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **2,080** | **2,080** |
 
-**Table 70: Architecture of the CIFAR-10 `NAB4` model.** *narrow, average pool, ReLU before the pool; tokens `c4s2 a c8 c8 c8 a`; 2,592 ReLUs, 384 pool neurons, 6,118 parameters; 2,592 branchings.*
+**Table 70: Architecture of the CIFAR-10 `NAB4` model.** *narrow, average pool, ReLU before the pool; tokens `c4s2 c4 a c4 c4 a`; 2,592 ReLUs, 320 pool neurons, 3,050 parameters; 2,592 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
+| Convolution 2D | 16 x 16 x 4 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
 | Average Pooling 2D | 16 x 16 x 4 | 8 x 8 x 4 | - | 0 | 0 |
-| Convolution 2D | 8 x 8 x 4 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Average Pooling 2D | 8 x 8 x 8 | 4 x 4 x 8 | - | 0 | 0 |
-| Flatten | 4 x 4 x 8 | 128 | - | 0 | 0 |
-| Fully Connected | 128 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 8 x 8 x 4 | 8 x 8 x 4 | ReLU | 256 | 256 |
+| Convolution 2D | 8 x 8 x 4 | 8 x 8 x 4 | ReLU | 256 | 256 |
+| Average Pooling 2D | 8 x 8 x 4 | 4 x 4 x 4 | - | 0 | 0 |
+| Flatten | 4 x 4 x 4 | 64 | - | 0 | 0 |
+| Fully Connected | 64 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **2,592** | **2,592** |
 
-**Table 71: Architecture of the CIFAR-10 `NAB5` model.** *narrow, average pool, ReLU before the pool; tokens `c4s2 a c8 c8 c8 c8 a`; 3,104 ReLUs, 384 pool neurons, 6,702 parameters; 3,104 branchings.*
+**Table 71: Architecture of the CIFAR-10 `NAB5` model.** *narrow, average pool, ReLU before the pool; tokens `c4s2 c4 a c4 c8 a c16 a`; 3,104 ReLUs, 448 pool neurons, 4,366 parameters; 3,104 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 32 x 32 x 3 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
+| Convolution 2D | 16 x 16 x 4 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
 | Average Pooling 2D | 16 x 16 x 4 | 8 x 8 x 4 | - | 0 | 0 |
+| Convolution 2D | 8 x 8 x 4 | 8 x 8 x 4 | ReLU | 256 | 256 |
 | Convolution 2D | 8 x 8 x 4 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
-| Convolution 2D | 8 x 8 x 8 | 8 x 8 x 8 | ReLU | 512 | 512 |
 | Average Pooling 2D | 8 x 8 x 8 | 4 x 4 x 8 | - | 0 | 0 |
-| Flatten | 4 x 4 x 8 | 128 | - | 0 | 0 |
-| Fully Connected | 128 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 4 x 4 x 8 | 4 x 4 x 16 | ReLU | 256 | 256 |
+| Average Pooling 2D | 4 x 4 x 16 | 2 x 2 x 16 | - | 0 | 0 |
+| Flatten | 2 x 2 x 16 | 64 | - | 0 | 0 |
+| Fully Connected | 64 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **3,104** | **3,104** |
 
@@ -1661,30 +1671,30 @@ Input `64 x 64 x 3`, 10 classes.
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **16,416** | **16,416** |
 
-**Table 76: Architecture of the Imagenette-64 `S4` model.** *wide, strided; tokens `c8s2 c16s2 c16 c16`; 20,512 ReLUs, 0 pool neurons, 138,530 parameters; 20,512 branchings.*
+**Table 76: Architecture of the Imagenette-64 `S4` model.** *wide, strided; tokens `c8s2 c8 c8s2 c8`; 20,512 ReLUs, 0 pool neurons, 68,490 parameters; 20,512 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 64 x 64 x 3 | 32 x 32 x 8 | ReLU | 8,192 | 8,192 |
-| Convolution 2D | 32 x 32 x 8 | 16 x 16 x 16 | ReLU | 4,096 | 4,096 |
-| Convolution 2D | 16 x 16 x 16 | 16 x 16 x 16 | ReLU | 4,096 | 4,096 |
-| Convolution 2D | 16 x 16 x 16 | 16 x 16 x 16 | ReLU | 4,096 | 4,096 |
-| Flatten | 16 x 16 x 16 | 4096 | - | 0 | 0 |
-| Fully Connected | 4096 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 32 x 32 x 8 | 32 x 32 x 8 | ReLU | 8,192 | 8,192 |
+| Convolution 2D | 32 x 32 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
+| Convolution 2D | 16 x 16 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
+| Flatten | 16 x 16 x 8 | 2048 | - | 0 | 0 |
+| Fully Connected | 2048 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **20,512** | **20,512** |
 
-**Table 77: Architecture of the Imagenette-64 `S5` model.** *wide, strided; tokens `c8s2 c16s2 c16 c16 c16`; 24,608 ReLUs, 0 pool neurons, 140,850 parameters; 24,608 branchings.*
+**Table 77: Architecture of the Imagenette-64 `S5` model.** *wide, strided; tokens `c8s2 c8 c8s2 c16 c32s2`; 24,608 ReLUs, 0 pool neurons, 77,298 parameters; 24,608 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 64 x 64 x 3 | 32 x 32 x 8 | ReLU | 8,192 | 8,192 |
-| Convolution 2D | 32 x 32 x 8 | 16 x 16 x 16 | ReLU | 4,096 | 4,096 |
-| Convolution 2D | 16 x 16 x 16 | 16 x 16 x 16 | ReLU | 4,096 | 4,096 |
-| Convolution 2D | 16 x 16 x 16 | 16 x 16 x 16 | ReLU | 4,096 | 4,096 |
-| Convolution 2D | 16 x 16 x 16 | 16 x 16 x 16 | ReLU | 4,096 | 4,096 |
-| Flatten | 16 x 16 x 16 | 4096 | - | 0 | 0 |
-| Fully Connected | 4096 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 32 x 32 x 8 | 32 x 32 x 8 | ReLU | 8,192 | 8,192 |
+| Convolution 2D | 32 x 32 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
+| Convolution 2D | 16 x 16 x 8 | 16 x 16 x 16 | ReLU | 4,096 | 4,096 |
+| Convolution 2D | 16 x 16 x 16 | 8 x 8 x 32 | ReLU | 2,048 | 2,048 |
+| Flatten | 8 x 8 x 32 | 2048 | - | 0 | 0 |
+| Fully Connected | 2048 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **24,608** | **24,608** |
 
@@ -1744,30 +1754,30 @@ Input `64 x 64 x 3`, 10 classes.
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **8,224** | **8,224** |
 
-**Table 82: Architecture of the Imagenette-64 `NS4` model.** *narrow, strided; tokens `c4s2 c8s2 c8 c8`; 10,272 ReLUs, 0 pool neurons, 67,782 parameters; 10,272 branchings.*
+**Table 82: Architecture of the Imagenette-64 `NS4` model.** *narrow, strided; tokens `c4s2 c4 c4s2 c4`; 10,272 ReLUs, 0 pool neurons, 33,882 parameters; 10,272 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 64 x 64 x 3 | 32 x 32 x 4 | ReLU | 4,096 | 4,096 |
-| Convolution 2D | 32 x 32 x 4 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
-| Convolution 2D | 16 x 16 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
-| Convolution 2D | 16 x 16 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
-| Flatten | 16 x 16 x 8 | 2048 | - | 0 | 0 |
-| Fully Connected | 2048 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 32 x 32 x 4 | 32 x 32 x 4 | ReLU | 4,096 | 4,096 |
+| Convolution 2D | 32 x 32 x 4 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
+| Convolution 2D | 16 x 16 x 4 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
+| Flatten | 16 x 16 x 4 | 1024 | - | 0 | 0 |
+| Fully Connected | 1024 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **10,272** | **10,272** |
 
-**Table 83: Architecture of the Imagenette-64 `NS5` model.** *narrow, strided; tokens `c4s2 c8s2 c8 c8 c8`; 12,320 ReLUs, 0 pool neurons, 68,366 parameters; 12,320 branchings.*
+**Table 83: Architecture of the Imagenette-64 `NS5` model.** *narrow, strided; tokens `c4s2 c4 c4s2 c8 c16s2`; 12,320 ReLUs, 0 pool neurons, 36,094 parameters; 12,320 branchings.*
 
 | Layer Type | Input Shape | Output Shape | Activation | ReLUs | Branchings |
 |---|---|---|---|---:|---:|
 | Convolution 2D | 64 x 64 x 3 | 32 x 32 x 4 | ReLU | 4,096 | 4,096 |
-| Convolution 2D | 32 x 32 x 4 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
-| Convolution 2D | 16 x 16 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
-| Convolution 2D | 16 x 16 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
-| Convolution 2D | 16 x 16 x 8 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
-| Flatten | 16 x 16 x 8 | 2048 | - | 0 | 0 |
-| Fully Connected | 2048 | 32 | ReLU | 32 | 32 |
+| Convolution 2D | 32 x 32 x 4 | 32 x 32 x 4 | ReLU | 4,096 | 4,096 |
+| Convolution 2D | 32 x 32 x 4 | 16 x 16 x 4 | ReLU | 1,024 | 1,024 |
+| Convolution 2D | 16 x 16 x 4 | 16 x 16 x 8 | ReLU | 2,048 | 2,048 |
+| Convolution 2D | 16 x 16 x 8 | 8 x 8 x 16 | ReLU | 1,024 | 1,024 |
+| Flatten | 8 x 8 x 16 | 1024 | - | 0 | 0 |
+| Fully Connected | 1024 | 32 | ReLU | 32 | 32 |
 | Output | 32 | 10 | - | 0 | 0 |
 | **Total** | | | | **12,320** | **12,320** |
 

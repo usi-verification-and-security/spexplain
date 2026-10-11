@@ -1,0 +1,57 @@
+% Main-text architecture table and its paragraph. Needs cnn_macros.tex and booktabs.
+\paragraph{Benchmark CNNs.}
+We evaluate on 24 convolutional networks (Table~\ref{tab:cnn-arch}): six depths
+$d \in \{1,\dots,6\}$ (number of convolutional layers) times four variants, defined by two choices.
+(i)~\emph{Downsampling}: stride-2 convolutions (\textsf{S}$d$) or $2{\times}2$ average pooling
+(\textsf{AB}$d$).
+(ii)~\emph{Width}: wide (8/16/32 channels) or narrow (prefix \textsf{N}, 4/8/16 channels).
+In the pooled variants the ReLU is applied \emph{before} the pool, so \textsf{AB}$d$ has exactly
+as many ReLU neurons as its twin \textsf{S}$d$. The pair differs only in how it downsamples, and
+since average pooling is affine it adds no case splits to the SMT encoding.
+Batch normalisation is used in training and folded into the preceding convolution at export.
+For example, \textsf{S3} is $\cs{8}\to\cs{16}\to\cv{16}\to\text{FC}_{32}\to\text{FC}_K$. On MNIST
+its feature maps are $8{\times}14{\times}14$, $16{\times}7{\times}7$ and $16{\times}7{\times}7$,
+giving $1568+784+784+32 = 3168$ ReLUs.
+
+\begin{table}[t]
+\centering
+\caption{CNN architectures, listed input to output. Channel counts are for the wide models; the
+narrow \textsf{N}-variants halve them.
+\texttt{c}$k$: $3{\times}3$ conv., $k$ channels, stride~1, padding~1 (keeps the size).
+\texttt{c}$k$\texttt{s2}: $4{\times}4$ conv., $k$ channels, stride~2, padding~1 (halves the size).
+\ap: $2{\times}2$ average pooling, stride~2 (halves the size).
+Each convolution is followed by a ReLU, and every network ends with
+$\text{FC}_{32}{+}\text{ReLU}\to\text{FC}_{K}$ ($K$ = number of classes).
+\#ReLU = ReLU neurons (wide/narrow), which is the same for \textsf{S}$d$ and \textsf{AB}$d$.
+Inputs: $1{\times}28^2$ (MNIST), $3{\times}32^2$ (GTSRB, CIFAR-10).}
+\label{tab:cnn-arch}
+\setlength{\tabcolsep}{3pt}
+\footnotesize
+\begin{tabular}{@{}c l l rr@{}}
+\toprule
+ & \textsf{S}$d$\,/\,\textsf{NS}$d$ & \textsf{AB}$d$\,/\,\textsf{NAB}$d$
+ & \multicolumn{2}{c}{\#ReLU (wide/narrow)} \\
+\cmidrule(l){4-5}
+$d$ & (strided) & (avg.\ pooling) & MNIST & \shortstack{GTSRB\\CIFAR} \\
+\midrule
+1 & \cs{8}
+  & \cs{8}\ly\ap
+  & \rl{1600}{816}  & \rl{2080}{1056} \\
+2 & \cs{8}\ly\cs{16}
+  & \cs{8}\ly\ap\ly\cv{16}
+  & \rl{2384}{1208} & \rl{3104}{1568} \\
+3 & \cs{8}\ly\cs{16}\ly\cv{16}
+  & \cs{8}\ly\ap\ly\cv{16}\ly\cv{16}\ly\ap
+  & \rl{3168}{1600} & \rl{4128}{2080} \\
+4 & \cs{8}\ly\cv{8}\ly\cs{8}\ly\cv{8}
+  & \cs{8}\ly\cv{8}\ly\ap\ly\cv{8}\ly\cv{8}\ly\ap
+  & \rl{3952}{1992} & \rl{5152}{2592} \\
+5 & \cs{8}\ly\cv{8}\ly\cs{8}\ly\cv{16}\ly\cs{32}
+  & \cs{8}\ly\cv{8}\ly\ap\ly\cv{8}\ly\cv{16}\ly\ap\ly\cv{32}\ly\ap
+  & \rl{4632}{2332} & \rl{6176}{3104} \\
+6 & \cs{8}\ly\cv{8}\ly\cs{16}\ly\cv{16}\ly\cs{32}\ly\cv{32}
+  & \cs{8}\ly\cv{8}\ly\ap\ly\cv{16}\ly\cv{16}\ly\ap\ly\cv{32}\ly\cv{32}\ly\ap
+  & \rl{5312}{2672} & \rl{7200}{3616} \\
+\bottomrule
+\end{tabular}
+\end{table}

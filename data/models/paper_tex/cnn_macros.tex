@@ -1,0 +1,7 @@
+% Notation for the CNN architecture tables (cnn_arch_table.tex, cnn_layer_tables.tex).
+% Put \input{cnn_macros} in the preamble. Change the glyphs here and every table follows.
+\newcommand{\cv}[1]{\texttt{c#1}}     % 3x3 conv, #1 channels, stride 1, pad 1 (keeps the size)
+\newcommand{\cs}[1]{\texttt{c#1s2}}   % 4x4 conv, #1 channels, stride 2, pad 1 (halves the size)
+\newcommand{\ap}{\texttt{a}}          % 2x2 average pool, stride 2 (halves the size)
+\newcommand{\ly}{\,}                  % separator between layers
+\newcommand{\rl}[2]{#1/#2}            % wide / narrow ReLU count
