@@ -1,0 +1,513 @@
+## Shared driver for the interval + interpolation pipeline (sourced by intervals.sh and itp.sh).
+##
+## Phase 'intervals' computes interval explanations ('trial n 4' = trial_n_4)
+## with the Marabou build; phase 'itp' generalizes them by interpolation with the OpenSMT build
+## (itp_<algo>__trial_n_4, the naming of consecutive experiments).
+##
+## Every sample is one process (spexplain -i <k>,<k>), so that up to MAX_JOBS processes keep the
+## node busy and so that the timeout per sample is enforced from outside: the Marabou verifier
+## ignores spexplain's '-t'. The per-sample outputs go to <output_dir>/.work/<experiment>/ and,
+## once all samples of an experiment are done, they are merged into the usual files
+## <output_dir>/<experiment>.{phi,stats,times,time,out,err}.txt
+## (<output_dir> = explanations/<dataset>/<W>x<idx>/s100_scaled/<variant>).
+##
+## Existing results are never overwritten: an experiment whose <experiment>.phi.txt already exists
+## is skipped. Interrupted runs resume - just run the same script again; finished samples are kept.
+##
+## Environment variables (all optional):
+##   DATASETS          datasets to run (default: 'heart_attack loan')
+##   WIDTH             neurons per layer (default: 50)
+##   MODEL_IDXS        <WIDTH>x<idx> models (default: '1 2 3 4')
+##   VARIANTS          neuron-activation variants (default: 'naive guide-all fix-all')
+##   EXPERIMENTS       restrict this phase to these experiment names (default: all of the phase)
+##   TIMEOUT_PER       timeout per sample, <int>[smh] (default: INTERVALS_TIMEOUT_PER=10m for intervals,
+##                     ITP_TIMEOUT_PER=5m for itp)
+##   MAX_JOBS          max. parallel processes (default: 60; also capped by nproc)
+##   MARABOU_CMD       spexplain built with Marabou (default: <repo>/build-marabou/spexplain)
+##   OPENSMT_CMD       spexplain built with OpenSMT (default: <repo>/build/spexplain)
+##   OUTPUT_ROOT       root of the outputs (default: explanations, i.e. data/explanations)
+##   LOG_DIR           job logs (default: data/logs/interval_itp)
+##   KEEP_WORK=1       keep the per-sample files after a merge (by default they are removed,
+##                     unless some sample failed)
+##   SAMPLE_RANGE      only samples <first>,<last> - for testing, use with another OUTPUT_ROOT
+##   DRY_RUN=1         only print what would be run
+##   WRAPPER           submit through it, e.g. WRAPPER=~/srun_commands/sbatch.sh
+
+[[ -n $PHASE ]] || {
+    printf "PHASE is not set - do not run 'common' directly.\n" >&2
+    exit 1
+}
+
+SCRIPT=$(realpath "$0")
+## Resubmit through the wrapper, so that the whole phase runs within one job (one node)
+[[ -n $WRAPPER ]] && exec env -u WRAPPER $WRAPPER "$SCRIPT" "$@"
+
+PIPELINE_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
+export SCRIPTS_DIR=$(dirname "$(dirname "$PIPELINE_DIR")")
+DATA_DIR=$(dirname "$SCRIPTS_DIR")
+ROOT_DIR=$(dirname "$DATA_DIR")
+WORKER="$PIPELINE_DIR/worker.sh"
+
+## The outputs are relative to data/, as with run-experiments.sh
+cd "$DATA_DIR" || exit 1
+
+source "$SCRIPTS_DIR/lib/run"
+
+read_experiments_spec interval_itp >/dev/null || exit 1
+SRC_EXPERIMENT=${CONSECUTIVE_EXPERIMENTS_SRC_NAMES[0]}
+
+DATASETS=${DATASETS:-heart_attack loan}
+WIDTH=${WIDTH:-50}
+MODEL_IDXS=${MODEL_IDXS:-1 2 3 4}
+VARIANTS=${VARIANTS:-naive guide-all fix-all}
+MAX_JOBS=${MAX_JOBS:-60}
+MARABOU_CMD=${MARABOU_CMD:-$ROOT_DIR/build-marabou/spexplain}
+OPENSMT_CMD=${OPENSMT_CMD:-$ROOT_DIR/build/spexplain}
+OUTPUT_ROOT=${OUTPUT_ROOT:-explanations}
+OUTPUT_ROOT=${OUTPUT_ROOT%/}
+LOG_DIR=${LOG_DIR:-$DATA_DIR/logs/interval_itp}
+
+case $PHASE in
+    intervals)
+        PHASE_EXPERIMENTS=("${EXPERIMENT_NAMES[@]}")
+        CMD=$MARABOU_CMD
+        VERIFIER=${INTERVAL_VERIFIER:-marabou}
+        TIMEOUT_PER=${TIMEOUT_PER:-${INTERVALS_TIMEOUT_PER:-10m}}
+        ## Marabou ignores the internal limit, so the outer one is the real limit
+        HARD_MARGIN_S=${HARD_MARGIN_S:-0}
+        ;;
+    itp)
+        PHASE_EXPERIMENTS=("${CONSECUTIVE_EXPERIMENTS_NAMES[@]}")
+        CMD=$OPENSMT_CMD
+        VERIFIER=${ITP_VERIFIER:-opensmt}
+        TIMEOUT_PER=${TIMEOUT_PER:-${ITP_TIMEOUT_PER:-5m}}
+        ## OpenSMT respects the internal limit; the outer one only guards against a hang
+        HARD_MARGIN_S=${HARD_MARGIN_S:-60}
+        ;;
+    *)
+        printf "Unknown PHASE: %s\n" "$PHASE" >&2
+        exit 1
+        ;;
+esac
+
+[[ -n $EXPERIMENTS ]] && {
+    selected=()
+    for e in "${PHASE_EXPERIMENTS[@]}"; do
+        [[ " $EXPERIMENTS " == *" $e "* ]] && selected+=("$e")
+    done
+    PHASE_EXPERIMENTS=("${selected[@]}")
+    (( ${#PHASE_EXPERIMENTS[@]} )) || {
+        printf "No experiment of phase %s matches EXPERIMENTS=%s\n" "$PHASE" "$EXPERIMENTS" >&2
+        exit 1
+    }
+}
+
+## TIMEOUT_PER -> seconds
+if [[ $TIMEOUT_PER =~ ^([0-9]+)([smh]?)$ ]]; then
+    case ${BASH_REMATCH[2]} in
+        h) TIMEOUT_PER_S=$(( BASH_REMATCH[1]*3600 )) ;;
+        m) TIMEOUT_PER_S=$(( BASH_REMATCH[1]*60 )) ;;
+        *) TIMEOUT_PER_S=${BASH_REMATCH[1]} ;;
+    esac
+else
+    printf "Unrecognized TIMEOUT_PER (expected <int>[smh]): %s\n" "$TIMEOUT_PER" >&2
+    exit 1
+fi
+HARD_TIMEOUT_S=$(( TIMEOUT_PER_S + HARD_MARGIN_S ))
+
+[[ -n $SAMPLE_RANGE && ! $SAMPLE_RANGE =~ ^[1-9][0-9]*,[1-9][0-9]*$ ]] && {
+    printf "Unrecognized SAMPLE_RANGE (expected <first>,<last>): %s\n" "$SAMPLE_RANGE" >&2
+    exit 1
+}
+
+## GNU timeout is 'gtimeout' on macOS
+TIMEOUT_BIN=timeout
+command -v gtimeout &>/dev/null && ! timeout --version &>/dev/null && TIMEOUT_BIN=gtimeout
+
+## At most MAX_JOBS processes, and not more than the CPUs visible to this job
+NCPUS=$(nproc 2>/dev/null || sysctl -n hw.ncpu)
+JOBS=$MAX_JOBS
+(( NCPUS < JOBS )) && {
+    printf "WARNING: only %d CPUs are visible (nproc), using %d parallel jobs instead of %d.\n\n" $NCPUS $NCPUS $MAX_JOBS >&2
+    JOBS=$NCPUS
+}
+
+FAILED=0
+
+function fail {
+    printf "!!! %s\n" "$*" >&2
+    FAILED=1
+}
+
+function output_dir_of {
+    local dataset=$1 idx=$2 variant=$3
+    printf "%s/%s/%sx%s/s100_scaled/%s" "$OUTPUT_ROOT" "$dataset" "$WIDTH" "$idx" "$variant"
+}
+
+## Prints the samples to process: all of the dataset, or SAMPLE_RANGE
+function samples_of {
+    local n=$1
+    if [[ -n $SAMPLE_RANGE ]]; then
+        local first=${SAMPLE_RANGE%,*} last=${SAMPLE_RANGE#*,}
+        (( last > n )) && last=$n
+        seq $first $last
+    else
+        seq 1 $n
+    fi
+}
+
+## Variant options as in spec/variants/all, with the neuron-activations file filled in as in run1.sh
+function variant_options_of {
+    local variant=$1 model=$2
+    local -n lopts=$3
+
+    local opts
+    maybe_find_options_for_variant "$variant" opts
+
+    local activations="${model/models\//neuron_activations\/}"
+    activations="${activations%.*}.txt"
+    local opt
+    for opt in --input-{fix,prefer}-sample-neuron-activations; do
+        opts="${opts//${opt}=\"\"/${opt}=$activations}"
+    done
+    opts="${opts//\"/}"
+
+    lopts=($opts)
+}
+
+## Run the 'nop' strategy over all samples: checks that the binary and the variant options work,
+## and its stats provide the sample headers used for the samples that time out
+function ensure_nop_stats {
+    local work_dir=$1 model=$2 dataset=$3
+    shift 3
+    local opts=("$@")
+
+    local nop_stats="$work_dir/nop.stats.txt"
+    [[ -s $nop_stats ]] && grep -q '^sample \[' "$nop_stats" && return 0
+
+    mkdir -p "$work_dir" || return 1
+    "$CMD" "$model" "$dataset" nop --quiet --format=smtlib2 -V $VERIFIER "${opts[@]}" \
+        -e "$work_dir/nop.phi.txt" -s "$nop_stats.tmp" >"$work_dir/nop.out.txt" 2>"$work_dir/nop.err.txt" && \
+        grep -q '^sample \[' "$nop_stats.tmp" && mv "$nop_stats.tmp" "$nop_stats" && return 0
+
+    printf "Preflight with '%s -V %s' failed for %s, see %s\n" "$CMD" "$VERIFIER" "$model" "$work_dir/nop.err.txt" >&2
+    tail -n 5 "$work_dir/nop.err.txt" >&2
+    return 1
+}
+
+## Prepare the phase-1 explanations for spexplain's '--input-explanations', which only parses interval
+## explanations and needs one for every sample of the dataset:
+##  - only the top-level interval conjuncts over the inputs are kept: with fix-all, the explanations also
+##    contain the fixed neuron activations as linear constraints; phase 2 uses the same variant options,
+##    so these activations are fixed again anyway
+##  - '<null>' (timeout) and '(and)' (empty explanation) are kept in <filtered_phi>, worker.sh skips
+##    these samples; in <input_phi> they are replaced by any valid line, only to satisfy the parser
+function make_itp_input {
+    local src_phi=$1 filtered_phi=$2 input_phi=$3
+
+    awk '
+        /^<null>/ { print; next }
+        {
+            n = length($0); depth = 0; term = ""; out = "(and"
+            for (i = 1; i <= n; i++) {
+                c = substr($0, i, 1)
+                if (c == "(") depth++
+                if (depth >= 2) term = term c
+                if (c == ")") {
+                    depth--
+                    if (depth == 1) {
+                        if (term !~ /\((\+|\*|not) /) out = out " " term
+                        term = ""
+                    }
+                }
+            }
+            print out ")"
+        }' "$src_phi" >"$filtered_phi"
+
+    local placeholder
+    placeholder=$(grep -v -m1 -E '^(<null>|\(and\))' "$filtered_phi")
+    [[ -z $placeholder ]] && placeholder='(and)'
+    awk -v p="$placeholder" '/^(<null>|\(and\))/ { print p; next } { print }' "$filtered_phi" >"$input_phi"
+}
+
+## Prints the sample header lines (sample, expected output, computed output) of sample k
+function nop_head_of {
+    local nop_stats=$1 k=$2
+    awk -v k=$k '
+        $0 ~ "^sample \\[" k "/" { p = 1 }
+        p && /^$/ { exit }
+        p && (/^sample \[/ || /^expected output:/ || /^computed output:/) { print }
+    ' "$nop_stats"
+}
+
+## Convert the 'XmY.YYYs' format of `time` to seconds and back
+function time_to_s {
+    awk -v t="$1" 'BEGIN{ split(t, a, "m"); sub("s", "", a[2]); printf("%.3f", a[1]*60 + a[2]) }'
+}
+function s_to_time {
+    awk -v s="$1" 'BEGIN{ m = int(s/60); printf("%dm%.3fs", m, s - m*60) }'
+}
+
+## Merge the per-sample outputs of one experiment into the usual files in the output directory
+function merge_experiment {
+    local chunk_dir=$1 out_dir=$2 experiment=$3 n=$4
+    local nop_stats="$(dirname "$chunk_dir")/nop.stats.txt"
+    local name="${out_dir#$OUTPUT_ROOT/}/$experiment"
+
+    local samples=($(samples_of $n))
+    local k status missing=()
+    for k in ${samples[@]}; do
+        [[ -s $chunk_dir/s$k.status ]] || missing+=($k)
+    done
+    (( ${#missing[@]} )) && {
+        fail "$name: ${#missing[@]} samples not finished (e.g. ${missing[*]:0:5}), not merged - run the script again"
+        return 1
+    }
+
+    [[ -e $out_dir/$experiment.phi.txt ]] && {
+        printf "=== %s: already exists, not overwritten\n" "$name"
+        return 0
+    }
+
+    local tmp="$chunk_dir/merged"
+    rm -rf "$tmp"
+    mkdir -p "$tmp" || return 1
+
+    ## Header as printed by spexplain for the whole dataset
+    {
+        awk '/^-+$/ { exit } /^(Starting from|Ending at) sample/ { next } /^Timeout per sample/ { next } { print }' "$nop_stats"
+        printf "Timeout per sample [s]: %s\n" $TIMEOUT_PER_S
+        printf -- '-%.0s' {1..60}
+        printf "\n"
+    } >"$tmp/stats"
+    : >"$tmp/phi"
+    : >"$tmp/times"
+    : >"$tmp/out"
+    : >"$tmp/err"
+
+    local real=0 user=0 sys=0
+    local n_ok=0 n_timeout=0 n_error=0 n_skipped=0
+    local errors=() skipped=()
+    for k in ${samples[@]}; do
+        status=$(<"$chunk_dir/s$k.status")
+        local f="$chunk_dir/s$k"
+
+        if [[ $status == ok ]]; then
+            cat "$f.phi.txt" >>"$tmp/phi"
+            cat "$f.times.txt" >>"$tmp/times"
+            ## Everything after the header separator
+            awk 'p { print } /^-+$/ { p = 1 }' "$f.stats.txt" >>"$tmp/stats"
+            if grep -q '^<timeout>' "$f.stats.txt"; then
+                (( ++n_timeout ))
+            else
+                (( ++n_ok ))
+            fi
+        else
+            printf "<null> \n" >>"$tmp/phi"
+            printf "<null>\n" >>"$tmp/times"
+            { printf "\n"; nop_head_of "$nop_stats" $k; printf "#checks: 0\n<timeout>\n"; } >>"$tmp/stats"
+            case $status in
+                timeout)   (( n_timeout++ )) ;;
+                skipped*)  (( n_skipped++ )); skipped+=("$k ${status#skipped:}") ;;
+                *)         (( n_error++ )); errors+=("$k $status") ;;
+            esac
+        fi
+
+        [[ -s $f.out.txt ]] && { printf "=== sample %d\n" $k; cat "$f.out.txt"; } >>"$tmp/out"
+        [[ -s $f.err.txt ]] && { printf "=== sample %d\n" $k; cat "$f.err.txt"; } >>"$tmp/err"
+
+        [[ -r $f.time.txt ]] && {
+            local key t
+            for key in real user sys; do
+                t=$(sed -n "s/^$key[[:space:]]*\([0-9].*\)$/\1/p" "$f.time.txt")
+                [[ -n $t ]] && printf -v $key "%s" "$(awk -v a=${!key} -v b=$(time_to_s "$t") 'BEGIN{ printf("%.3f", a + b) }')"
+            done
+        }
+    done
+
+    ## The same format as `time`; the sum over the samples, i.e. as if run sequentially
+    printf "\nreal\t%s\nuser\t%s\nsys\t%s\n" "$(s_to_time $real)" "$(s_to_time $user)" "$(s_to_time $sys)" >"$tmp/time"
+
+    local n_lines
+    n_lines=$(wc -l <"$tmp/phi" | tr -d ' ')
+    (( n_lines == ${#samples[@]} )) || {
+        fail "$name: merged $n_lines explanations instead of ${#samples[@]}, not merged"
+        return 1
+    }
+
+    ## Re-check right before writing, the final files are never overwritten
+    [[ -e $out_dir/$experiment.phi.txt ]] && {
+        printf "=== %s: already exists, not overwritten\n" "$name"
+        return 0
+    }
+    local t
+    for t in stats times time out err; do
+        mv "$tmp/$t" "$out_dir/$experiment.$t.txt" || return 1
+    done
+    (( ${#errors[@]} )) && printf "%s\n" "${errors[@]}" >"$out_dir/$experiment.errors.txt"
+    (( ${#skipped[@]} )) && printf "%s\n" "${skipped[@]}" >"$out_dir/$experiment.skipped.txt"
+    ## The phi file last: its existence marks a finished experiment
+    mv "$tmp/phi" "$out_dir/$experiment.phi.txt" || return 1
+    rmdir "$tmp" 2>/dev/null
+    (( n_error )) || [[ $KEEP_WORK == 1 ]] || rm -rf "$chunk_dir"
+
+    printf "=== %s: merged %d samples: %d explained, %d timeouts, %d skipped, %d errors\n" \
+        "$name" ${#samples[@]} $n_ok $n_timeout $n_skipped $n_error
+    (( n_error )) && fail "$name: $n_error samples failed (recorded as <timeout>), see $out_dir/$experiment.errors.txt"
+    return 0
+}
+
+################################################################
+
+printf "Phase:        %s\n" "$PHASE"
+printf "Command:      %s -V %s\n" "$CMD" "$VERIFIER"
+printf "Datasets:     %s\n" "$DATASETS"
+printf "Models:       %sx{%s}\n" "$WIDTH" "$MODEL_IDXS"
+printf "Variants:     %s\n" "$VARIANTS"
+printf "Experiments:  %s\n" "${PHASE_EXPERIMENTS[*]}"
+printf "Timeout per:  %ss (hard limit %ss)\n" $TIMEOUT_PER_S $HARD_TIMEOUT_S
+printf "Parallel:     %d jobs (%d CPUs visible)\n" $JOBS $NCPUS
+printf "Output root:  %s/%s\n" "$DATA_DIR" "$OUTPUT_ROOT"
+[[ -n $SAMPLE_RANGE ]] && printf "Samples:      %s\n" "$SAMPLE_RANGE"
+(( DRY_RUN )) && printf "DRY RUN - only printing what would be run\n"
+printf "\n"
+
+[[ -x $CMD ]] || {
+    printf "Not an executable: %s\nSet %s to the right spexplain binary.\n" "$CMD" \
+        "$([[ $PHASE == intervals ]] && echo MARABOU_CMD || echo OPENSMT_CMD)" >&2
+    exit 1
+}
+(( DRY_RUN )) || command -v parallel &>/dev/null || {
+    printf "GNU parallel is required.\n" >&2
+    exit 1
+}
+
+RUN_ID=${PHASE}_$(date +%Y%m%d_%H%M%S)_$$
+RUN_LOG_DIR="$LOG_DIR/$RUN_ID"
+mkdir -p "$RUN_LOG_DIR" || exit 1
+JOBS_FILE="$RUN_LOG_DIR/jobs.txt"
+: >"$JOBS_FILE"
+
+## Experiments to merge after the run: '<chunk_dir> <out_dir> <experiment> <n_samples>'
+TO_MERGE=()
+
+## Bigger models first, so that the longest samples do not end up at the tail
+SORTED_IDXS=$(printf "%s\n" $MODEL_IDXS | sort -rn)
+
+for dataset in $DATASETS; do
+    dataset_fn="datasets/$dataset/${dataset}_s100_scaled.csv"
+    [[ -r $dataset_fn ]] || { fail "Cannot read the dataset: $DATA_DIR/$dataset_fn"; continue; }
+
+    for idx in $SORTED_IDXS; do
+        model="models/$dataset/${dataset}_${WIDTH}x$idx.nnet"
+        [[ -r $model ]] || { fail "Cannot read the model: $DATA_DIR/$model"; continue; }
+
+        for variant in $VARIANTS; do
+            out_dir=$(output_dir_of $dataset $idx $variant)
+            work_dir="$out_dir/.work"
+
+            variant_options_of "$variant" "$model" var_opts
+
+            nop_ok=0
+            for experiment in "${PHASE_EXPERIMENTS[@]}"; do
+                name="${out_dir#$OUTPUT_ROOT/}/$experiment"
+
+                [[ -e $out_dir/$experiment.phi.txt ]] && {
+                    to=$(sed -n 's/^Timeout per sample \[s\]: *//p' "$out_dir/$experiment.stats.txt" 2>/dev/null)
+                    printf "=== %s: already exists (timeout per sample: %ss), skipped\n" "$name" "${to:-?}"
+                    continue
+                }
+
+                input_opts=()
+                src_phi=
+                if [[ $PHASE == itp ]]; then
+                    src_phi="$out_dir/$SRC_EXPERIMENT.phi.txt"
+                    [[ -r $src_phi ]] || {
+                        printf "=== %s: no interval explanations %s yet, skipped\n" "$name" "$src_phi"
+                        continue
+                    }
+                    dst_experiment=${experiment%%__*}
+                    strategies=${EXPERIMENT_TO_STRATEGIES[$dst_experiment]}
+                else
+                    strategies=${EXPERIMENT_TO_STRATEGIES[$experiment]}
+                fi
+
+                (( DRY_RUN )) && {
+                    printf "Would run: %s '%s' on %s, %s samples\n" "$name" "$strategies" "$dataset_fn" "${SAMPLE_RANGE:-all}"
+                    continue
+                }
+
+                (( nop_ok )) || {
+                    ensure_nop_stats "$work_dir" "$model" "$dataset_fn" "${var_opts[@]}" || {
+                        fail "$name: preflight failed, skipped"
+                        continue 2
+                    }
+                    nop_ok=1
+                }
+                n_samples=$(sed -n 's/^Dataset size: *//p' "$work_dir/nop.stats.txt")
+
+                chunk_dir="$work_dir/$experiment"
+                mkdir -p "$chunk_dir" || { fail "Cannot create $chunk_dir"; continue; }
+
+                if [[ -n $src_phi ]]; then
+                    ## Testing with SAMPLE_RANGE: phase 1 has only explained the range, pad it with timeouts
+                    [[ -n $SAMPLE_RANGE ]] && {
+                        awk -v first=${SAMPLE_RANGE%,*} -v n=$n_samples '
+                            BEGIN { for (i = 1; i < first; i++) print "<null> " }
+                            { print; c++ }
+                            END { for (i = first + c; i <= n; i++) print "<null> " }' "$src_phi" >"$chunk_dir/src.padded.phi.txt"
+                        src_phi="$chunk_dir/src.padded.phi.txt"
+                    }
+                    n_src=$(wc -l <"$src_phi" | tr -d ' ')
+                    (( n_src == n_samples )) || {
+                        fail "$name: $src_phi has $n_src explanations instead of $n_samples, skipped"
+                        continue
+                    }
+                    make_itp_input "$src_phi" "$chunk_dir/input.filtered.phi.txt" "$chunk_dir/input.phi.txt"
+                    input_opts=(--input-explanations="$chunk_dir/input.phi.txt")
+                    ## worker.sh decides on skipping by the filtered explanations
+                    src_phi="$chunk_dir/input.filtered.phi.txt"
+                fi
+
+                opts=(--quiet --format=smtlib2 -V $VERIFIER --time-limit-per=$(( TIMEOUT_PER_S*1000 )) "${var_opts[@]}" "${input_opts[@]}")
+                {
+                    declare -p CMD model dataset_fn strategies opts src_phi HARD_TIMEOUT_S TIMEOUT_BIN name
+                } >"$chunk_dir/job.env"
+
+                n_todo=0
+                for k in $(samples_of $n_samples); do
+                    [[ -s $chunk_dir/s$k.status ]] && continue
+                    printf "%s\t%d\n" "$chunk_dir" $k >>"$JOBS_FILE"
+                    (( n_todo++ ))
+                done
+                printf "=== %s: %d samples to run\n" "$name" $n_todo
+                TO_MERGE+=("$chunk_dir|$out_dir|$experiment|$n_samples")
+            done
+        done
+    done
+done
+
+(( DRY_RUN )) && { rm -rf "$RUN_LOG_DIR"; exit $FAILED; }
+
+N_JOBS=$(wc -l <"$JOBS_FILE" | tr -d ' ')
+printf "\nRunning %d samples with %d parallel jobs, started %s\n" $N_JOBS $JOBS "$(date)"
+printf "Job log: %s/joblog.txt\n\n" "$RUN_LOG_DIR"
+
+if (( N_JOBS )); then
+    parallel --jobs $JOBS --line-buffer --colsep '\t' --joblog "$RUN_LOG_DIR/joblog.txt" \
+        -a "$JOBS_FILE" "$WORKER" {1} {2}
+fi
+
+printf "\nFinished running %s, merging\n\n" "$(date)"
+
+for entry in "${TO_MERGE[@]}"; do
+    IFS='|' read -r chunk_dir out_dir experiment n_samples <<<"$entry"
+    merge_experiment "$chunk_dir" "$out_dir" "$experiment" "$n_samples"
+done
+
+if (( FAILED )); then
+    printf "\nDone with problems (see '!!!' above).\n"
+    exit 1
+fi
+printf "\nSuccess.\n"
+exit 0

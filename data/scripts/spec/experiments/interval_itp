@@ -1,0 +1,12 @@
+## Interval explanations (computed with Marabou) generalized by interpolation (OpenSMT).
+## Used by tacas27/interval_itp/*.sh; for the stats use:
+##   ./scripts/collect_stats.sh <explanations_dir>... interval_itp +consecutive
+EXPERIMENT_NAMES=(
+    trial_n_4
+)
+
+CONSECUTIVE_EXPERIMENTS=(
+    'trial_n_4;itp_aweak_bstrong'
+    'trial_n_4;itp_afactor_0.5_bstrong'
+    'trial_n_4;itp_astrong_bstrong'
+)
