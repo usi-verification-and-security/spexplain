@@ -3,6 +3,8 @@
 ## Phase 'intervals' computes interval explanations ('trial n 4' = trial_n_4)
 ## with the Marabou build; phase 'itp' generalizes them by interpolation with the OpenSMT build
 ## (itp_<algo>__trial_n_4, the naming of consecutive experiments).
+## Phase 'ucore' (sourced by ucore.sh) computes the experiments of spec/experiments/ucore_itp from scratch
+## with the OpenSMT build ('itp <algo>, bstrong; ucore [min]').
 ##
 ## Every sample is one process (spexplain -i <k>,<k>), so that up to MAX_JOBS processes keep the
 ## node busy and so that the timeout per sample is enforced from outside: the Marabou verifier
@@ -11,22 +13,25 @@
 ## <output_dir>/<experiment>.{phi,stats,times,time,out,err}.txt
 ## (<output_dir> = explanations/<dataset>/<W>x<idx>/s100_scaled/<variant>).
 ##
-## Existing results are never overwritten: an experiment whose <experiment>.phi.txt already exists
-## is skipped. Interrupted runs resume - just run the same script again; finished samples are kept.
+## Existing results are overwritten: every run recomputes all its experiments and replaces the final
+## files. Interrupted runs resume - run the same script again; the samples finished so far (kept in
+## .work/ until the experiment is merged) are not run again.
 ##
 ## Environment variables (all optional):
 ##   DATASETS          datasets to run (default: 'heart_attack loan')
 ##   WIDTH             neurons per layer (default: 50)
 ##   MODEL_IDXS        <WIDTH>x<idx> models (default: '1 2 3 4')
 ##   VARIANTS          neuron-activation variants (default: 'naive guide-all fix-all')
+##   VARIANT_MODEL_IDXS associative array <variant> -> model idxs, set by the phase script (ucore.sh):
+##                     a variant runs only on the models listed for it (and in MODEL_IDXS)
 ##   EXPERIMENTS       restrict this phase to these experiment names (default: all of the phase)
 ##   TIMEOUT_PER       timeout per sample, <int>[smh] (default: INTERVALS_TIMEOUT_PER=10m for intervals,
-##                     ITP_TIMEOUT_PER=5m for itp)
+##                     ITP_TIMEOUT_PER=5m for itp, UCORE_TIMEOUT_PER=20m for ucore)
 ##   MAX_JOBS          max. parallel processes (default: 60; also capped by nproc)
 ##   MARABOU_CMD       spexplain built with Marabou (default: <repo>/build-marabou/spexplain)
 ##   OPENSMT_CMD       spexplain built with OpenSMT (default: <repo>/build/spexplain)
 ##   OUTPUT_ROOT       root of the outputs (default: explanations, i.e. data/explanations)
-##   LOG_DIR           job logs (default: data/logs/interval_itp)
+##   LOG_DIR           job logs (default: data/logs/interval_itp, data/logs/ucore_itp for ucore)
 ##   KEEP_WORK=1       keep the per-sample files after a merge (by default they are removed,
 ##                     unless some sample failed)
 ##   SAMPLE_RANGE      only samples <first>,<last> - for testing, use with another OUTPUT_ROOT
@@ -53,19 +58,26 @@ cd "$DATA_DIR" || exit 1
 
 source "$SCRIPTS_DIR/lib/run"
 
-read_experiments_spec interval_itp >/dev/null || exit 1
+if [[ $PHASE == ucore ]]; then
+    PIPELINE_SPEC=ucore_itp
+else
+    PIPELINE_SPEC=interval_itp
+fi
+read_experiments_spec $PIPELINE_SPEC >/dev/null || exit 1
 SRC_EXPERIMENT=${CONSECUTIVE_EXPERIMENTS_SRC_NAMES[0]}
 
 DATASETS=${DATASETS:-heart_attack loan}
 WIDTH=${WIDTH:-50}
 MODEL_IDXS=${MODEL_IDXS:-1 2 3 4}
 VARIANTS=${VARIANTS:-naive guide-all fix-all}
+## No per-variant restriction of the models unless set by the phase script
+declare -p VARIANT_MODEL_IDXS &>/dev/null || declare -A VARIANT_MODEL_IDXS=()
 MAX_JOBS=${MAX_JOBS:-60}
 MARABOU_CMD=${MARABOU_CMD:-$ROOT_DIR/build-marabou/spexplain}
 OPENSMT_CMD=${OPENSMT_CMD:-$ROOT_DIR/build/spexplain}
 OUTPUT_ROOT=${OUTPUT_ROOT:-explanations}
 OUTPUT_ROOT=${OUTPUT_ROOT%/}
-LOG_DIR=${LOG_DIR:-$DATA_DIR/logs/interval_itp}
+LOG_DIR=${LOG_DIR:-$DATA_DIR/logs/$PIPELINE_SPEC}
 
 case $PHASE in
     intervals)
@@ -82,6 +94,13 @@ case $PHASE in
         VERIFIER=${ITP_VERIFIER:-opensmt}
         TIMEOUT_PER=${TIMEOUT_PER:-${ITP_TIMEOUT_PER:-5m}}
         ## OpenSMT respects the internal limit; the outer one only guards against a hang
+        HARD_MARGIN_S=${HARD_MARGIN_S:-60}
+        ;;
+    ucore)
+        PHASE_EXPERIMENTS=("${EXPERIMENT_NAMES[@]}")
+        CMD=$OPENSMT_CMD
+        VERIFIER=${UCORE_VERIFIER:-opensmt}
+        TIMEOUT_PER=${TIMEOUT_PER:-${UCORE_TIMEOUT_PER:-20m}}
         HARD_MARGIN_S=${HARD_MARGIN_S:-60}
         ;;
     *)
@@ -264,11 +283,6 @@ function merge_experiment {
         return 1
     }
 
-    [[ -e $out_dir/$experiment.phi.txt ]] && {
-        printf "=== %s: already exists, not overwritten\n" "$name"
-        return 0
-    }
-
     local tmp="$chunk_dir/merged"
     rm -rf "$tmp"
     mkdir -p "$tmp" || return 1
@@ -335,11 +349,8 @@ function merge_experiment {
         return 1
     }
 
-    ## Re-check right before writing, the final files are never overwritten
-    [[ -e $out_dir/$experiment.phi.txt ]] && {
-        printf "=== %s: already exists, not overwritten\n" "$name"
-        return 0
-    }
+    [[ -e $out_dir/$experiment.phi.txt ]] && printf "=== %s: overwriting the existing results\n" "$name"
+    rm -f "$out_dir/$experiment".{errors,skipped}.txt
     local t
     for t in stats times time out err; do
         mv "$tmp/$t" "$out_dir/$experiment.$t.txt" || return 1
@@ -364,6 +375,9 @@ printf "Command:      %s -V %s\n" "$CMD" "$VERIFIER"
 printf "Datasets:     %s\n" "$DATASETS"
 printf "Models:       %sx{%s}\n" "$WIDTH" "$MODEL_IDXS"
 printf "Variants:     %s\n" "$VARIANTS"
+for variant in $VARIANTS; do
+    [[ -n ${VARIANT_MODEL_IDXS[$variant]} ]] && printf "  %-11s %sx{%s}\n" "$variant:" "$WIDTH" "${VARIANT_MODEL_IDXS[$variant]}"
+done
 printf "Experiments:  %s\n" "${PHASE_EXPERIMENTS[*]}"
 printf "Timeout per:  %ss (hard limit %ss)\n" $TIMEOUT_PER_S $HARD_TIMEOUT_S
 printf "Parallel:     %d jobs (%d CPUs visible)\n" $JOBS $NCPUS
@@ -403,6 +417,8 @@ for dataset in $DATASETS; do
         [[ -r $model ]] || { fail "Cannot read the model: $DATA_DIR/$model"; continue; }
 
         for variant in $VARIANTS; do
+            [[ -n ${VARIANT_MODEL_IDXS[$variant]} && " ${VARIANT_MODEL_IDXS[$variant]} " != *" $idx "* ]] && continue
+
             out_dir=$(output_dir_of $dataset $idx $variant)
             work_dir="$out_dir/.work"
 
@@ -412,11 +428,7 @@ for dataset in $DATASETS; do
             for experiment in "${PHASE_EXPERIMENTS[@]}"; do
                 name="${out_dir#$OUTPUT_ROOT/}/$experiment"
 
-                [[ -e $out_dir/$experiment.phi.txt ]] && {
-                    to=$(sed -n 's/^Timeout per sample \[s\]: *//p' "$out_dir/$experiment.stats.txt" 2>/dev/null)
-                    printf "=== %s: already exists (timeout per sample: %ss), skipped\n" "$name" "${to:-?}"
-                    continue
-                }
+                [[ -e $out_dir/$experiment.phi.txt ]] && printf "=== %s: exists, will be overwritten\n" "$name"
 
                 input_opts=()
                 src_phi=

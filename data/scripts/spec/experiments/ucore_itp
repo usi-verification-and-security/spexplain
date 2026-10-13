@@ -1,0 +1,13 @@
+## Interpolants (OpenSMT) reduced by unsat cores, plain and minimized.
+## The interpolant is recomputed within the same run ('itp ...; ucore'), because '--input-explanations'
+## only parses interval explanations.
+## Used by tacas27/interval_itp/ucore.sh; for the stats use:
+##   ./scripts/collect_stats.sh <explanations_dir>... ucore_itp
+EXPERIMENT_NAMES=(
+    ucore_itp_aweak_bstrong
+    ucore_itp_afactor_0.5_bstrong
+    ucore_itp_astrong_bstrong
+    ucore_min_itp_aweak_bstrong
+    ucore_min_itp_afactor_0.5_bstrong
+    ucore_min_itp_astrong_bstrong
+)
