@@ -24,6 +24,8 @@
 ##   VARIANTS          neuron-activation variants (default: 'naive guide-all fix-all')
 ##   VARIANT_MODEL_IDXS associative array <variant> -> model idxs, set by the phase script (ucore.sh):
 ##                     a variant runs only on the models listed for it (and in MODEL_IDXS)
+##   PIPELINE_SPEC     experiments spec of the phases intervals and itp (default: interval_itp, i.e. trial_n_4;
+##                     interval_itp_abductive: trial_n_4_abductive = 'abductive; trial n 4')
 ##   EXPERIMENTS       restrict this phase to these experiment names (default: all of the phase)
 ##   TIMEOUT_PER       timeout per sample, <int>[smh] (default: INTERVALS_TIMEOUT_PER=10m for intervals,
 ##                     ITP_TIMEOUT_PER=5m for itp, UCORE_TIMEOUT_PER=20m for ucore)
@@ -61,7 +63,7 @@ source "$SCRIPTS_DIR/lib/run"
 if [[ $PHASE == ucore ]]; then
     PIPELINE_SPEC=ucore_itp
 else
-    PIPELINE_SPEC=interval_itp
+    PIPELINE_SPEC=${PIPELINE_SPEC:-interval_itp}
 fi
 read_experiments_spec $PIPELINE_SPEC >/dev/null || exit 1
 SRC_EXPERIMENT=${CONSECUTIVE_EXPERIMENTS_SRC_NAMES[0]}
@@ -371,6 +373,7 @@ function merge_experiment {
 ################################################################
 
 printf "Phase:        %s\n" "$PHASE"
+printf "Spec:         %s\n" "$PIPELINE_SPEC"
 printf "Command:      %s -V %s\n" "$CMD" "$VERIFIER"
 printf "Datasets:     %s\n" "$DATASETS"
 printf "Models:       %sx{%s}\n" "$WIDTH" "$MODEL_IDXS"

@@ -1,0 +1,13 @@
+## As interval_itp, but the interval explanations start from an abductive explanation:
+## 'abductive; trial n 4' (computed with Marabou), generalized by interpolation (OpenSMT).
+## Used by tacas27/interval_itp/*.sh with PIPELINE_SPEC=interval_itp_abductive; for the stats use:
+##   ./scripts/collect_stats.sh <explanations_dir>... interval_itp_abductive +consecutive
+EXPERIMENT_NAMES=(
+    trial_n_4_abductive
+)
+
+CONSECUTIVE_EXPERIMENTS=(
+    'trial_n_4_abductive;itp_aweak_bstrong'
+    'trial_n_4_abductive;itp_afactor_0.5_bstrong'
+    'trial_n_4_abductive;itp_astrong_bstrong'
+)
