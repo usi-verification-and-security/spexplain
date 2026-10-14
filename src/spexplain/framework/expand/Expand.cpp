@@ -428,13 +428,31 @@ void Framework::Expand::assertClassification(Network::Classification const & cls
     }
 
     // With single output value, the flip in classification means flipping the value across 0
+    constexpr Float threshold = 0.015625f;
+//!! hack
+#ifdef MARABOU
+    bool const isMarabou = dynamic_cast<xai::verifiers::MarabouVerifier const *>(&getVerifier());
+#else
+    bool const isMarabou = false;
+#endif
     assert(label == 0 || label == 1);
     if (label == 1) {
-        // >= 0 --> < 0
-        verifierPtr->addStrictUpperBound(outputLayerIndex, 0, zero);
+        //!! hack
+        if (not isMarabou) {
+            // >= 0 --> < 0
+            verifierPtr->addStrictUpperBound(outputLayerIndex, 0, zero);
+        } else {
+            // <= -threshold
+            verifierPtr->addUpperBound(outputLayerIndex, 0, -threshold);
+        }
     } else {
-        // < 0 --> >= 0
-        verifierPtr->addLowerBound(outputLayerIndex, 0, zero);
+        if (not isMarabou) {
+            // < 0 --> >= 0
+            verifierPtr->addLowerBound(outputLayerIndex, 0, zero);
+        } else {
+            // >= threshold
+            verifierPtr->addLowerBound(outputLayerIndex, 0, threshold);
+        }
     }
 }
 
