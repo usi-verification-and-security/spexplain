@@ -5,6 +5,10 @@
 ## (itp_<algo>__trial_n_4, the naming of consecutive experiments).
 ## Phase 'ucore' (sourced by ucore.sh) computes the experiments of spec/experiments/ucore_itp from scratch
 ## with the OpenSMT build ('itp <algo>, bstrong; ucore [min]').
+## Phase 'itp_vars' (sourced by itp_vars_ucore.sh) computes interpolation restricted to selected features
+## and the unsat cores on top of it from scratch with the OpenSMT build:
+## itp_<ITP>_vars_<x_i>_..., ucore_itp_<ITP>_vars_... and ucore_min_itp_<ITP>_vars_...
+## ('itp <ITP_PARAMS>, vars <VARS>[; ucore [min]]'), each with its own timeout per sample.
 ##
 ## Every sample is one process (spexplain -i <k>,<k>), so that up to MAX_JOBS processes keep the
 ## node busy and so that the timeout per sample is enforced from outside: the Marabou verifier
@@ -28,7 +32,10 @@
 ##                     interval_itp_abductive: trial_n_4_abductive = 'abductive; trial n 4')
 ##   EXPERIMENTS       restrict this phase to these experiment names (default: all of the phase)
 ##   TIMEOUT_PER       timeout per sample, <int>[smh] (default: INTERVALS_TIMEOUT_PER=10m for intervals,
-##                     ITP_TIMEOUT_PER=5m for itp, UCORE_TIMEOUT_PER=20m for ucore)
+##                     ITP_TIMEOUT_PER=5m for itp, UCORE_TIMEOUT_PER=20m for ucore;
+##                     itp_vars: per experiment, see itp_vars_ucore.sh)
+##   EXPERIMENT_TIMEOUT_PER associative array <experiment> -> timeout per sample (set from PHASE_TIMEOUTS
+##                     in phase itp_vars): overrides TIMEOUT_PER for that experiment
 ##   MAX_JOBS          max. parallel processes (default: 60; also capped by nproc)
 ##   MARABOU_CMD       spexplain built with Marabou (default: <repo>/build-marabou/spexplain)
 ##   OPENSMT_CMD       spexplain built with OpenSMT (default: <repo>/build/spexplain)
@@ -62,11 +69,16 @@ source "$SCRIPTS_DIR/lib/run"
 
 if [[ $PHASE == ucore ]]; then
     PIPELINE_SPEC=ucore_itp
+elif [[ $PHASE == itp_vars ]]; then
+    ## The experiments are given by the phase script, not by a spec file
+    PIPELINE_SPEC=itp_vars
 else
     PIPELINE_SPEC=${PIPELINE_SPEC:-interval_itp}
 fi
-read_experiments_spec $PIPELINE_SPEC >/dev/null || exit 1
-SRC_EXPERIMENT=${CONSECUTIVE_EXPERIMENTS_SRC_NAMES[0]}
+[[ $PHASE == itp_vars ]] || {
+    read_experiments_spec $PIPELINE_SPEC >/dev/null || exit 1
+    SRC_EXPERIMENT=${CONSECUTIVE_EXPERIMENTS_SRC_NAMES[0]}
+}
 
 DATASETS=${DATASETS:-heart_attack loan}
 WIDTH=${WIDTH:-50}
@@ -74,6 +86,8 @@ MODEL_IDXS=${MODEL_IDXS:-1 2 3 4}
 VARIANTS=${VARIANTS:-naive guide-all fix-all}
 ## No per-variant restriction of the models unless set by the phase script
 declare -p VARIANT_MODEL_IDXS &>/dev/null || declare -A VARIANT_MODEL_IDXS=()
+## No per-experiment timeouts unless set by the phase script
+declare -p EXPERIMENT_TIMEOUT_PER &>/dev/null || declare -A EXPERIMENT_TIMEOUT_PER=()
 MAX_JOBS=${MAX_JOBS:-60}
 MARABOU_CMD=${MARABOU_CMD:-$ROOT_DIR/build-marabou/spexplain}
 OPENSMT_CMD=${OPENSMT_CMD:-$ROOT_DIR/build/spexplain}
@@ -105,6 +119,24 @@ case $PHASE in
         TIMEOUT_PER=${TIMEOUT_PER:-${UCORE_TIMEOUT_PER:-20m}}
         HARD_MARGIN_S=${HARD_MARGIN_S:-60}
         ;;
+    itp_vars)
+        ## PHASE_STRATEGIES and PHASE_TIMEOUTS (timeout per sample of each strategies) are set by the phase script
+        (( ${#PHASE_STRATEGIES[@]} )) || {
+            printf "PHASE_STRATEGIES is not set - run itp_vars_ucore.sh.\n" >&2
+            exit 1
+        }
+        PHASE_EXPERIMENTS=()
+        for i in ${!PHASE_STRATEGIES[@]}; do
+            set_experiment_name_from_strategies e "${PHASE_STRATEGIES[$i]}"
+            PHASE_EXPERIMENTS+=("$e")
+            EXPERIMENT_TO_STRATEGIES[$e]=${PHASE_STRATEGIES[$i]}
+            [[ -n ${PHASE_TIMEOUTS[$i]} ]] && EXPERIMENT_TIMEOUT_PER[$e]=${PHASE_TIMEOUTS[$i]}
+        done
+        CMD=$OPENSMT_CMD
+        VERIFIER=${ITP_VERIFIER:-opensmt}
+        TIMEOUT_PER=${TIMEOUT_PER:-5m}
+        HARD_MARGIN_S=${HARD_MARGIN_S:-60}
+        ;;
     *)
         printf "Unknown PHASE: %s\n" "$PHASE" >&2
         exit 1
@@ -123,18 +155,29 @@ esac
     }
 }
 
-## TIMEOUT_PER -> seconds
-if [[ $TIMEOUT_PER =~ ^([0-9]+)([smh]?)$ ]]; then
+## <int>[smh] -> seconds
+function timeout_to_s {
+    local -n ls=$2
+    [[ $1 =~ ^([0-9]+)([smh]?)$ ]] || {
+        printf "Unrecognized timeout per sample (expected <int>[smh]): %s\n" "$1" >&2
+        return 1
+    }
     case ${BASH_REMATCH[2]} in
-        h) TIMEOUT_PER_S=$(( BASH_REMATCH[1]*3600 )) ;;
-        m) TIMEOUT_PER_S=$(( BASH_REMATCH[1]*60 )) ;;
-        *) TIMEOUT_PER_S=${BASH_REMATCH[1]} ;;
+        h) ls=$(( BASH_REMATCH[1]*3600 )) ;;
+        m) ls=$(( BASH_REMATCH[1]*60 )) ;;
+        *) ls=${BASH_REMATCH[1]} ;;
     esac
-else
-    printf "Unrecognized TIMEOUT_PER (expected <int>[smh]): %s\n" "$TIMEOUT_PER" >&2
-    exit 1
-fi
+}
+
+timeout_to_s "$TIMEOUT_PER" TIMEOUT_PER_S || exit 1
 HARD_TIMEOUT_S=$(( TIMEOUT_PER_S + HARD_MARGIN_S ))
+
+## Timeout per sample of each experiment in seconds: EXPERIMENT_TIMEOUT_PER or TIMEOUT_PER
+declare -A EXPERIMENT_TIMEOUT_S=()
+for e in "${PHASE_EXPERIMENTS[@]}"; do
+    EXPERIMENT_TIMEOUT_S[$e]=$TIMEOUT_PER_S
+    [[ -n ${EXPERIMENT_TIMEOUT_PER[$e]} ]] && { timeout_to_s "${EXPERIMENT_TIMEOUT_PER[$e]}" EXPERIMENT_TIMEOUT_S[$e] || exit 1; }
+done
 
 [[ -n $SAMPLE_RANGE && ! $SAMPLE_RANGE =~ ^[1-9][0-9]*,[1-9][0-9]*$ ]] && {
     printf "Unrecognized SAMPLE_RANGE (expected <first>,<last>): %s\n" "$SAMPLE_RANGE" >&2
@@ -272,6 +315,7 @@ function s_to_time {
 ## Merge the per-sample outputs of one experiment into the usual files in the output directory
 function merge_experiment {
     local chunk_dir=$1 out_dir=$2 experiment=$3 n=$4
+    local timeout_s=${EXPERIMENT_TIMEOUT_S[$experiment]:-$TIMEOUT_PER_S}
     local nop_stats="$(dirname "$chunk_dir")/nop.stats.txt"
     local name="${out_dir#$OUTPUT_ROOT/}/$experiment"
 
@@ -292,7 +336,7 @@ function merge_experiment {
     ## Header as printed by spexplain for the whole dataset
     {
         awk '/^-+$/ { exit } /^(Starting from|Ending at) sample/ { next } /^Timeout per sample/ { next } { print }' "$nop_stats"
-        printf "Timeout per sample [s]: %s\n" $TIMEOUT_PER_S
+        printf "Timeout per sample [s]: %s\n" $timeout_s
         printf -- '-%.0s' {1..60}
         printf "\n"
     } >"$tmp/stats"
@@ -382,7 +426,15 @@ for variant in $VARIANTS; do
     [[ -n ${VARIANT_MODEL_IDXS[$variant]} ]] && printf "  %-11s %sx{%s}\n" "$variant:" "$WIDTH" "${VARIANT_MODEL_IDXS[$variant]}"
 done
 printf "Experiments:  %s\n" "${PHASE_EXPERIMENTS[*]}"
-printf "Timeout per:  %ss (hard limit %ss)\n" $TIMEOUT_PER_S $HARD_TIMEOUT_S
+if [[ $PHASE == itp_vars ]]; then
+    printf "Timeout per:  "
+    for e in "${PHASE_EXPERIMENTS[@]}"; do
+        printf "%s=%ss " "$e" ${EXPERIMENT_TIMEOUT_S[$e]}
+    done
+    printf "(hard limit +%ss)\n" $HARD_MARGIN_S
+else
+    printf "Timeout per:  %ss (hard limit %ss)\n" $TIMEOUT_PER_S $HARD_TIMEOUT_S
+fi
 printf "Parallel:     %d jobs (%d CPUs visible)\n" $JOBS $NCPUS
 printf "Output root:  %s/%s\n" "$DATA_DIR" "$OUTPUT_ROOT"
 [[ -n $SAMPLE_RANGE ]] && printf "Samples:      %s\n" "$SAMPLE_RANGE"
@@ -484,7 +536,9 @@ for dataset in $DATASETS; do
                     src_phi="$chunk_dir/input.filtered.phi.txt"
                 fi
 
-                opts=(--quiet --format=smtlib2 -V $VERIFIER --time-limit-per=$(( TIMEOUT_PER_S*1000 )) "${var_opts[@]}" "${input_opts[@]}")
+                timeout_s=${EXPERIMENT_TIMEOUT_S[$experiment]}
+                HARD_TIMEOUT_S=$(( timeout_s + HARD_MARGIN_S ))
+                opts=(--quiet --format=smtlib2 -V $VERIFIER --time-limit-per=$(( timeout_s*1000 )) "${var_opts[@]}" "${input_opts[@]}")
                 {
                     declare -p CMD model dataset_fn strategies opts src_phi HARD_TIMEOUT_S TIMEOUT_BIN name
                 } >"$chunk_dir/job.env"
