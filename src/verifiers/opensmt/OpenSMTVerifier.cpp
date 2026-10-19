@@ -703,6 +703,7 @@ void OpenSMTVerifier::OpenSMTImpl::addClassificationConstraint(NodeIndex node, F
             // Create a constraint: (targetNodeVar - outputVarsOrTerms[i]) > threshold
             PTRef diff = logic->mkMinus(outputVarsOrTerms[i], targetNodeVar);
             PTRef thresholdConst = logic->mkRealConst(floatToRational(threshold));
+            //!! wrong for ties - it should use Geq
             PTRef constraint = logic->mkGt(diff, thresholdConst);
             constraints.push_back(constraint);
         }
