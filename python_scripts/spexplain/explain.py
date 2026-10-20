@@ -43,14 +43,14 @@ def rewrite_args(args):
         return args
     args = new_args
 
-    # The hybrid configuration: fix the neuron activations that are not affected by adversarial counterexamples,
-    # use the defaults of the engine for the rest
+    # The hybrid configuration: fix only the neuron activations that are not affected by adversarial counterexamples,
+    # regardless of the default fixing of the engine; guiding uses the defaults of the engine
     if has_long_opt(args, INPUT_FIX_OPT):
         raise Error(f"Option '{FIX_DEFAULT_OPT} {ADVERSARIAL}' cannot be combined with '{INPUT_FIX_OPT}'")
     activations_file = activations.default_file(model)
     if not activations_file.exists():
         activations.generate_adversarial(model, dataset, activations_file)
-    args += [INPUT_FIX_OPT, str(activations_file)]
+    args += [FIX_DEFAULT_OPT, 'none', INPUT_FIX_OPT, str(activations_file)]
     return args
 
 
@@ -67,6 +67,7 @@ def print_usage(engine_path=None):
     print('Options processed by spexplain itself:')
     print(f'\t{FIX_DEFAULT_OPT} {ADVERSARIAL}')
     print('\t\tFix the activations of neurons not affected by adversarial counterexamples (the hybrid configuration),')
-    print('\t\tstored in data/neuron_activations/... (computed if it does not exist yet)')
+    print('\t\tstored in data/neuron_activations/... (computed if it does not exist yet,')
+    print('\t\twhich requires PyTorch and the PyTorch model <nn_model_fn> with the extension .pth)')
     print('Other options are forwarded to the engine:\n')
     engine.print_usage(engine_path)
