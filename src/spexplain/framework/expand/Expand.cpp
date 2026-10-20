@@ -70,6 +70,11 @@ std::unique_ptr<xai::verifiers::Verifier> Framework::Expand::makeVerifier(std::s
         return std::make_unique<xai::verifiers::OpenSMTVerifier>();
 #ifdef MARABOU
     } else if (toLower(name) == "marabou") {
+        if (requiresSMTSolver) {
+            throw std::invalid_argument{
+                "Verifier marabou is not compatible with strategies that require an SMT solver: "s +
+                expand::opensmt::UnsatCoreStrategy::name() + ", " + expand::opensmt::InterpolationStrategy::name()};
+        }
         return std::make_unique<xai::verifiers::MarabouVerifier>();
 #endif
     }

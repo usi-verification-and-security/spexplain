@@ -492,6 +492,7 @@ int mainDumpPsi(int argc, char * argv[], int i, [[maybe_unused]] int nArgs) {
 
     spexplain::Framework framework{config};
     framework.setNetwork(std::move(networkPtr));
+    //+ default to opensmt unless set explicitly: implicitly selected marabou does not implement the dump
     framework.setVerifier();
 
     framework.dumpDomainsAsSmtLib2Query();
