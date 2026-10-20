@@ -69,7 +69,7 @@ endif()
 
 set_target_properties(SpEXplAIn-bin
 PROPERTIES
-    OUTPUT_NAME spexplain
+    OUTPUT_NAME engine
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 

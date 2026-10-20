@@ -10,9 +10,9 @@
 ## itp_<ITP>_vars_<x_i>_..., ucore_itp_<ITP>_vars_... and ucore_min_itp_<ITP>_vars_...
 ## ('itp <ITP_PARAMS>, vars <VARS>[; ucore [min]]'), each with its own timeout per sample.
 ##
-## Every sample is one process (spexplain -i <k>,<k>), so that up to MAX_JOBS processes keep the
+## Every sample is one process (engine -i <k>,<k>), so that up to MAX_JOBS processes keep the
 ## node busy and so that the timeout per sample is enforced from outside: the Marabou verifier
-## ignores spexplain's '-t'. The per-sample outputs go to <output_dir>/.work/<experiment>/ and,
+## ignores the engine's '-t'. The per-sample outputs go to <output_dir>/.work/<experiment>/ and,
 ## once all samples of an experiment are done, they are merged into the usual files
 ## <output_dir>/<experiment>.{phi,stats,times,time,out,err}.txt
 ## (<output_dir> = explanations/<dataset>/<W>x<idx>/s100_scaled/<variant>).
@@ -37,8 +37,8 @@
 ##   EXPERIMENT_TIMEOUT_PER associative array <experiment> -> timeout per sample (set from PHASE_TIMEOUTS
 ##                     in phase itp_vars): overrides TIMEOUT_PER for that experiment
 ##   MAX_JOBS          max. parallel processes (default: 60; also capped by nproc)
-##   MARABOU_CMD       spexplain built with Marabou (default: <repo>/build-marabou/spexplain)
-##   OPENSMT_CMD       spexplain built with OpenSMT (default: <repo>/build/spexplain)
+##   MARABOU_CMD       engine built with Marabou (default: <repo>/build-marabou/engine)
+##   OPENSMT_CMD       engine built with OpenSMT (default: <repo>/build/engine)
 ##   OUTPUT_ROOT       root of the outputs (default: explanations, i.e. data/explanations)
 ##   LOG_DIR           job logs (default: data/logs/interval_itp, data/logs/ucore_itp for ucore)
 ##   KEEP_WORK=1       keep the per-sample files after a merge (by default they are removed,
@@ -89,8 +89,8 @@ declare -p VARIANT_MODEL_IDXS &>/dev/null || declare -A VARIANT_MODEL_IDXS=()
 ## No per-experiment timeouts unless set by the phase script
 declare -p EXPERIMENT_TIMEOUT_PER &>/dev/null || declare -A EXPERIMENT_TIMEOUT_PER=()
 MAX_JOBS=${MAX_JOBS:-60}
-MARABOU_CMD=${MARABOU_CMD:-$ROOT_DIR/build-marabou/spexplain}
-OPENSMT_CMD=${OPENSMT_CMD:-$ROOT_DIR/build/spexplain}
+MARABOU_CMD=${MARABOU_CMD:-$ROOT_DIR/build-marabou/engine}
+OPENSMT_CMD=${OPENSMT_CMD:-$ROOT_DIR/build/engine}
 OUTPUT_ROOT=${OUTPUT_ROOT:-explanations}
 OUTPUT_ROOT=${OUTPUT_ROOT%/}
 LOG_DIR=${LOG_DIR:-$DATA_DIR/logs/$PIPELINE_SPEC}
@@ -259,7 +259,7 @@ function ensure_nop_stats {
     return 1
 }
 
-## Prepare the phase-1 explanations for spexplain's '--input-explanations', which only parses interval
+## Prepare the phase-1 explanations for the engine's '--input-explanations', which only parses interval
 ## explanations and needs one for every sample of the dataset:
 ##  - only the top-level interval conjuncts over the inputs are kept: with fix-all, the explanations also
 ##    contain the fixed neuron activations as linear constraints; phase 2 uses the same variant options,
@@ -333,7 +333,7 @@ function merge_experiment {
     rm -rf "$tmp"
     mkdir -p "$tmp" || return 1
 
-    ## Header as printed by spexplain for the whole dataset
+    ## Header as printed by the engine for the whole dataset
     {
         awk '/^-+$/ { exit } /^(Starting from|Ending at) sample/ { next } /^Timeout per sample/ { next } { print }' "$nop_stats"
         printf "Timeout per sample [s]: %s\n" $timeout_s
@@ -442,7 +442,7 @@ printf "Output root:  %s/%s\n" "$DATA_DIR" "$OUTPUT_ROOT"
 printf "\n"
 
 [[ -x $CMD ]] || {
-    printf "Not an executable: %s\nSet %s to the right spexplain binary.\n" "$CMD" \
+    printf "Not an executable: %s\nSet %s to the right engine binary.\n" "$CMD" \
         "$([[ $PHASE == intervals ]] && echo MARABOU_CMD || echo OPENSMT_CMD)" >&2
     exit 1
 }

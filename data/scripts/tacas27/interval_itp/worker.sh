@@ -5,10 +5,10 @@
 ##
 ## <chunk_dir>/job.env (written by ./common) holds the command and its options.
 ## Outputs <chunk_dir>/s<k>.{phi,stats,times,time,out,err}.txt and, last, s<k>.status:
-##   ok        spexplain finished (its own timeout, if any, is recorded in its outputs)
-##   timeout   killed by the outer timeout (Marabou does not respect spexplain's '-t')
+##   ok        engine finished (its own timeout, if any, is recorded in its outputs)
+##   timeout   killed by the outer timeout (Marabou does not respect the engine's '-t')
 ##   skipped:  the input interval explanation is a timeout or empty (phase itp only)
-##   error:<c> spexplain failed twice with exit code <c>
+##   error:<c> engine failed twice with exit code <c>
 ## A sample that already has a status is not run again.
 
 chunk_dir=$1

@@ -16,7 +16,7 @@
 ##   SELECTION     '<sample>:x<i>,x<j>' entries, samples and features 1-based (default: see below)
 ##   ITP_PARAMS    parameters of the itp strategy (default: 'aweak, bstrong')
 ##   TIMEOUT_PER   timeout per sample, <int>[smh]; empty = no limit (default: no limit)
-##   OPENSMT_CMD   spexplain built with OpenSMT (default: <repo>/build/spexplain)
+##   OPENSMT_CMD   engine built with OpenSMT (default: <repo>/build/engine)
 ##   OUTPUT_ROOT   root of the outputs (default: explanations, i.e. data/explanations)
 ##
 ## USAGE: ./itp_vars_samples.sh
@@ -34,7 +34,7 @@ WIDTH=${WIDTH:-50}
 MODEL_IDXS=${MODEL_IDXS:-1 4}
 VARIANTS=${VARIANTS:-naive guide-all fix-all}
 SELECTION=${SELECTION:-84:x1,x11 65:x1,x3 98:x3,x4 47:x3,x10 84:x3,x5 77:x1,x12}
-OPENSMT_CMD=${OPENSMT_CMD:-$ROOT_DIR/build/spexplain}
+OPENSMT_CMD=${OPENSMT_CMD:-$ROOT_DIR/build/engine}
 OUTPUT_ROOT=${OUTPUT_ROOT:-explanations}
 ITP_PARAMS=${ITP_PARAMS:-aweak, bstrong}
 set_experiment_name_from_strategies ITP_NAME "itp $ITP_PARAMS"

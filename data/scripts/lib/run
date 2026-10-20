@@ -77,7 +77,7 @@ function set_output_dir {
 }
 
 function set_cmd {
-    [[ -z $CMD ]] && CMD="$SCRIPTS_DIR/../../build/spexplain"
+    [[ -z $CMD ]] && CMD="$SCRIPTS_DIR/../../build/engine"
     export CMD
 }
 
