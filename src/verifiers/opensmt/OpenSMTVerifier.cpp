@@ -37,11 +37,11 @@ public:
     void addTerm(PTRef const &);
     void addExplanationTerm(PTRef const &, std::string termNamePrefix = "");
 
-    PTRef makeUpperBound(LayerIndex layer, NodeIndex node, Float value) {
-        return makeUpperBound(layer, node, floatToRational(value));
+    PTRef makeUpperBound(LayerIndex layer, NodeIndex node, Float value, bool strict = false) {
+        return makeUpperBound(layer, node, floatToRational(value), strict);
     }
-    PTRef makeLowerBound(LayerIndex layer, NodeIndex node, Float value) {
-        return makeLowerBound(layer, node, floatToRational(value));
+    PTRef makeLowerBound(LayerIndex layer, NodeIndex node, Float value, bool strict = false) {
+        return makeLowerBound(layer, node, floatToRational(value), strict);
     }
     PTRef makeEquality(LayerIndex layer, NodeIndex node, Float value) {
         return makeEquality(layer, node, floatToRational(value));
@@ -49,16 +49,18 @@ public:
     PTRef makeInterval(LayerIndex layer, NodeIndex node, Float lo, Float hi) {
         return makeInterval(layer, node, floatToRational(lo), floatToRational(hi));
     }
-    PTRef makeUpperBound(LayerIndex layer, NodeIndex node, FastRational value);
-    PTRef makeLowerBound(LayerIndex layer, NodeIndex node, FastRational value);
+    PTRef makeUpperBound(LayerIndex layer, NodeIndex node, FastRational value, bool strict = false);
+    PTRef makeLowerBound(LayerIndex layer, NodeIndex node, FastRational value, bool strict = false);
     PTRef makeEquality(LayerIndex layer, NodeIndex node, FastRational value) {
         FastRational valueCp = value;
         return makeInterval(layer, node, std::move(value), std::move(valueCp));
     }
     PTRef makeInterval(LayerIndex layer, NodeIndex node, FastRational lo, FastRational hi);
 
-    PTRef addUpperBound(LayerIndex layer, NodeIndex node, Float value, bool explanationTerm = false);
-    PTRef addLowerBound(LayerIndex layer, NodeIndex node, Float value, bool explanationTerm = false);
+    PTRef addUpperBound(LayerIndex layer, NodeIndex node, Float value, bool strict = false,
+                        bool explanationTerm = false);
+    PTRef addLowerBound(LayerIndex layer, NodeIndex node, Float value, bool strict = false,
+                        bool explanationTerm = false);
     PTRef addEquality(LayerIndex layer, NodeIndex node, Float value, bool explanationTerm = false);
     PTRef addInterval(LayerIndex layer, NodeIndex node, Float lo, Float hi, bool explanationTerm = false);
 
@@ -177,12 +179,14 @@ void OpenSMTVerifier::addExplanationTerm(PTRef const & term, std::string termNam
     pimpl->addExplanationTerm(term, std::move(termNamePrefix));
 }
 
-void OpenSMTVerifier::addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm) {
-    pimpl->addUpperBound(layer, var, value, explanationTerm);
+void OpenSMTVerifier::addUpperBoundImpl(LayerIndex layer, NodeIndex var, Float value, bool strict,
+                                        bool explanationTerm) {
+    pimpl->addUpperBound(layer, var, value, strict, explanationTerm);
 }
 
-void OpenSMTVerifier::addLowerBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm) {
-    pimpl->addLowerBound(layer, var, value, explanationTerm);
+void OpenSMTVerifier::addLowerBoundImpl(LayerIndex layer, NodeIndex var, Float value, bool strict,
+                                        bool explanationTerm) {
+    pimpl->addLowerBound(layer, var, value, strict, explanationTerm);
 }
 
 void OpenSMTVerifier::addEquality(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm) {
@@ -600,16 +604,18 @@ void OpenSMTVerifier::OpenSMTImpl::addExplanationTerm(PTRef const & term, std::s
     assert(success);
 }
 
-PTRef OpenSMTVerifier::OpenSMTImpl::makeUpperBound(LayerIndex layer, NodeIndex node, FastRational value) {
+PTRef OpenSMTVerifier::OpenSMTImpl::makeUpperBound(LayerIndex layer, NodeIndex node, FastRational value, bool strict) {
     if (layer != 0 and layer != layerSizes.size() - 1) { throw std::logic_error("Unimplemented!"); }
     PTRef var = layer == 0 ? inputVars.at(node) : outputVarsOrTerms.at(node);
-    return logic->mkLeq(var, logic->mkRealConst(value));
+    PTRef val = logic->mkRealConst(value);
+    return strict ? logic->mkLt(var, val) : logic->mkLeq(var, val);
 }
 
-PTRef OpenSMTVerifier::OpenSMTImpl::makeLowerBound(LayerIndex layer, NodeIndex node, FastRational value) {
+PTRef OpenSMTVerifier::OpenSMTImpl::makeLowerBound(LayerIndex layer, NodeIndex node, FastRational value, bool strict) {
     if (layer != 0 and layer != layerSizes.size() - 1) { throw std::logic_error("Unimplemented!"); }
     PTRef var = layer == 0 ? inputVars.at(node) : outputVarsOrTerms.at(node);
-    return logic->mkGeq(var, logic->mkRealConst(value));
+    PTRef val = logic->mkRealConst(value);
+    return strict ? logic->mkGt(var, val) : logic->mkGeq(var, val);
 }
 
 PTRef OpenSMTVerifier::OpenSMTImpl::makeInterval(LayerIndex layer, NodeIndex node, FastRational lo, FastRational hi) {
@@ -618,14 +624,16 @@ PTRef OpenSMTVerifier::OpenSMTImpl::makeInterval(LayerIndex layer, NodeIndex nod
     return logic->mkAnd(lterm, uterm);
 }
 
-PTRef OpenSMTVerifier::OpenSMTImpl::addUpperBound(LayerIndex layer, NodeIndex node, Float value, bool explanationTerm) {
-    PTRef term = makeUpperBound(layer, node, value);
+PTRef OpenSMTVerifier::OpenSMTImpl::addUpperBound(LayerIndex layer, NodeIndex node, Float value, bool strict,
+                                                  bool explanationTerm) {
+    PTRef term = makeUpperBound(layer, node, value, strict);
     if (not explanationTerm) {
         addTerm(term);
         return term;
     }
 
     assert(layer == 0);
+    assert(not(strict and explanationTerm));
     addExplanationTerm(term, "u_");
     auto const [_, inserted] = inputVarUpperBoundToIndex.emplace(term, node);
     assert(inserted);
@@ -633,14 +641,16 @@ PTRef OpenSMTVerifier::OpenSMTImpl::addUpperBound(LayerIndex layer, NodeIndex no
     return term;
 }
 
-PTRef OpenSMTVerifier::OpenSMTImpl::addLowerBound(LayerIndex layer, NodeIndex node, Float value, bool explanationTerm) {
-    PTRef term = makeLowerBound(layer, node, value);
+PTRef OpenSMTVerifier::OpenSMTImpl::addLowerBound(LayerIndex layer, NodeIndex node, Float value, bool strict,
+                                                  bool explanationTerm) {
+    PTRef term = makeLowerBound(layer, node, value, strict);
     if (not explanationTerm) {
         addTerm(term);
         return term;
     }
 
     assert(layer == 0);
+    assert(not(strict and explanationTerm));
     addExplanationTerm(term, "l_");
     auto const [_, inserted] = inputVarLowerBoundToIndex.emplace(term, node);
     assert(inserted);

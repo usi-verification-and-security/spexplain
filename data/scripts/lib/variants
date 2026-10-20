@@ -1,8 +1,8 @@
-[[ -z $DIRNAME ]] && DIRNAME=$(dirname "$0")
+[[ -z $SCRIPTS_DIR ]] && SCRIPTS_DIR=$(dirname "$0")
 
-source "$DIRNAME/lib/common"
+source "$SCRIPTS_DIR/lib/common"
 
-SPEC_DIR="$DIRNAME/spec"
+SPEC_DIR="$SCRIPTS_DIR/spec"
 VARIANTS_SPEC_DIR="$SPEC_DIR/variants"
 
 function _read_variants_spec_source {
@@ -10,7 +10,7 @@ function _read_variants_spec_source {
 
     grep -q '^VARIANT_NAMES=' "$f" &>/dev/null || return 1
 
-    source "$f" && source "$DIRNAME/lib/_set_variants_spec"
+    source "$f" && source "$SCRIPTS_DIR/lib/_set_variants_spec"
 }
 
 function read_variants_spec {

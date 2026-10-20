@@ -1,0 +1,8 @@
+# Additional dependencies for running the test suite.
+#
+#   python3 -m pip install -r explviz/requirements-dev.txt
+#   PYTHONPATH=. python3 -m pytest explviz/tests -q
+
+-r requirements.txt
+
+pytest>=7.0

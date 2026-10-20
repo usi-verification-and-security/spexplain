@@ -58,8 +58,18 @@ public:
     virtual void assertGroundModel() {}
     virtual void assertSampleModel() = 0;
 
-    virtual void addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) = 0;
-    virtual void addLowerBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) = 0;
+    void addUpperBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) {
+        return addUpperBoundImpl(layer, var, value, false, explanationTerm);
+    }
+    void addLowerBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) {
+        return addLowerBoundImpl(layer, var, value, false, explanationTerm);
+    }
+    void addStrictUpperBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) {
+        return addUpperBoundImpl(layer, var, value, true, explanationTerm);
+    }
+    void addStrictLowerBound(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) {
+        return addLowerBoundImpl(layer, var, value, true, explanationTerm);
+    }
     virtual void addEquality(LayerIndex layer, NodeIndex var, Float value, bool explanationTerm = false) {
         addInterval(layer, var, value, value, explanationTerm);
     }
@@ -115,6 +125,11 @@ protected:
     std::size_t checksCount{};
 
 private:
+    virtual void addUpperBoundImpl(LayerIndex layer, NodeIndex var, Float value, bool strict = false,
+                                   bool explanationTerm = false) = 0;
+    virtual void addLowerBoundImpl(LayerIndex layer, NodeIndex var, Float value, bool strict = false,
+                                   bool explanationTerm = false) = 0;
+
     virtual void pushImpl() = 0;
     virtual void popImpl() = 0;
 
