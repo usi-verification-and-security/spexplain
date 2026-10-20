@@ -40,3 +40,7 @@ build*/
 *.tar.gz
 *.rar
 *.7z
+
+# Python
+__pycache__/
+*.pyc
