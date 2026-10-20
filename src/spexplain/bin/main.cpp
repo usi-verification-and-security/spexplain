@@ -458,7 +458,9 @@ int mainExplain(int argc, char * argv[], int i, int nArgs) {
 
     std::string_view const datasetFn = argv[++i];
 
-    std::string_view const strategiesSpec = (i + 1 < argc) ? argv[++i] : "";
+    // The strategies spec is optional, options may directly follow the dataset
+    bool const hasStrategiesSpec = (i + 1 < argc) and argv[i + 1][0] != '-';
+    std::string_view const strategiesSpec = hasStrategiesSpec ? argv[++i] : "";
 
     std::string explanationsFn;
 
