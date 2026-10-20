@@ -11,7 +11,7 @@ void Framework::Config::init(Network const & network) noexcept {
     networkPtr = &network;
 
     fixAllSampleNeuronActivationsMap.init(network);
-    preferAllSampleNeuronActivationsMap.init(network);
+    guideAllSampleNeuronActivationsMap.init(network);
 }
 
 void Framework::Config::fixSampleNeuronActivationAt(Sample::Idx idx, HiddenNeuronPosition const & pos) {
@@ -20,8 +20,8 @@ void Framework::Config::fixSampleNeuronActivationAt(Sample::Idx idx, HiddenNeuro
     map.insertOrAssign(pos.layer, pos.node, not pos.negated);
 }
 
-void Framework::Config::preferSampleNeuronActivationAt(Sample::Idx idx, HiddenNeuronPosition const & pos) {
-    auto & map = preferSampleNeuronActivationMaps[idx];
+void Framework::Config::guideSampleNeuronActivationAt(Sample::Idx idx, HiddenNeuronPosition const & pos) {
+    auto & map = guideSampleNeuronActivationMaps[idx];
     map.setNetwork(getNetwork());
     map.insertOrAssign(pos.layer, pos.node, not pos.negated);
 }
@@ -37,9 +37,9 @@ std::optional<bool> Framework::Config::tryGetFixingOfSampleNeuronActivationAt(Sa
 }
 
 [[nodiscard]]
-std::optional<bool> Framework::Config::tryGetPreferenceOfSampleNeuronActivationAt(Sample::Idx idx, std::size_t layer,
-                                                                                  std::size_t node) const {
-    if (auto mapIt = preferSampleNeuronActivationMaps.find(idx); mapIt != preferSampleNeuronActivationMaps.end()) {
+std::optional<bool> Framework::Config::tryGetGuidanceOfSampleNeuronActivationAt(Sample::Idx idx, std::size_t layer,
+                                                                                std::size_t node) const {
+    if (auto mapIt = guideSampleNeuronActivationMaps.find(idx); mapIt != guideSampleNeuronActivationMaps.end()) {
         return mapIt->second.tryGetAt(layer, node);
     }
 
@@ -183,7 +183,7 @@ namespace {
                     if constexpr (fixV) {
                         config.fixSampleNeuronActivationAt(sampleIdx, pos);
                     } else {
-                        config.preferSampleNeuronActivationAt(sampleIdx, pos);
+                        config.guideSampleNeuronActivationAt(sampleIdx, pos);
                     }
                 }
             }
@@ -201,7 +201,7 @@ void parseFixSampleNeuronActivations(Framework::Config & config, std::string_vie
     parseSampleNeuronActivationsImpl<true>(config, fileName);
 }
 
-void parsePreferSampleNeuronActivations(Framework::Config & config, std::string_view fileName) {
+void parseGuideSampleNeuronActivations(Framework::Config & config, std::string_view fileName) {
     parseSampleNeuronActivationsImpl<false>(config, fileName);
 }
 } // namespace spexplain

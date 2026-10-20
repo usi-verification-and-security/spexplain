@@ -47,13 +47,13 @@ public:
     bool allowedNeuronVarsInExplanations() const { return _allowNeuronVarsInExplanations; }
 
     void fixNeuronActivation(LayerIndex, NodeIndex, bool activation);
-    void preferNeuronActivation(LayerIndex, NodeIndex, bool activation);
+    void guideNeuronActivation(LayerIndex, NodeIndex, bool activation);
     // Do not insert neuron activation if one already exists
     bool tryFixNeuronActivation(LayerIndex, NodeIndex, bool activation);
-    bool tryPreferNeuronActivation(LayerIndex, NodeIndex, bool activation);
+    bool tryGuideNeuronActivation(LayerIndex, NodeIndex, bool activation);
 
     std::optional<bool> getFixedNeuronActivation(LayerIndex, NodeIndex) const;
-    std::optional<bool> getPreferredNeuronActivation(LayerIndex, NodeIndex) const;
+    std::optional<bool> getGuidedNeuronActivation(LayerIndex, NodeIndex) const;
 
     virtual void assertGroundModel() {}
     virtual void assertSampleModel() = 0;
@@ -120,7 +120,7 @@ protected:
     virtual void initImpl(spexplain::Network const &);
 
     spexplain::NetworkMap<bool> fixedNeuronActivations;
-    spexplain::NetworkMap<bool> preferredNeuronActivations;
+    spexplain::NetworkMap<bool> guidedNeuronActivations;
 
     std::size_t checksCount{};
 

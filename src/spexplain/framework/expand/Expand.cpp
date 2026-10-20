@@ -352,8 +352,8 @@ void Framework::Expand::preprocessSampleModel(Sample::Idx idx, Network::Output c
     auto const & config = framework.getConfig();
     DefaultSampleNeuronActivations const defaultFixingOfSampleNeuronActivations =
         config.getDefaultFixingOfSampleNeuronActivations();
-    DefaultSampleNeuronActivations const defaultPreferenceOfSampleNeuronActivations =
-        config.getDefaultPreferenceOfSampleNeuronActivations();
+    DefaultSampleNeuronActivations const defaultGuidanceOfSampleNeuronActivations =
+        config.getDefaultGuidanceOfSampleNeuronActivations();
 
     xai::verifiers::LayerIndex const nHiddenLayers = network.nHiddenLayers();
     assert(nHiddenLayers == network.nLayers() - 2);
@@ -363,13 +363,13 @@ void Framework::Expand::preprocessSampleModel(Sample::Idx idx, Network::Output c
             bool const unstable = unstableHiddenNeuron(output, layer, node);
             bool const activated = activatedHiddenNeuron(output, layer, node);
 
-            // Prefer even on unstable neurons
-            if (auto optPreferOne = config.tryGetPreferenceOfSampleNeuronActivationAt(idx, layer, node)) {
-                if (*optPreferOne) { verifier.preferNeuronActivation(layer, node, activated); }
-            } else if (auto optPreferAll = config.tryGetPreferenceOfAllSampleNeuronActivationsAt(layer, node)) {
-                if (*optPreferAll) { verifier.preferNeuronActivation(layer, node, activated); }
-            } else if (usingSampleNeuronActivations(defaultPreferenceOfSampleNeuronActivations, activated)) {
-                verifier.tryPreferNeuronActivation(layer, node, activated);
+            // Guide even on unstable neurons
+            if (auto optGuideOne = config.tryGetGuidanceOfSampleNeuronActivationAt(idx, layer, node)) {
+                if (*optGuideOne) { verifier.guideNeuronActivation(layer, node, activated); }
+            } else if (auto optGuideAll = config.tryGetGuidanceOfAllSampleNeuronActivationsAt(layer, node)) {
+                if (*optGuideAll) { verifier.guideNeuronActivation(layer, node, activated); }
+            } else if (usingSampleNeuronActivations(defaultGuidanceOfSampleNeuronActivations, activated)) {
+                verifier.tryGuideNeuronActivation(layer, node, activated);
             }
 
             // Do not fix unstable neurons

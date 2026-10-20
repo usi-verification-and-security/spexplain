@@ -18,10 +18,10 @@
 ##   DRY_RUN=1       forwarded to each run
 
 RUNS=(
-    'VARIANTS_SPEC=prefer_only                 MODEL_IDXS="8" ./LO200.sh'
-    'VARIANTS_SPEC=prefer_only                 MODEL_IDXS="3" ./CIF200.sh'
+    'VARIANTS_SPEC=guide_only                  MODEL_IDXS="8" ./LO200.sh'
+    'VARIANTS_SPEC=guide_only                  MODEL_IDXS="3" ./CIF200.sh'
     'VARIANTS_SPEC=fix_only                    MODEL_IDXS="8" ./LO50.sh'
-    'VARIANTS_SPEC=prefer_only TIMEOUT_PER=14m MODEL_IDXS="3" ./GTS200.sh'
+    'VARIANTS_SPEC=guide_only  TIMEOUT_PER=14m MODEL_IDXS="3" ./GTS200.sh'
 )
 
 SCRIPT=$(realpath "$0")

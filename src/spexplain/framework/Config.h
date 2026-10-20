@@ -34,7 +34,7 @@ public:
 
     static constexpr DefaultSampleNeuronActivations defaultFixingOfSampleNeuronActivations{
         DefaultSampleNeuronActivations::none};
-    static constexpr DefaultSampleNeuronActivations defaultPreferenceOfSampleNeuronActivations{
+    static constexpr DefaultSampleNeuronActivations defaultGuidanceOfSampleNeuronActivations{
         DefaultSampleNeuronActivations::all};
 
     void init(Network const &) noexcept;
@@ -66,18 +66,18 @@ public:
         DefaultSampleNeuronActivations sampleNeuronActivations = DefaultSampleNeuronActivations::all) {
         _fixDefaultSampleNeuronActivations = sampleNeuronActivations;
     }
-    void preferDefaultSampleNeuronActivations(
+    void guideDefaultSampleNeuronActivations(
         DefaultSampleNeuronActivations sampleNeuronActivations = DefaultSampleNeuronActivations::all) {
-        _preferDefaultSampleNeuronActivations = sampleNeuronActivations;
+        _guideDefaultSampleNeuronActivations = sampleNeuronActivations;
     }
     void fixAllSampleNeuronActivationsAt(HiddenNeuronPosition const & pos) {
         fixAllSampleNeuronActivationsMap.insertOrAssign(pos.layer, pos.node, not pos.negated);
     }
-    void preferAllSampleNeuronActivationsAt(HiddenNeuronPosition const & pos) {
-        preferAllSampleNeuronActivationsMap.insertOrAssign(pos.layer, pos.node, not pos.negated);
+    void guideAllSampleNeuronActivationsAt(HiddenNeuronPosition const & pos) {
+        guideAllSampleNeuronActivationsMap.insertOrAssign(pos.layer, pos.node, not pos.negated);
     }
     void fixSampleNeuronActivationAt(Sample::Idx, HiddenNeuronPosition const &);
-    void preferSampleNeuronActivationAt(Sample::Idx, HiddenNeuronPosition const &);
+    void guideSampleNeuronActivationAt(Sample::Idx, HiddenNeuronPosition const &);
 
     void setPrintIntervalExplanationsFormat(IntervalExplanation::PrintFormat tp) {
         intervalExplanationPrintFormat = tp;
@@ -182,22 +182,22 @@ public:
         return _fixDefaultSampleNeuronActivations;
     }
     [[nodiscard]]
-    DefaultSampleNeuronActivations getDefaultPreferenceOfSampleNeuronActivations() const {
-        return _preferDefaultSampleNeuronActivations;
+    DefaultSampleNeuronActivations getDefaultGuidanceOfSampleNeuronActivations() const {
+        return _guideDefaultSampleNeuronActivations;
     }
     [[nodiscard]]
     std::optional<bool> tryGetFixingOfAllSampleNeuronActivationsAt(std::size_t layer, std::size_t node) const {
         return fixAllSampleNeuronActivationsMap.tryGetAt(layer, node);
     }
     [[nodiscard]]
-    std::optional<bool> tryGetPreferenceOfAllSampleNeuronActivationsAt(std::size_t layer, std::size_t node) const {
-        return preferAllSampleNeuronActivationsMap.tryGetAt(layer, node);
+    std::optional<bool> tryGetGuidanceOfAllSampleNeuronActivationsAt(std::size_t layer, std::size_t node) const {
+        return guideAllSampleNeuronActivationsMap.tryGetAt(layer, node);
     }
     [[nodiscard]]
     std::optional<bool> tryGetFixingOfSampleNeuronActivationAt(Sample::Idx, std::size_t layer, std::size_t node) const;
     [[nodiscard]]
-    std::optional<bool> tryGetPreferenceOfSampleNeuronActivationAt(Sample::Idx, std::size_t layer,
-                                                                   std::size_t node) const;
+    std::optional<bool> tryGetGuidanceOfSampleNeuronActivationAt(Sample::Idx, std::size_t layer,
+                                                                 std::size_t node) const;
 
     [[nodiscard]]
     IntervalExplanation::PrintFormat const & getPrintingIntervalExplanationsFormat() const {
@@ -304,11 +304,11 @@ protected:
     std::optional<bool> _allowNeuronVarsInExplanations{};
 
     DefaultSampleNeuronActivations _fixDefaultSampleNeuronActivations{defaultFixingOfSampleNeuronActivations};
-    DefaultSampleNeuronActivations _preferDefaultSampleNeuronActivations{defaultPreferenceOfSampleNeuronActivations};
+    DefaultSampleNeuronActivations _guideDefaultSampleNeuronActivations{defaultGuidanceOfSampleNeuronActivations};
     NetworkMap<bool> fixAllSampleNeuronActivationsMap{};
-    NetworkMap<bool> preferAllSampleNeuronActivationsMap{};
+    NetworkMap<bool> guideAllSampleNeuronActivationsMap{};
     std::unordered_map<Sample::Idx, NetworkMap<bool>> fixSampleNeuronActivationMaps{};
-    std::unordered_map<Sample::Idx, NetworkMap<bool>> preferSampleNeuronActivationMaps{};
+    std::unordered_map<Sample::Idx, NetworkMap<bool>> guideSampleNeuronActivationMaps{};
 
     IntervalExplanation::PrintFormat intervalExplanationPrintFormat{IntervalExplanation::PrintFormat::bounds};
 
@@ -333,7 +333,7 @@ std::pair<Sample::Idx, Framework::Config::HiddenNeuronPosition> makeHiddenNeuron
 bool usingSampleNeuronActivations(Framework::Config::DefaultSampleNeuronActivations, bool sampleActivated);
 
 void parseFixSampleNeuronActivations(Framework::Config &, std::string_view fileName);
-void parsePreferSampleNeuronActivations(Framework::Config &, std::string_view fileName);
+void parseGuideSampleNeuronActivations(Framework::Config &, std::string_view fileName);
 } // namespace spexplain
 
 #endif // SPEXPLAIN_CONFIG_H

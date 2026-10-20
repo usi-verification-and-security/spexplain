@@ -139,23 +139,21 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
         "Set default fixing of given sample-based neuron activations (default: "s +
             defaultSampleNeuronActivationsToString(Framework::Config::defaultFixingOfSampleNeuronActivations) + ")");
     printUsageLongOptRow(
-        os, "prefer-default-sample-neuron-activations", "all|none|[in]active",
-        "Set default preference of given sample-based neuron activations (default: "s +
-            defaultSampleNeuronActivationsToString(Framework::Config::defaultPreferenceOfSampleNeuronActivations) +
-            ")");
+        os, "guide-default-sample-neuron-activations", "all|none|[in]active",
+        "Set default guidance of given sample-based neuron activations (default: "s +
+            defaultSampleNeuronActivationsToString(Framework::Config::defaultGuidanceOfSampleNeuronActivations) + ")");
     printUsageLongOptRow(os, "fix-all-sample-neuron-activations-at", "<l>,[-]<n>",
                          "Fix (or not with '-') sample neuron activation for given layer and neuron but all samples");
-    printUsageLongOptRow(
-        os, "prefer-all-sample-neuron-activations-at", "<l>,[-]<n>",
-        "Prefer (or not with '-') sample neuron activation for given layer and neuron but all samples");
+    printUsageLongOptRow(os, "guide-all-sample-neuron-activations-at", "<l>,[-]<n>",
+                         "Guide (or not with '-') sample neuron activation for given layer and neuron but all samples");
     printUsageLongOptRow(os, "fix-sample-neuron-activation-at", "<idx>,<l>,[-]<n>",
                          "Fix (or not with '-') sample neuron activation for given sample, layer and neuron");
-    printUsageLongOptRow(os, "prefer-sample-neuron-activation-at", "<idx>,<l>,[-]<n>",
-                         "Prefer (or not with '-') sample neuron activation for given sample, layer and neuron");
+    printUsageLongOptRow(os, "guide-sample-neuron-activation-at", "<idx>,<l>,[-]<n>",
+                         "Guide (or not with '-') sample neuron activation for given sample, layer and neuron");
     printUsageLongOptRow(os, "input-fix-sample-neuron-activations", "<file>",
                          "Fix sample neuron activations as specified in the file");
-    printUsageLongOptRow(os, "input-prefer-sample-neuron-activations", "<file>",
-                         "Prefer sample neuron activations as specified in the file");
+    printUsageLongOptRow(os, "input-guide-sample-neuron-activations", "<file>",
+                         "Guide sample neuron activations as specified in the file");
     printUsageOptRow(os, 'S', "", "Print the resulting explanations in the SMT-LIB2 format");
     printUsageOptRow(os, 'I', "", "Print the resulting explanations in the form of intervals");
     printUsageLongOptRow(os, "format", "smtlib2|intervals|bounds", "Use one of the output explanation formats");
@@ -191,13 +189,13 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
     constexpr int filterLongOpt = 3;
     constexpr int outputTimesLongOpt = 4;
     constexpr int fixDefaultSampleNeuronActivationsLongOpt = 5;
-    constexpr int preferDefaultSampleNeuronActivationsLongOpt = 6;
+    constexpr int guideDefaultSampleNeuronActivationsLongOpt = 6;
     constexpr int fixAllSampleNeuronActivationsLongOpt = 7;
-    constexpr int preferAllSampleNeuronActivationsLongOpt = 8;
+    constexpr int guideAllSampleNeuronActivationsLongOpt = 8;
     constexpr int fixSampleNeuronActivationLongOpt = 9;
-    constexpr int preferSampleNeuronActivationLongOpt = 10;
+    constexpr int guideSampleNeuronActivationLongOpt = 10;
     constexpr int inputFixSampleNeuronActivationsLongOpt = 11;
-    constexpr int inputPreferSampleNeuronActivationsLongOpt = 12;
+    constexpr int inputGuideSampleNeuronActivationsLongOpt = 12;
     constexpr int encodingNeuronVarsLongOpt = 13;
     constexpr int encodingOutputVarsLongOpt = 14;
     constexpr int encodingReluLowerBoundsLongOpt = 15;
@@ -221,19 +219,18 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
          allowNeuronVarsInExplanationsLongOpt},
         {"fix-default-sample-neuron-activations", required_argument, &selectedLongOpt,
          fixDefaultSampleNeuronActivationsLongOpt},
-        {"prefer-default-sample-neuron-activations", required_argument, &selectedLongOpt,
-         preferDefaultSampleNeuronActivationsLongOpt},
+        {"guide-default-sample-neuron-activations", required_argument, &selectedLongOpt,
+         guideDefaultSampleNeuronActivationsLongOpt},
         {"fix-all-sample-neuron-activations-at", required_argument, &selectedLongOpt,
          fixAllSampleNeuronActivationsLongOpt},
-        {"prefer-all-sample-neuron-activations-at", required_argument, &selectedLongOpt,
-         preferAllSampleNeuronActivationsLongOpt},
+        {"guide-all-sample-neuron-activations-at", required_argument, &selectedLongOpt,
+         guideAllSampleNeuronActivationsLongOpt},
         {"fix-sample-neuron-activation-at", required_argument, &selectedLongOpt, fixSampleNeuronActivationLongOpt},
-        {"prefer-sample-neuron-activation-at", required_argument, &selectedLongOpt,
-         preferSampleNeuronActivationLongOpt},
+        {"guide-sample-neuron-activation-at", required_argument, &selectedLongOpt, guideSampleNeuronActivationLongOpt},
         {"input-fix-sample-neuron-activations", required_argument, &selectedLongOpt,
          inputFixSampleNeuronActivationsLongOpt},
-        {"input-prefer-sample-neuron-activations", required_argument, &selectedLongOpt,
-         inputPreferSampleNeuronActivationsLongOpt},
+        {"input-guide-sample-neuron-activations", required_argument, &selectedLongOpt,
+         inputGuideSampleNeuronActivationsLongOpt},
         {"format", required_argument, &selectedLongOpt, formatLongOpt},
         {"shuffle-samples", no_argument, nullptr, 'r'},
         {"max-samples", required_argument, nullptr, 'n'},
@@ -321,8 +318,8 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                         config.fixDefaultSampleNeuronActivations(
                             spexplain::makeDefaultSampleNeuronActivations(optargStr));
                         break;
-                    case preferDefaultSampleNeuronActivationsLongOpt:
-                        config.preferDefaultSampleNeuronActivations(
+                    case guideDefaultSampleNeuronActivationsLongOpt:
+                        config.guideDefaultSampleNeuronActivations(
                             spexplain::makeDefaultSampleNeuronActivations(optargStr));
                         break;
                     case fixAllSampleNeuronActivationsLongOpt: {
@@ -330,9 +327,9 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                         config.fixAllSampleNeuronActivationsAt(pos);
                         break;
                     }
-                    case preferAllSampleNeuronActivationsLongOpt: {
+                    case guideAllSampleNeuronActivationsLongOpt: {
                         auto pos = spexplain::makeHiddenNeuronPosition(optargStr);
-                        config.preferAllSampleNeuronActivationsAt(pos);
+                        config.guideAllSampleNeuronActivationsAt(pos);
                         break;
                     }
                     case fixSampleNeuronActivationLongOpt: {
@@ -340,16 +337,16 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                         config.fixSampleNeuronActivationAt(idx, pos);
                         break;
                     }
-                    case preferSampleNeuronActivationLongOpt: {
+                    case guideSampleNeuronActivationLongOpt: {
                         auto [idx, pos] = spexplain::makeHiddenNeuronPositionOfSample(optargStr);
-                        config.preferSampleNeuronActivationAt(idx, pos);
+                        config.guideSampleNeuronActivationAt(idx, pos);
                         break;
                     }
                     case inputFixSampleNeuronActivationsLongOpt:
                         spexplain::parseFixSampleNeuronActivations(config, optargStr);
                         break;
-                    case inputPreferSampleNeuronActivationsLongOpt:
-                        spexplain::parsePreferSampleNeuronActivations(config, optargStr);
+                    case inputGuideSampleNeuronActivationsLongOpt:
+                        spexplain::parseGuideSampleNeuronActivations(config, optargStr);
                         break;
                 }
                 break;

@@ -68,7 +68,7 @@ public:
 
     void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, Float rhs);
 
-    void addPreference(PTRef const &);
+    void addGuidance(PTRef const &);
 
     void init();
 
@@ -205,8 +205,8 @@ void OpenSMTVerifier::addConstraint(LayerIndex layer, std::vector<std::pair<Node
     pimpl->addConstraint(layer, lhs, rhs);
 }
 
-void OpenSMTVerifier::addPreference(PTRef const & term) {
-    pimpl->addPreference(term);
+void OpenSMTVerifier::addGuidance(PTRef const & term) {
+    pimpl->addGuidance(term);
 }
 
 void OpenSMTVerifier::initImpl(spexplain::Network const & nw) {
@@ -565,11 +565,11 @@ PTRef OpenSMTVerifier::OpenSMTImpl::encodeNeuron(LayerIndex layer, NodeIndex nod
         }
     }
 
-    if (auto optPreferredActivation = verifier.getPreferredNeuronActivation(layer, node)) {
-        if (*optPreferredActivation) {
-            addPreference(encodeNeuronVars and encodeReluLowerBounds ? activeLeq : activeCond);
+    if (auto optGuidedActivation = verifier.getGuidedNeuronActivation(layer, node)) {
+        if (*optGuidedActivation) {
+            addGuidance(encodeNeuronVars and encodeReluLowerBounds ? activeLeq : activeCond);
         } else {
-            addPreference(encodeNeuronVars and encodeReluLowerBounds ? inactiveLeq : inactiveCond);
+            addGuidance(encodeNeuronVars and encodeReluLowerBounds ? inactiveLeq : inactiveCond);
         }
     }
 
@@ -720,7 +720,7 @@ void OpenSMTVerifier::OpenSMTImpl::addConstraint(LayerIndex layer, std::vector<s
     throw std::logic_error("Unimplemented!");
 }
 
-void OpenSMTVerifier::OpenSMTImpl::addPreference(PTRef const & term) {
+void OpenSMTVerifier::OpenSMTImpl::addGuidance(PTRef const & term) {
     solver->addDecisionPreference(term);
 }
 

@@ -88,7 +88,7 @@ function variant_options_of {
     local activations="${model/models\//neuron_activations\/}"
     activations="${activations%.*}.txt"
     local opt
-    for opt in --input-{fix,prefer}-sample-neuron-activations; do
+    for opt in --input-{fix,guide}-sample-neuron-activations; do
         opts="${opts//${opt}=\"\"/${opt}=$activations}"
     done
     opts="${opts//\"/}"

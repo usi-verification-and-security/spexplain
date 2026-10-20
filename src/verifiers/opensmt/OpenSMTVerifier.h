@@ -40,7 +40,7 @@ public:
 
     void addConstraint(LayerIndex layer, std::vector<std::pair<NodeIndex, int>> lhs, Float rhs) override;
 
-    void addPreference(::opensmt::PTRef const &);
+    void addGuidance(::opensmt::PTRef const &);
 
     void setTimeLimit(std::chrono::milliseconds) override;
 
