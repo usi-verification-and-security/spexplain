@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 import numpy as np
 
@@ -125,22 +127,19 @@ def compare_activations_generic(model, x_orig, x_cf, threshold=0.0):
 
 ########################
 
-########################
-# Hyperparameters
-########################
-model_task = "heart_attack"  # options: "mnist", "cifar", "gtsrb", "heart_attack", "obesity"
-scaled = False
+def compute_activation_changes(pytorchFile, samples_file, activations_changes_file, model_task, scaled):
+    """
+    For each sample in samples_file, compute a PGD counterfactual using the PyTorch model pytorchFile
+    and write the (1-based) indices of neurons whose activation does not change
+    (per hidden layer, each list terminated by 0) into activations_changes_file.
 
-for num_layers in range(10, 11):
-    hidden_layers_size = 200
-    pytorchFile = f"data/models/{model_task}/{model_task}_{hidden_layers_size}x{num_layers}.pth"
-    activations_changes_file = f'data/activation_change/{model_task}/activation_{model_task}_{hidden_layers_size}x{num_layers}.txt'
-
-    samples_file = f"data/datasets/{model_task}/{model_task}_s100_scaled.csv"
-    if model_task == "obesity":
-        samples_file = f"data/datasets/{model_task}/{model_task}_s100_norm.csv"
-
-
+    Args:
+        model_task : "mnist", "cifar", "gtsrb", "heart_attack", "obesity" (determines the PGD parameters)
+        scaled     : whether the inputs are scaled to [0,1]
+    """
+    os.makedirs(os.path.dirname(activations_changes_file) or ".", exist_ok=True)
+    # The samples are appended below
+    open(activations_changes_file, "w").close()
 
     if model_task in ["heart_attack"]:
         binary_classifier = True
@@ -282,3 +281,19 @@ for num_layers in range(10, 11):
 
             # separate samples
             out_f.write("\n")
+
+
+if __name__ == "__main__":
+    ########################
+    # Hyperparameters
+    ########################
+    model_task = "heart_attack"  # options: "mnist", "cifar", "gtsrb", "heart_attack", "obesity"
+    scaled = False
+
+    for num_layers in range(10, 11):
+        hidden_layers_size = 200
+        pytorchFile = f"data/models/{model_task}/{model_task}_{hidden_layers_size}x{num_layers}.pth"
+        activations_changes_file = f'data/activation_change/{model_task}/activation_{model_task}_{hidden_layers_size}x{num_layers}.txt'
+        samples_file = f"data/datasets/{model_task}/{model_task}_s100_scaled.csv"
+
+        compute_activation_changes(pytorchFile, samples_file, activations_changes_file, model_task, scaled)
