@@ -191,6 +191,10 @@ it fixes the activations of neurons not affected by adversarial counterexamples,
 using the file of the model in `./data/neuron_activations`
 (e.g., `./data/neuron_activations/mnist/mnist_200x1.txt` for the model `./data/models/mnist/mnist_200x1.nnet`),
 which is computed if it does not exist yet.
+Computing the file requires [PyTorch](https://pytorch.org)
+and the trained PyTorch model next to the NNet model with the extension `.pth`
+(e.g., `./data/models/mnist/mnist_200x1.pth`);
+the scripts that compute the file are in `./python_scripts/adversarial`.
 
 ### `dump-psi`
 
