@@ -225,6 +225,37 @@ def parse_formula(text: str, var_names: Sequence[str], repair: bool = False) -> 
     return [Polytope.from_rows(_stack(ineqs, n), _stack(eqs, n))]
 
 
+def slice_formula(
+    text: str,
+    var_names: Sequence[str],
+    point,
+    axes,
+    repair: bool = False,
+) -> str:
+    """The snapshot of an explanation, as an SMT2 formula over two variables.
+
+    Every variable except ``var_names[a]`` and ``var_names[b]`` is pinned to
+    ``point`` (see :meth:`Polytope.substitute`), which is exactly the slice
+    ``mode="snapshot"`` draws.  The two free variables keep their original
+    names, so the result parses with the same ``var_names`` and plots as an
+    ordinary explanation.  A top-level ``(or ...)`` is sliced disjunct by
+    disjunct; empty disjuncts are kept, not pruned.
+    """
+    a, b = axes
+    n = len(var_names)
+    if a == b or not (0 <= a < n and 0 <= b < n):
+        raise ValueError(f"axes must be two distinct indices below {n}, got {axes}")
+    point = np.asarray(point, dtype=float).ravel()
+    if point.size < n:
+        raise ValueError(f"point has {point.size} features but there are {n} variables")
+
+    fixed = {i: point[i] for i in range(n) if i not in (a, b)}
+    free_names = [var_names[i] for i in sorted((a, b))]
+    parts = [p.substitute(fixed).to_smt2(free_names)
+             for p in parse_formula(text, var_names, repair=repair)]
+    return parts[0] if len(parts) == 1 else f"(or {' '.join(parts)})"
+
+
 def variables_in(text: str) -> list:
     """Every ``x``-prefixed atom occurring in a formula (unordered)."""
     def walk(node, out):

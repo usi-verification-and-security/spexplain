@@ -93,3 +93,47 @@ def test_split_operator_repair():
 
 def test_variables_in_is_sorted_numerically():
     assert variables_in("(and (<= x1 x12) (>= x3 2))") == ["x1", "x3", "x12"]
+
+
+# ------------------------------------------------------------ slice_formula
+
+from explviz.geometry.polytope import Polytope  # noqa: E402
+from explviz.geometry.region2d import region_2d  # noqa: E402
+from explviz.parsing.smt2 import slice_formula  # noqa: E402
+
+
+def test_to_smt2_round_trips():
+    rng = np.random.default_rng(1)
+    p = Polytope(rng.normal(size=(5, 3)), rng.normal(size=5),
+                 rng.normal(size=(1, 3)), rng.normal(size=1))
+    (q,) = parse_formula(p.to_smt2(V), V)
+    for got, want in [(q.A_ub, p.A_ub), (q.b_ub, p.b_ub),
+                      (q.A_eq, p.A_eq), (q.b_eq, p.b_eq)]:
+        np.testing.assert_array_equal(got, want)
+
+
+def test_to_smt2_drops_true_constant_rows_keeps_false_ones():
+    p = Polytope(np.array([[0., 0], [0, 0], [1, 0]]), np.array([1., -1, 2]),
+                 np.zeros((0, 2)), np.zeros(0))
+    assert p.to_smt2(["x1", "x2"]) == "(and (<= 0 (- 1)) (<= x1 2))"
+
+
+def test_slice_formula_matches_snapshot():
+    names = [f"x{i}" for i in range(1, 6)]
+    formula = ("(and (<= (+ x1 (* x3 (/ 1 2)) x5) 3) (not (<= x2 (- 2)))"
+               " (<= (+ (* (- 1) x4) x3) (/ 7 3)) (<= x1 (+ x2 4)))")
+    point = np.array([0.5, 0.1, -0.3, 0.7, 0.2])
+    bounds = [(-5.0, 5.0)] * 5
+    for axes in [(0, 2), (2, 0), (1, 4)]:
+        sliced = slice_formula(formula, names, point, axes)
+        assert set(variables_in(sliced)) <= {names[i] for i in axes}
+        (orig,) = parse_formula(formula, names)
+        (back,) = parse_formula(sliced, names)
+        want = region_2d(orig, axes, bounds, "snapshot", point=point)
+        got = region_2d(back, axes, bounds, "snapshot", point=point)
+        np.testing.assert_allclose(got, want, atol=1e-12)
+
+
+def test_slice_formula_keeps_disjuncts():
+    sliced = slice_formula("(or (and (<= x1 1)) (and (<= x2 x3)))", V, [0, 0, 0.5], (0, 1))
+    assert sliced == "(or (and (<= x1 1)) (and (<= x2 (/ 1 2))))"

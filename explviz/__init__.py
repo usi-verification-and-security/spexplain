@@ -19,7 +19,7 @@ from .datasets import load_explanations, load_points, select_explanation
 from .geometry.polytope import Polytope
 from .geometry.region2d import region_2d, regions_for_formula
 from .models.classifier import Classifier
-from .parsing.smt2 import parse_formula
+from .parsing.smt2 import parse_formula, slice_formula
 from .plot import (draw_panel, plot_comparison, plot_explanation, plot_grid,
                    save_figure)
 from .style import DEFAULT_STYLE, Style
@@ -27,7 +27,7 @@ from .style import DEFAULT_STYLE, Style
 __all__ = [
     "DatasetSpec", "Explanation", "Panel", "explanations_from_formulas",
     "load_points", "load_explanations", "select_explanation",
-    "Polytope", "parse_formula", "region_2d", "regions_for_formula",
+    "Polytope", "parse_formula", "slice_formula", "region_2d", "regions_for_formula",
     "Classifier", "Style", "DEFAULT_STYLE",
     "draw_panel", "plot_explanation", "plot_comparison", "plot_grid",
     "save_figure",

@@ -12,8 +12,29 @@ live in ``projection.project_multi_subspace``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from fractions import Fraction
+from typing import Sequence
 
 import numpy as np
+
+
+def _smt_number(x: float) -> str:
+    """Exact SMT2 literal for a float, in the ``(/ (- p) q)`` style of the
+    explanation files.  ``Fraction`` gives the float's exact binary value, so
+    nothing is rounded on the way out."""
+    if not np.isfinite(x):
+        raise ValueError(f"cannot write non-finite number {x!r} as SMT2")
+    f = Fraction(float(x))
+    num = str(abs(f.numerator)) if f.numerator >= 0 else f"(- {abs(f.numerator)})"
+    return num if f.denominator == 1 else f"(/ {num} {f.denominator})"
+
+
+def _smt_linear(coeffs: np.ndarray, var_names: Sequence[str]) -> str:
+    terms = [name if c == 1.0 else f"(* {name} {_smt_number(c)})"
+             for c, name in zip(coeffs, var_names) if c != 0.0]
+    if not terms:
+        return "0"
+    return terms[0] if len(terms) == 1 else f"(+ {' '.join(terms)})"
 
 
 @dataclass
@@ -88,6 +109,27 @@ class Polytope:
             A_eq=self.A_eq[:, keep],
             b_eq=self.b_eq - self.A_eq[:, pin] @ vals,
         )
+
+    def to_smt2(self, var_names: Sequence[str]) -> str:
+        """Write the polytope as an SMT2 conjunction ``(and (<= ...) (= ...))``.
+
+        ``var_names[j]`` names column ``j``; after :meth:`substitute` pass the
+        names of the kept variables (in increasing index order), not all of
+        them.  Rows whose coefficients are all zero are constant: true ones are
+        dropped, false ones are kept as ``(<= 0 b)`` so the formula stays
+        unsatisfiable.  The result reads back with ``parse_formula``.
+        """
+        if len(var_names) != self.n_vars:
+            raise ValueError(f"got {len(var_names)} names for {self.n_vars} variables")
+        atoms = []
+        for op, A, b in (("<=", self.A_ub, self.b_ub), ("=", self.A_eq, self.b_eq)):
+            for row, rhs in zip(A, b):
+                if not np.any(row):
+                    holds = 0.0 <= rhs if op == "<=" else rhs == 0.0
+                    if holds:
+                        continue
+                atoms.append(f"({op} {_smt_linear(row, var_names)} {_smt_number(rhs)})")
+        return f"(and {' '.join(atoms)})" if atoms else "(and)"
 
     def with_box(self, bounds) -> "Polytope":
         """Return a copy with the box constraints folded in as extra rows."""
