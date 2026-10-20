@@ -10,16 +10,28 @@ ACTIONS = ('explain', *ENGINE_ACTIONS, 'interpret')
 DEFAULT_ACTION = 'explain'
 
 
+def print_rows(rows, file=sys.stdout):
+    """Print rows of columns aligned with spaces."""
+    widths = [max(len(row[i]) for row in rows if i < len(row) - 1) for i in range(max(map(len, rows)) - 1)]
+    for row in rows:
+        cells = [cell.ljust(widths[i]) for i, cell in enumerate(row[:-1])] + [row[-1]]
+        print('    ' + '  '.join(cells), file=file)
+
+
 def print_usage(file=sys.stdout):
-    print(f'''USAGE: spexplain [--engine <path>] [<action>] <args> [<options>]
-ACTIONS: [{DEFAULT_ACTION}] {' '.join(a for a in ACTIONS if a != DEFAULT_ACTION)}
-\t explain:\t <nn_model_fn> <dataset_fn> [<exp_strategies_spec>]\t run the Explanation Computation Engine
-\t dump-psi:\t <nn_model_fn>\t\t\t\t\t print the SMT-LIB encoding of the NN
-\t interpret:\t <explanation> <technique> [<dataset>]\t\t run the Explanation Interpreter
-Use 'spexplain <action> --help' to print the usage of a particular action.
-OPTIONS:
-\t --engine <path>\t Use the given engine executable (default: ${engine.ENGINE_ENV_VAR} or build*/{engine.ENGINE_NAME})''',
-          file=file)
+    print('USAGE: spexplain [--engine <path>] [<action>] <args> [<options>]', file=file)
+    print(f"ACTIONS: [{DEFAULT_ACTION}] {' '.join(a for a in ACTIONS if a != DEFAULT_ACTION)}", file=file)
+    print_rows([
+        ('explain:', '<nn_model_fn> <dataset_fn> [<exp_strategies_spec>]', 'Run the Explanation Computation Engine'),
+        ('dump-psi:', '<nn_model_fn>', 'Print the SMT-LIB encoding of the NN'),
+        ('interpret:', '<explanation> <technique> [<dataset>]', 'Run the Explanation Interpreter'),
+    ], file=file)
+    print("Use 'spexplain <action> --help' to print the usage of a particular action.", file=file)
+    print('OPTIONS:', file=file)
+    print_rows([
+        ('--engine <path>',
+         f'Use the given engine executable (default: ${engine.ENGINE_ENV_VAR} or build*/{engine.ENGINE_NAME})'),
+    ], file=file)
 
 
 def pop_engine_path(args):

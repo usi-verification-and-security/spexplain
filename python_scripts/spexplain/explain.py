@@ -65,9 +65,10 @@ def main(args, engine_path=None):
 def print_usage(engine_path=None):
     print('USAGE: spexplain [explain] <nn_model_fn> <dataset_fn> [<exp_strategies_spec>] [<options>]')
     print('Options processed by spexplain itself:')
-    print(f'\t{FIX_DEFAULT_OPT} {ADVERSARIAL}')
-    print('\t\tFix the activations of neurons not affected by adversarial counterexamples (the hybrid configuration),')
-    print('\t\tstored in data/neuron_activations/... (computed if it does not exist yet,')
-    print('\t\twhich requires PyTorch and the PyTorch model <nn_model_fn> with the extension .pth)')
+    # Same layout as the options of the engine
+    print(f'    {FIX_DEFAULT_OPT} {ADVERSARIAL}')
+    print('              Fix the activations of neurons not affected by adversarial counterexamples (the hybrid configuration),')
+    print('              stored in data/neuron_activations/... (computed if it does not exist yet,')
+    print('              which requires PyTorch and the PyTorch model <nn_model_fn> with the extension .pth)')
     print('Other options are forwarded to the engine:\n')
     engine.print_usage(engine_path)

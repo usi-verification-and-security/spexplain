@@ -122,9 +122,9 @@ Running `./spexplain` with no arguments yields a help message:
 ```
 USAGE: spexplain [--engine <path>] [<action>] <args> [<options>]
 ACTIONS: [explain] dump-psi interpret
-     explain:    <nn_model_fn> <dataset_fn> [<exp_strategies_spec>]     run the Explanation Computation Engine
-     dump-psi:   <nn_model_fn>                                          print the SMT-LIB encoding of the NN
-     interpret:  <explanation> <technique> [<dataset>]                  run the Explanation Interpreter
+    explain:    <nn_model_fn> <dataset_fn> [<exp_strategies_spec>]  Run the Explanation Computation Engine
+    dump-psi:   <nn_model_fn>                                       Print the SMT-LIB encoding of the NN
+    interpret:  <explanation> <technique> [<dataset>]               Run the Explanation Interpreter
 Use 'spexplain <action> --help' to print the usage of a particular action.
 ...
 ```
