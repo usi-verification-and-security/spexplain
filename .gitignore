@@ -31,6 +31,7 @@
 .idea/
 
 venv/
+.venv/
 
 build*/
 
@@ -43,3 +44,12 @@ build*/
 
 # macOS
 .DS_Store
+
+# Python
+__pycache__/
+
+# Generated figures (regenerate with data/visualization/*/ scripts); the small
+# text outputs next to them (REPORT.md, *.csv, *.json) stay trackable
+data/visualization/plots/**/*.png
+data/visualization/plots/**/*.pdf
+data/visualization/plots/**/.cache/
