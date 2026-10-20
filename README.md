@@ -114,10 +114,33 @@ make marabou
 
 ## Running the tool
 
-Using the `./build` build directory, running `./build/spexplain` with no arguments yields a help message:
+The tool is run as `./spexplain <action>` from the root of the repository.
+The script `./spexplain` is the user interface that integrates the particular components of the tool;
+it requires Python 3.
+Running `./spexplain` with no arguments yields a help message:
 
 ```
-USAGE: ./build/spexplain [<action>] <args> [<options>]
+USAGE: spexplain [--engine <path>] [<action>] <args> [<options>]
+ACTIONS: [explain] dump-psi interpret
+     explain:    <nn_model_fn> <dataset_fn> [<exp_strategies_spec>]     run the Explanation Computation Engine
+     dump-psi:   <nn_model_fn>                                          print the SMT-LIB encoding of the NN
+     interpret:  <explanation> <technique> [<dataset>]                  run the Explanation Interpreter
+Use 'spexplain <action> --help' to print the usage of a particular action.
+...
+```
+
+The tool currently supports three actions:
+`explain` (default), `dump-psi`, and `interpret`.
+
+The actions `explain` and `dump-psi` are implemented by the Explanation Computation Engine,
+the executable `engine` in the build directory (e.g., `./build/engine`),
+which `./spexplain` runs with the forwarded arguments.
+By default, `./build/engine` is used, or `./build-marabou/engine` if the verifier `marabou` is selected;
+this can be overridden by the option `--engine <path>` or the environment variable `SPEXPLAIN_ENGINE`.
+Running `./spexplain explain --help` also prints the help message of the engine:
+
+```
+USAGE: ./build/engine [<action>] <args> [<options>]
 ACTIONS: [explain] dump-psi
 ARGS:
     explain:    <nn_model_fn> <dataset_fn> [<exp_strategies_spec>]
@@ -136,9 +159,6 @@ VERIFIERS: opensmt
 OPTIONS:
     ...
 ```
-
-The tool currently supports two actions:
-`explain` (default), and `dump-psi`.
 
 ### `explain`
 
@@ -161,6 +181,17 @@ and if multiple strategies are used, each consumes the previous output as its in
 Every particular strategy is specified by its name and optionally with parameters that are separated by `,`.
 The default strategy is `itp`, and default parameters of strategies are specified in the brackets.
 
+The neuron activations of the sample points can be fixed or used to guide the search
+by the options `--input-fix-sample-neuron-activations <file>` and `--input-guide-sample-neuron-activations <file>`,
+or by the options `--fix-default-sample-neuron-activations` and `--guide-default-sample-neuron-activations`.
+The value `adversarial` of `--fix-default-sample-neuron-activations`
+(processed by `./spexplain` itself)
+selects the hybrid configuration:
+it fixes the activations of neurons not affected by adversarial counterexamples,
+using the file of the model in `./data/neuron_activations`
+(e.g., `./data/neuron_activations/mnist/mnist_200x1.txt` for the model `./data/models/mnist/mnist_200x1.nnet`),
+which is computed if it does not exist yet.
+
 ### `dump-psi`
 
 Generates the encoding of the provided network in the SMT-LIB format:
@@ -179,6 +210,18 @@ The action requires the following arguments:
 Same as in the `explain` action.
 
 It is recommended to also apply the sed script `./data/scripts/polish_psi.sed` to the produced encodings (use the sed option `-i` to apply the changes inline on the files).
+
+### `interpret`
+
+Interprets stored explanations
+(in the SMT-LIB format, e.g., the default output file `phi.txt`)
+using an extraction technique,
+e.g., `slice x1 x5`, `diam`, or `norm` (optionally `inv`),
+which determines the visualization (`fspace` or `pixel`)
+triggered by the option `--visualize`.
+A visualization technique can also be applied directly.
+
+*The action is not implemented yet.*
 
 ### Strategies and their parameters
 
@@ -259,7 +302,7 @@ The tool accepts numerous options as described in the help message.
 ### Examples
 
 ```
-./build/spexplain ./data/models/toy.nnet ./data/datasets/toy.csv
+./spexplain ./data/models/toy.nnet ./data/datasets/toy.csv
 ```
 Generates explanations into the default output explanation file `./phi.txt`
 for the sample points in the dataset `./data/datasets/toy.csv`
@@ -268,17 +311,17 @@ and the default strategy (`aweak, bstrong`).
 The explanations are in this case written in the SMT-LIB format.
 
 ```
-./build-marabou/spexplain explain data/models/toy.nnet data/datasets/toy.csv abductive -e data/explanations/toy.phi.txt
+./spexplain explain data/models/toy.nnet data/datasets/toy.csv abductive -V marabou -e data/explanations/toy.phi.txt
 ```
 Generates explanations into `./data/explanations/toy.phi.txt`
 using the strategy `abductive`
-and the build `build-marabou` (from `make marabou`)
-where the verifier `marabou` is used implicitly when possible.
+and the verifier `marabou`
+(requires the build `build-marabou` from `make marabou`).
 The explanations are in this case written in a human-readable format
 where each line corresponds to an equation of a feature to the corresponding sample value.
 
 ```
-./build/spexplain data/models/toy.nnet data/datasets/toy.csv 'ucore interval, min' -RS -e toy.phi.txt
+./spexplain data/models/toy.nnet data/datasets/toy.csv 'ucore interval, min' -RS -e toy.phi.txt
 ```
 Generates explanations into the file `./toy.phi.txt`
 in the SMT-LIB format (`-S`)
@@ -286,7 +329,7 @@ using the strategy `ucore` with parameters `interval` and `min`,
 following the reversed order of features (`-R`) when relaxing the constraints.
 
 ```
-./build/spexplain data/models/toy.nnet data/datasets/toy.csv 'itp aweaker, bstrong; ucore'
+./spexplain data/models/toy.nnet data/datasets/toy.csv 'itp aweaker, bstrong; ucore'
 ```
 Generates explanations
 using the strategy `itp` with parameters `aweaker` and `bstrong`,
@@ -294,7 +337,7 @@ followed by the strategy `ucore`,
 which will eliminate some conjuncts.
 
 ```
-./build/spexplain data/models/toy.nnet data/datasets/toy.csv 'trial n 3' -n2 -s stats.txt
+./spexplain data/models/toy.nnet data/datasets/toy.csv 'trial n 3' -n2 -s stats.txt
 ```
 Generates explanations for only the first two sample points in the dataset (`-n2`),
 using the strategy `trial` with at most 3 attempts,
@@ -302,7 +345,7 @@ and also outputs the statistics about particular samples and explanations
 into the file `./stats.txt`.
 
 ```
-./build/spexplain dump-psi data/models/toy.nnet
+./spexplain dump-psi data/models/toy.nnet
 ```
 Generates the encoding files `./psi_d.smt2` and `./psi_c*.smt2`
 for the provided network in the SMT-LIB format.

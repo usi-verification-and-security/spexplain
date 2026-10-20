@@ -5,12 +5,12 @@ This folder contains several scripts to automate and simplify experimentation wi
 
 ## `run1.sh`
 
-This is a proxy script for the `spexplain` executable that automatically uses some options suitable for running the experiments (e.g. `--quiet`) and automatically adjusts the destination directory for the generated explanations based on the inputs and parameters:
+This is a proxy script for the `engine` executable (the explanation computation engine of SpEXplAIn, see `build/engine`) that automatically uses some options suitable for running the experiments (e.g. `--quiet`) and automatically adjusts the destination directory for the generated explanations based on the inputs and parameters:
 ```
 USAGE: ./run1.sh <nn_model_fn> <dataset_fn> <exp_strategies_spec> [<name>] [<max_samples>] <args>...
 ```
 Except of these, it also accepts several environment variables, described below.
-The inputs `<nn_model_fn>`, `<dataset_fn>` and `<exp_strategies_spec>` are just forwarded to `spexplain`.
+The inputs `<nn_model_fn>`, `<dataset_fn>` and `<exp_strategies_spec>` are just forwarded to `engine`.
 The script outputs various data into files (including e.g. statistics, time splits, etc.) in the destination directory.
 It only runs one experiment, that is, produces one output file with explanations (along with statistics etc.), not multiple.
 
@@ -21,22 +21,22 @@ If omitted, it will be generated automatically from `<exp_strategies_spec>`.
 
 ### `<max_samples>`
 
-If specified, computes explanations only for randomly selected `<max_samples>` samples (refers to options `-r` and `-n` of `spexplain`).
+If specified, computes explanations only for randomly selected `<max_samples>` samples (refers to options `-r` and `-n` of `engine`).
 Modifies the destination directory path.
 
 ### `<args>...`
 
-Any other arguments that will be forwarded to `spexplain`.
+Any other arguments that will be forwarded to `engine`.
 See the description of the environment variable `VARIANT` if you need to store different configurations separately.
 
 ### Environment variables
 
-* `CMD`: sets the `spexplain` executable (default: `../../build/spexplain`)
+* `CMD`: sets the `engine` executable (default: `../../build/engine`)
 * `VARIANT`: specific identifier for the used variant (default: `default`); the destination directory path depends on `VARIANT`, hence it distinguishes the results when using different configurations; see the dedicated section below for more details
-* `OPTIONS`: additional arguments passed to `spexplain` but *before* `<args>...`
+* `OPTIONS`: additional arguments passed to `engine` but *before* `<args>...`
 * `TIMEOUT`: optional overall timeout for the execution; the duration is a number with an optional suffix: `s` for seconds (default), `m` for minutes, `h` for hours or `d` for days
-* `TIMEOUT_PER`: optional timeout per explanation (refers to option `-t` of `spexplain`); the duration format is the same as in `TIMEOUT`
-* `SRC_EXPERIMENT`: sets already computed explanations with a given name (corresponding to `<name>` at that time) as the input, instead of using the original sample points (refers to option `-E` of `spexplain`)
+* `TIMEOUT_PER`: optional timeout per explanation (refers to option `-t` of `engine`); the duration format is the same as in `TIMEOUT`
+* `SRC_EXPERIMENT`: sets already computed explanations with a given name (corresponding to `<name>` at that time) as the input, instead of using the original sample points (refers to option `-E` of `engine`)
 
 ### Variants
 
@@ -44,13 +44,13 @@ Variants allow to distinguish the results if a different configuration is used.
 In addition,
 it is possible to store specific configurations into the file `spec/variants/all`:
 if the `VARIANT` environment variable matches an entry in the `VARIANT_NAMES` array,
-the corresponding options from the array `VARIANT_OPTIONS` are automatically passed to `spexplain` but *before* `<args>...` and even `OPTIONS`.
+the corresponding options from the array `VARIANT_OPTIONS` are automatically passed to `engine` but *before* `<args>...` and even `OPTIONS`.
 
 All other files in the directory `spec/variants` represent collections of variants,
 which are only used in the `run-experiments.sh` script.
 
 The script also tries to guess filenames for empty arguments in `OPTIONS` or the configured variant options
-for the `--input-(fix|prefer)-sample-neuron-activations` options,
+for the `--input-(fix|guide)-sample-neuron-activations` options,
 based on `<nn_model_fn>` and searching in the directory `data/neuron_activations`.
 
 ### Examples
@@ -91,15 +91,15 @@ this generates explanations into `./phi.txt` (due to the extra arguments `-e phi
 but statistics into `explanations/heart_attack/50/quick/default/test_name.stats.txt`, etc.
 
 ```
-CMD=../build-marabou/spexplain SRC_EXPERIMENT=abductive ./scripts/run1.sh models/heart_attack/heart_attack-50.nnet datasets/heart_attack/heart_attack_quick.csv 'trial n 4'
+CMD=../build-marabou/engine SRC_EXPERIMENT=abductive ./scripts/run1.sh models/heart_attack/heart_attack-50.nnet datasets/heart_attack/heart_attack_quick.csv 'trial n 4'
 ```
-will use the executable `../build-marabou/spexplain`
+will use the executable `../build-marabou/engine`
 and compute explanations into `explanations/heart_attack/50/quick/default/trial_n_4__abductive.phi.txt`
 using `explanations/heart_attack/50/quick/default/abductive.phi.txt` as starting points (which must already exist) instead of sample points.
 The resulting explanations are the same as what would compute the strategy `abductive; trial n 4` if starting from sample points, but it does not re-compute `abductive` that has already been computed.
 
 ```
-CMD=../build-marabou/spexplain VARIANT=OpenSMT ./scripts/run1.sh models/heart_attack/heart_attack-50.nnet datasets/heart_attack/heart_attack_quick.csv 'abductive; trial n 4' -V opensmt
+CMD=../build-marabou/engine VARIANT=OpenSMT ./scripts/run1.sh models/heart_attack/heart_attack-50.nnet datasets/heart_attack/heart_attack_quick.csv 'abductive; trial n 4' -V opensmt
 ```
 forces to use the `opensmt` verifier
 and explicitly sets the variant name to `OpenSMT`,
@@ -176,10 +176,10 @@ will run all experiments specified in `spec/experiments/base` (e.g. `abductive`)
 generating the explanations into `explanations/heart_attack/50/full/default`.
 
 ```
-CMD=../build-marabou/spexplain ./scripts/run-experiments.sh models/heart_attack/heart_attack-50.nnet datasets/heart_attack/heart_attack_full.csv base consecutive
+CMD=../build-marabou/engine ./scripts/run-experiments.sh models/heart_attack/heart_attack-50.nnet datasets/heart_attack/heart_attack_full.csv base consecutive
 ```
 will run all consecutive experiments specified in `spec/experiments/base`, given that the previous collection above has already been run,
-and using the executable `../build-marabou/spexplain`.
+and using the executable `../build-marabou/engine`.
 
 Note that it is often useful to run the script on the background, for example:
 ```
@@ -194,7 +194,7 @@ TIMEOUT=2m TIMEOUT_PER=30s OPTIONS='--reverse-var' VARIANT=reverse ./scripts/run
 will use the timeout of `2m` per experiment (i.e., per a run of `run1.sh`)
 and of `30s` per explanation,
 use the variant `reverse`
-and pass the arguments `--reverse-var` to `run1.sh` (i.e., consequently, to `spexplain`),
+and pass the arguments `--reverse-var` to `run1.sh` (i.e., consequently, to `engine`),
 and
 will run experiments specified in `spec/experiments/itp` that together with the variant `reverse` match the regex filter `/itp` (e.g. `reverse/itp_astrong_bstrong`),
 and will generate the explanations into `explanations/obesity/10-20-10/short/reverse`.
@@ -271,13 +271,13 @@ If one wants to use a particular solver, e.g. locally built, use environment var
 
 ### `<psi>`
 
-A "psi" file is an encoding of the classification and/or the domains (produced by the `dump-psi` action in `spexplain`).
+A "psi" file is an encoding of the classification and/or the domains (produced by the `dump-psi` action in `engine`).
 Action `check` requires the classification file `psi_c*.smt2` (use any one of them), the others use the domain file `psi_d.smt2`
 
 ### `<f> [<f2>]`
 
 One or two explanation files ("phi"), depending whether the action is unary or binary.
-The phi files contain the formulas of the produced explanations in SMT-LIB format (`-e` option in `spexplain`).
+The phi files contain the formulas of the produced explanations in SMT-LIB format (`-e` option in `engine`).
 
 Use either your locally generated explanations or those already computed and stored in `data/explanations`.
 

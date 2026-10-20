@@ -30,4 +30,4 @@ the domains of particular input features (`psi_d.smt2`)
 and
 the constraint that a given classification cannot change (`psi_c*.smt2`),
 based on an input model from `models`.
-These files are produced by the `dump-psi` action in `build/spexplain`.
+These files are produced by the `dump-psi` action in `build/engine`.
