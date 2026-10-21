@@ -124,7 +124,7 @@ USAGE: spexplain [--engine <path>] [<action>] <args> [<options>]
 ACTIONS: [explain] dump-psi interpret
     explain:    <nn_model_fn> <dataset_fn> [<exp_strategies_spec>]  Run the Explanation Computation Engine
     dump-psi:   <nn_model_fn>                                       Print the SMT-LIB encoding of the NN
-    interpret:  <explanation> <technique> [<dataset>]               Run the Explanation Interpreter
+    interpret:  [<explanation>] <technique_spec> [<dataset>]        Run the Explanation Interpreter
 Use 'spexplain <action> --help' to print the usage of a particular action.
 ...
 ```
@@ -217,15 +217,60 @@ It is recommended to also apply the sed script `./data/scripts/polish_psi.sed` t
 
 ### `interpret`
 
-Interprets stored explanations
-(in the SMT-LIB format, e.g., the default output file `phi.txt`)
+Interprets stored explanations of the sample points
 using an extraction technique,
-e.g., `slice x1 x5`, `diam`, or `norm` (optionally `inv`),
-which determines the visualization (`fspace` or `pixel`)
-triggered by the option `--visualize`.
-A visualization technique can also be applied directly.
+e.g., `slice x1 x5`, `diam`, or `norm` (optionally `min` or `inv`),
+or directly using a visualization technique, `fspace` or `pixel`.
+An extraction technique can be followed by a visualization,
+which is triggered by the option `--visualize`;
+the default visualization is determined by the extraction technique.
 
-*The action is not implemented yet.*
+The action accepts the following arguments:
+* `<explanation>`:
+Filename to the explanations in the SMT-LIB format (e.g., the default output file `phi.txt` of `explain`),
+one explanation per line for each sample point of the dataset.
+It can be omitted with the technique `pixel`, which then visualizes the sample points.
+* `<technique_spec>`:
+The technique and optionally its parameter in the format `<name>[ <param>]`.
+* `<dataset>`:
+Same as in the `explain` action.
+If given, it must contain as many sample points as there are explanations.
+It is currently required by all implemented techniques.
+
+All explanations are processed unless a subset of the sample points is selected
+with the option `-i <sel>[,<sel>]...`,
+where each `<sel>` is either a single sample point `<idx>`, or a range `[<idx>]-[<idx2>]`
+(indexed from 1, the bounds default to the first and the last sample point, respectively),
+and with the option `-n <int>`, which limits the number of processed sample points.
+
+The extracted explanations are written into the file given by the option `-e <file>`;
+if the option is not given, they are written into the file `tphi.txt` unless they are visualized.
+The file contains one line for each sample point,
+with `<null>` for the sample points that are not processed.
+Explanations `<null>` (e.g., when `explain` reached the time limit) are skipped.
+The visualizations are written into image files, one per sample point,
+named according to the option `--output-image <file>` (default: `timg.png`)
+where `_s<idx>` is added to the name (e.g., `timg_s3.png`) and the extension determines the format.
+If only one sample point is processed, the option `--show` also shows the visualization.
+
+Currently, the following techniques are implemented:
+* `norm`:
+Computes the point of the explanation with the minimal (L2) norm,
+or with the maximal norm using the parameter `inv`.
+Assumes that the domains of all features are normalized to [0,1].
+* `pixel`:
+Shows a point as a gray-scale image,
+assuming square images with a single channel (e.g., MNIST) and values in [0,1].
+Without the parameter, it shows the explanation, which must be a point
+(e.g., extracted by `norm`),
+or the sample point if `<explanation>` is omitted.
+With the parameter `sample`, it shows the sample point and ignores the explanations
+(it cannot be used with `--visualize`).
+
+Visualizing an extracted explanation using `--visualize`
+is equivalent to first extracting it into a file and then visualizing the file using `pixel`.
+
+The action requires the Python packages NumPy, SciPy, pyparsing, and Matplotlib.
 
 ### Strategies and their parameters
 
