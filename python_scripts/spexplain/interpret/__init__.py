@@ -78,7 +78,7 @@ def make_parser():
     parser.add_argument('args', nargs='+', metavar='[<explanation>] <technique_spec> [<dataset>]',
                         help='file with explanations in the SMT-LIB2 format, one per sample (e.g. phi.txt); '
                              "technique spec '<name>[ <param>[, <param>]...]', e.g. 'norm', 'norm inv', 'pixel', "
-                             "'pixel sample'; "
+                             "'mathexpr vars x1-x9'; "
                              'CSV file with the samples')
     parser.add_argument('-i', '--samples', metavar='<sel>[,<sel>]...',
                         help="only process the given samples, each '<sel>' is '<idx>' or '[<idx>]-[<idx2>]' (from 1)")
@@ -93,6 +93,8 @@ def make_parser():
                              '(default: ' + ', '.join(f'{file} for {name}'
                                                       for name, file in DEFAULT_OUTPUT_VISUALIZATIONS.items()) + ')')
     parser.add_argument('--show', action='store_true', help='also show the visualization (only for one sample)')
+    parser.add_argument('--samples-only', action='store_true',
+                        help='visualize the samples and ignore the explanations (only for visualization techniques)')
     return parser
 
 
@@ -121,8 +123,8 @@ def main(args):
             visualization = parse_technique_spec(opts.visualize)
             if visualization[0] not in VISUALIZATIONS:
                 raise Error(f'Not a visualization technique: {visualization[0]}')
-            if visualization == ('pixel', ['sample']):
-                raise Error("Visualization 'pixel sample' cannot follow an extraction technique")
+        if opts.samples_only:
+            raise Error('Option --samples-only can only be used with a visualization technique')
     else:
         extraction = None
         visualization = (name, params)
@@ -140,12 +142,11 @@ def main(args):
         raise Error(f"Visualization technique '{visualization[0]}' is not implemented yet")
     pixel_visualization = visualization and visualization[0] == 'pixel'
     mathexpr_visualization = visualization and visualization[0] == 'mathexpr'
-    if pixel_visualization and visualization[1] not in ([], ['sample']):
+    if pixel_visualization and visualization[1]:
         raise Error(f'Unknown parameters of pixel: {", ".join(visualization[1])}')
 
-    # Only the samples are visualized
-    use_samples_only = (pixel_visualization and not extraction
-                        and (visualization[1] == ['sample'] or explanations_file is None))
+    # Only the samples are visualized, also if the explanations are omitted
+    use_samples_only = not extraction and (opts.samples_only or explanations_file is None)
     if explanations_file is None and not use_samples_only:
         raise Error('Missing the explanations')
     if use_samples_only:
