@@ -303,6 +303,12 @@ Only available if built with a `make marabou*` rule.
 
 The tool accepts numerous options as described in the help message.
 
+For example, the explanations are by default written in the SMT-LIB format (`-S`), one explanation per line;
+alternatively, in the form of intervals (`-I`) or bounds (`-B`).
+A subset of the sample points can be selected with the option `-i`,
+either a single sample point `<idx>`, or a range `[<idx>]-[<idx2>]`
+(indexed from 1, the bounds default to the first and the last sample point, respectively).
+
 ### Examples
 
 ```
@@ -312,23 +318,23 @@ Generates explanations into the default output explanation file `./phi.txt`
 for the sample points in the dataset `./data/datasets/toy.csv`
 using the toy network `./data/models/toy.nnet`
 and the default strategy (`aweak, bstrong`).
-The explanations are in this case written in the SMT-LIB format.
+The explanations are written in the SMT-LIB format (the default), one explanation per line.
 
 ```
-./spexplain explain data/models/toy.nnet data/datasets/toy.csv abductive -V marabou -e data/explanations/toy.phi.txt
+./spexplain explain data/models/toy.nnet data/datasets/toy.csv abductive -V marabou -B -e data/explanations/toy.phi.txt
 ```
 Generates explanations into `./data/explanations/toy.phi.txt`
 using the strategy `abductive`
 and the verifier `marabou`
 (requires the build `build-marabou` from `make marabou`).
-The explanations are in this case written in a human-readable format
-where each line corresponds to an equation of a feature to the corresponding sample value.
+The explanations are in this case written in the bounds format (`-B`),
+a human-readable format where each line corresponds to an equation of a feature to the corresponding sample value
+and the explanations are separated by an empty line.
 
 ```
-./spexplain data/models/toy.nnet data/datasets/toy.csv 'ucore interval, min' -RS -e toy.phi.txt
+./spexplain data/models/toy.nnet data/datasets/toy.csv 'ucore interval, min' -R -e toy.phi.txt
 ```
 Generates explanations into the file `./toy.phi.txt`
-in the SMT-LIB format (`-S`)
 using the strategy `ucore` with parameters `interval` and `min`,
 following the reversed order of features (`-R`) when relaxing the constraints.
 
