@@ -16,19 +16,22 @@ EXTRACTIONS = {
 VISUALIZATIONS = ('fspace', 'pixel')
 
 DEFAULT_OUTPUT_EXPLANATIONS = 'tphi.txt'
+DEFAULT_OUTPUT_VISUALIZATIONS = {
+    'pixel': 'timg.png',
+}
 
 # Same as in the engine, e.g. if a timeout was reached
 INVALID_EXPLANATION = '<null>'
-DEFAULT_OUTPUT_IMAGE = 'timg.png'
 
 
 def parse_technique_spec(spec):
-    """Parse the technique spec '<name>[ <param>]', e.g. 'norm inv' or 'pixel sample'."""
-    name, *params = spec.split()
+    """Parse the technique spec '<name>[ <param>[, <param>]...]' as in the engine, e.g. 'norm inv'."""
+    name, _, rest = spec.strip().partition(' ')
+    params = [param.strip() for param in rest.split(',')] if rest.strip() else []
     if name not in EXTRACTIONS and name not in VISUALIZATIONS:
         raise Error(f'Unknown technique: {name}\nAvailable: {", ".join([*EXTRACTIONS, *VISUALIZATIONS])}')
-    if len(params) > 1:
-        raise Error(f'At most one parameter of the technique is supported: {spec}')
+    if not all(params):
+        raise Error(f'Empty parameter of the technique: {spec}')
     return name, params
 
 
@@ -60,7 +63,7 @@ def read_explanations(path, indices):
         return {idx: line.strip() for idx, line in enumerate(f, start=1) if idx in wanted}
 
 
-def image_file(base, idx):
+def output_file(base, idx):
     base = Path(base)
     return base.with_name(f'{base.stem}_s{idx}{base.suffix}')
 
@@ -73,7 +76,8 @@ def make_parser():
     )
     parser.add_argument('args', nargs='+', metavar='[<explanation>] <technique_spec> [<dataset>]',
                         help='file with explanations in the SMT-LIB2 format, one per sample (e.g. phi.txt); '
-                             "technique spec '<name>[ <param>]', e.g. 'norm', 'norm inv', 'pixel', 'pixel sample'; "
+                             "technique spec '<name>[ <param>[, <param>]...]', e.g. 'norm', 'norm inv', 'pixel', "
+                             "'pixel sample'; "
                              'CSV file with the samples')
     parser.add_argument('-i', '--samples', metavar='<sel>[,<sel>]...',
                         help="only process the given samples, each '<sel>' is '<idx>' or '[<idx>]-[<idx2>]' (from 1)")
@@ -83,9 +87,10 @@ def make_parser():
                              'unless visualizing)')
     parser.add_argument('--visualize', nargs='?', const=True, metavar='<visualization_spec>',
                         help='visualize the extracted explanations (default: determined by the technique)')
-    parser.add_argument('--output-image', metavar='<file>',
-                        help=f"output the visualizations into the files with '_s<idx>' added to the name "
-                             f'(default: {DEFAULT_OUTPUT_IMAGE})')
+    parser.add_argument('--output-visualization', metavar='<file>',
+                        help="output the visualizations into the files with '_s<idx>' added to the name "
+                             '(default: ' + ', '.join(f'{file} for {name}'
+                                                      for name, file in DEFAULT_OUTPUT_VISUALIZATIONS.items()) + ')')
     parser.add_argument('--show', action='store_true', help='also show the visualization (only for one sample)')
     return parser
 
@@ -133,7 +138,7 @@ def main(args):
     if visualization and visualization[0] != 'pixel':
         raise Error(f"Visualization technique '{visualization[0]}' is not implemented yet")
     if visualization and visualization[1] not in ([], ['sample']):
-        raise Error(f'Unknown parameters of pixel: {" ".join(visualization[1])}')
+        raise Error(f'Unknown parameters of pixel: {", ".join(visualization[1])}')
 
     # Only the samples are visualized
     use_samples_only = not extraction and (visualization[1] == ['sample'] or explanations_file is None)
@@ -171,10 +176,10 @@ def main(args):
     if extraction and (opts.output_explanations or not visualization):
         output_explanations = opts.output_explanations or DEFAULT_OUTPUT_EXPLANATIONS
         print(f'Writing explanations to: {output_explanations}')
-    output_image = None
+    output_visualization = None
     if visualization:
-        output_image = opts.output_image or DEFAULT_OUTPUT_IMAGE
-        print(f'Writing images to: {image_file(output_image, "<idx>")}')
+        output_visualization = opts.output_visualization or DEFAULT_OUTPUT_VISUALIZATIONS[visualization[0]]
+        print(f'Writing visualizations to: {output_file(output_visualization, "<idx>")}')
     print()
 
     # Similar to the engine
@@ -227,7 +232,7 @@ def main(args):
             # print(f'{idx}: norm {np.linalg.norm(point):.6g}')
 
             if visualization:
-                pixel.save(point, image_file(output_image, idx), show=opts.show)
+                pixel.save(point, output_file(output_visualization, idx), show=opts.show)
 
             print('done')
     finally:

@@ -99,7 +99,7 @@ class Config:
         elif params == ['inv']:
             self.maximal = True
         else:
-            raise Error('Unknown parameters of norm: %s' % ' '.join(params))
+            raise Error('Unknown parameters of norm: %s' % ', '.join(params))
 
 
 def interpret(explanation, config, sample):
