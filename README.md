@@ -229,7 +229,7 @@ The action accepts the following arguments:
 * `<explanation>`:
 Filename to the explanations in the SMT-LIB format (e.g., the default output file `phi.txt` of `explain`),
 one explanation per line for each sample point of the dataset.
-It can be omitted with the technique `pixel`, which then visualizes the sample points.
+It can be omitted with a visualization technique, which then visualizes the sample points.
 * `<technique_spec>`:
 The technique and optionally its parameters in the format `<name>[ <param>[, <param>]...]`.
 * `<dataset>`:
@@ -253,6 +253,8 @@ named according to the option `--output-visualization <file>`
 (default: `timg.png` for `pixel` and `tphi.tex` for `mathexpr`)
 where `_s<idx>` is added to the name (e.g., `timg_s3.png`) and the extension determines the format.
 If only one sample point is processed, the option `--show` also shows the visualization.
+With a visualization technique, the option `--samples-only` visualizes the sample points and ignores the explanations,
+which is the same as omitting `<explanation>`.
 
 Currently, the following techniques are implemented:
 * `norm`:
@@ -262,11 +264,8 @@ Assumes that the domains of all features are normalized to [0,1].
 * `pixel`:
 Shows a point as a gray-scale image,
 assuming square images with a single channel (e.g., MNIST) and values in [0,1].
-Without the parameter, it shows the explanation, which must be a point
-(e.g., extracted by `norm`),
-or the sample point if `<explanation>` is omitted.
-With the parameter `sample`, it shows the sample point and ignores the explanations
-(it cannot be used with `--visualize`).
+It shows the explanation, which must be a point
+(e.g., extracted by `norm`).
 * `mathexpr`:
 Shows an interval explanation (e.g., a point extracted by `norm`) as a human-readable math expression
 in the LaTeX syntax (also usable in Markdown math),
