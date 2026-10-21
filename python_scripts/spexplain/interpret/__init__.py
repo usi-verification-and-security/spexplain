@@ -158,7 +158,8 @@ def main(args):
                         f'({n_samples})')
 
     indices = parse_samples_spec(opts.samples, n_samples) if opts.samples else list(range(1, n_samples + 1))
-    if opts.max_samples is not None:
+    limiting_samples = opts.max_samples is not None and opts.max_samples < len(indices)
+    if limiting_samples:
         indices = indices[:opts.max_samples]
     if opts.show and len(indices) > 1:
         raise Error('Option --show requires processing only one sample')
@@ -173,6 +174,19 @@ def main(args):
     if visualization:
         output_image = opts.output_image or DEFAULT_OUTPUT_IMAGE
         print(f'Writing images to: {image_file(output_image, "<idx>")}')
+    print()
+
+    # Similar to the engine
+    if dataset:
+        print(f'Dataset size: {n_samples}')
+        print(f'Number of variables: {dataset.n_features()}')
+    else:
+        print(f'Number of explanations: {n_samples}')
+    if opts.samples:
+        print(f'Selected samples: {opts.samples}')
+    if limiting_samples:
+        print(f'Limited number of samples: {opts.max_samples}')
+    print('-' * 60)
 
     if visualization:
         import matplotlib
@@ -186,9 +200,17 @@ def main(args):
     try:
         # The output contains an explanation for each sample, the samples not processed are invalid
         for idx in range(1, n_samples + 1):
-            if idx not in selected or (explanations and explanations[idx] == INVALID_EXPLANATION):
+            if idx not in selected:
                 if out:
                     out.write(INVALID_EXPLANATION + '\n')
+                continue
+
+            print(f'sample [{idx}/{n_samples}] ... ', end='', flush=True)
+
+            if explanations and explanations[idx] == INVALID_EXPLANATION:
+                if out:
+                    out.write(INVALID_EXPLANATION + '\n')
+                print(f'skipped ({INVALID_EXPLANATION})')
                 continue
 
             sample = dataset.get_sample(idx) if dataset else None
@@ -205,8 +227,12 @@ def main(args):
 
             if visualization:
                 pixel.save(point, image_file(output_image, idx), show=opts.show)
+
+            print('done')
     finally:
         if out:
             out.close()
+
+    print('\nDone.')
 
     return 0
