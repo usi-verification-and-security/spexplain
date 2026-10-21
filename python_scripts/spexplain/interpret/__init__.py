@@ -231,7 +231,7 @@ def main(args):
                 continue
 
             sample = dataset.get_sample(idx) if dataset else None
-            # An extracted point or the sample, otherwise the bounds of an interval explanation
+            # An extracted point or the sample, otherwise the constraints of an explanation
             point = None
             if extraction:
                 point = norm.interpret(explanations[idx], extraction_config, sample)
@@ -243,9 +243,6 @@ def main(args):
                 point = formula.to_point(explanations[idx], dataset.n_features())
             else:
                 A, B = formula.parse(explanations[idx], dataset.n_features())
-                if not formula.is_interval(A):
-                    raise Error('Visualization mathexpr supports only interval explanations')
-                lower, upper = formula.interval_bounds(A, B)
 
             # print(f'{idx}: norm {np.linalg.norm(point):.6g}')
 
@@ -253,9 +250,12 @@ def main(args):
                 pixel.save(point, output_file(output_visualization, idx), show=opts.show)
             elif mathexpr_visualization:
                 if point is not None:
-                    lower = upper = point
-                mathexpr.save(lower, upper, visualization_config, output_file(output_visualization, idx),
-                           show=opts.show)
+                    expr = mathexpr.expression(point, point, visualization_config)
+                elif visualization_config.param:
+                    expr = mathexpr.parametric_expression(*mathexpr.segment_endpoints(A, B), visualization_config)
+                else:
+                    expr = mathexpr.explicit_expression(A, B, visualization_config)
+                mathexpr.save(expr, output_file(output_visualization, idx), show=opts.show)
 
             print('done')
     finally:

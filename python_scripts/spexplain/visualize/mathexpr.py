@@ -1,4 +1,5 @@
-# Visualization mathexpr: shows an interval explanation as a human-readable math expression in the LaTeX syntax,
+# Visualization mathexpr: shows an explanation that is a conjunction of linear constraints (e.g. an interval,
+# a segment or a bounded plane) as a human-readable math expression in the LaTeX syntax,
 # which is also usable in Markdown math, optionally rendered to PDF
 # The presentation matters more than exactness: the features may be restricted and the numbers are rounded
 # Assumes that the domains of all features are normalized to [0,1]
@@ -11,11 +12,17 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import numpy as np
+
 from .. import Error
+from ..interpret import formula
 
 DEFAULT_DIGITS = 2
 
 OUTPUT_SUFFIXES = ('.tex', '.pdf')
+
+# Tolerance of the computations of the parametric form
+TOLERANCE = 1e-9
 
 # Long expressions are wrapped
 DOCUMENT = r'''\documentclass[border=2pt,varwidth=20cm]{standalone}
@@ -31,6 +38,8 @@ class Config:
     def __init__(self, params, n_vars):
         self.var_indices = None
         self.digits = DEFAULT_DIGITS
+        # The parametric form, otherwise the explicit one
+        self.param = False
 
         names = set()
         for param in params:
@@ -42,6 +51,8 @@ class Config:
                 self.var_indices = parse_vars(args, n_vars)
             elif name == 'digits' and len(args) == 1 and args[0].isdigit():
                 self.digits = int(args[0])
+            elif name == 'param' and not args:
+                self.param = True
             else:
                 raise Error(f'Unknown parameter of mathexpr: {param}')
 
@@ -78,15 +89,23 @@ def format_number(v, digits):
     return '0' if s == '-0' else s
 
 
-def expression(lower, upper, config):
-    """The conjunction of the bounds of the features, omitting the free ones."""
+def _var(i):
+    return 'x_{%d}' % (i + 1)
+
+
+def _selected(indices, config):
+    return config.var_indices is None or not set(config.var_indices).isdisjoint(indices)
+
+
+def _bound_terms(lower, upper, config):
+    """The bounds of the features, omitting the free ones."""
     indices = config.var_indices if config.var_indices is not None else range(lower.size)
     terms = []
     for i in indices:
         lo, hi = lower[i], upper[i]
         if lo == 0 and hi == 1:
             continue
-        var = 'x_{%d}' % (i + 1)
+        var = _var(i)
         lo_str, hi_str = format_number(lo, config.digits), format_number(hi, config.digits)
         if lo == hi:
             terms.append(f'{var} = {lo_str}')
@@ -96,7 +115,136 @@ def expression(lower, upper, config):
             terms.append(rf'{lo_str} \le {var}')
         else:
             terms.append(rf'{lo_str} \le {var} \le {hi_str}')
+    return terms
+
+
+def _conjunction(terms):
     return r' \land '.join(terms) if terms else r'\top'
+
+
+def expression(lower, upper, config):
+    """The conjunction of the bounds of the features, omitting the free ones."""
+    return _conjunction(_bound_terms(lower, upper, config))
+
+
+def _row_key(row, b):
+    # Also identifies -0.0 with 0.0
+    return (row + 0.0).tobytes() + np.float64(b + 0.0).tobytes()
+
+
+def _equalities(A, B):
+    """The rows that form equalities with an opposite row: maps the first of each pair to the second."""
+    first_of = {}
+    pairs = {}
+    for i, (row, b) in enumerate(zip(A, B)):
+        j = first_of.pop(_row_key(-row, -b), None)
+        if j is not None:
+            pairs[j] = i
+        else:
+            first_of.setdefault(_row_key(row, b), i)
+    return pairs
+
+
+def _linear_term(row, b, relation, config):
+    """The linear constraint 'row * x <relation> b', with the first coefficient positive."""
+    nonzero = np.flatnonzero(row)
+    if row[nonzero[0]] < 0:
+        row, b = -row, -b
+        relation = {r'\le': r'\ge', '=': '='}[relation]
+    lhs = ''
+    for j in nonzero:
+        c_str = format_number(abs(row[j]), config.digits)
+        if c_str == '0':
+            continue
+        coef = '' if c_str == '1' else c_str + ' '
+        sign = ('-' if row[j] < 0 else '') if not lhs else (' - ' if row[j] < 0 else ' + ')
+        lhs += f'{sign}{coef}{_var(j)}'
+    return f'{lhs or "0"} {relation} {format_number(b, config.digits)}'
+
+
+def explicit_expression(A, B, config):
+    """The conjunction of the bounds of the features and of the other linear constraints, constraints A x <= B."""
+    single = np.count_nonzero(A, axis=1) == 1
+    terms = _bound_terms(*formula.interval_bounds(A[single], B[single]), config)
+
+    multi = np.flatnonzero(~single)
+    pairs = _equalities(A[multi], B[multi])
+    seconds = set(pairs.values())
+    for k, i in enumerate(multi):
+        if k in seconds or not _selected(np.flatnonzero(A[i]), config):
+            continue
+        terms.append(_linear_term(A[i], B[i], '=' if k in pairs else r'\le', config))
+
+    return _conjunction(terms)
+
+
+def segment_endpoints(A, B):
+    """The endpoints of the segment given by the constraints A x <= B within the domains [0,1]."""
+    n_vars = A.shape[1]
+    pairs = _equalities(A, B)
+    eq = sorted(pairs)
+
+    # The affine hull of the equalities: a point and the directions
+    if eq:
+        E, e = A[eq], B[eq]
+        point = np.linalg.lstsq(E, e, rcond=None)[0]
+        if not np.allclose(E @ point, e, atol=TOLERANCE):
+            raise Error('The explanation is empty')
+        _, sv, Vt = np.linalg.svd(E)
+        rank = int(np.sum(sv > TOLERANCE * max(1, sv[0])))
+        directions = Vt[rank:]
+    else:
+        point = np.zeros(n_vars)
+        directions = np.eye(n_vars)
+
+    if len(directions) > 1:
+        raise Error('Parametric form of mathexpr supports only segments')
+    if len(directions) == 0:
+        return point, point
+
+    # The range of the parameter given by all constraints including the domains
+    d = directions[0]
+    A_all = np.vstack([A, np.eye(n_vars), -np.eye(n_vars)])
+    B_all = np.concatenate([B, np.ones(n_vars), np.zeros(n_vars)])
+    ad, rest = A_all @ d, B_all - A_all @ point
+    if np.any(rest[np.abs(ad) <= TOLERANCE] < -TOLERANCE):
+        raise Error('The explanation is empty')
+    t_min = np.max(rest[ad < -TOLERANCE] / ad[ad < -TOLERANCE])
+    t_max = np.min(rest[ad > TOLERANCE] / ad[ad > TOLERANCE])
+    if t_min > t_max + TOLERANCE:
+        raise Error('The explanation is empty')
+
+    p, q = point + t_min * d, point + t_max * d
+    # Deterministic orientation: the first varying feature increases
+    diff = q - p
+    varying = np.flatnonzero(np.abs(diff) > TOLERANCE)
+    if varying.size and diff[varying[0]] < 0:
+        p, q = q, p
+    return p, q
+
+
+def parametric_expression(p, q, config):
+    """The segment between the points as x = p + t (q - p) with t in [0,1]."""
+    indices = config.var_indices if config.var_indices is not None else range(p.size)
+    terms = []
+    varying = False
+    for i in indices:
+        a, b = p[i], q[i] - p[i]
+        a_str = format_number(a, config.digits)
+        if abs(b) <= TOLERANCE:
+            terms.append(f'{_var(i)} = {a_str}')
+            continue
+        varying = True
+        b_str = format_number(abs(b), config.digits)
+        coef = '' if b_str == '1' else b_str + r'\,'
+        if a_str == '0':
+            rhs = f'{"-" if b < 0 else ""}{coef}t'
+        else:
+            rhs = f'{a_str} {"-" if b < 0 else "+"} {coef}t'
+        terms.append(f'{_var(i)} = {rhs}')
+    if varying:
+        terms.append(r't \in [0, 1]')
+    return _conjunction(terms)
 
 
 def _render(expr, pdf):
@@ -113,10 +261,9 @@ def _render(expr, pdf):
         shutil.copyfile(tex.with_suffix('.pdf'), pdf)
 
 
-def save(lower, upper, config, file, show=False):
+def save(expr, file, show=False):
     """Save the expression into the '.tex' file, and render it into the '.pdf' file if requested or shown."""
     file = Path(file)
-    expr = expression(lower, upper, config)
     file.with_suffix('.tex').write_text(expr + '\n')
 
     if file.suffix == '.pdf':
