@@ -20,7 +20,7 @@ from typing import Sequence
 import numpy as np
 import pyparsing as pp
 
-from ..geometry.polytope import Polytope
+from ..geometry.polytope import Polytope, _smt_number
 
 
 class FormulaError(ValueError):
@@ -231,6 +231,7 @@ def slice_formula(
     point,
     axes,
     repair: bool = False,
+    fixed_vars: bool = False,
 ) -> str:
     """The snapshot of an explanation, as an SMT2 formula over two variables.
 
@@ -240,6 +241,10 @@ def slice_formula(
     names, so the result parses with the same ``var_names`` and plots as an
     ordinary explanation.  A top-level ``(or ...)`` is sliced disjunct by
     disjunct; empty disjuncts are kept, not pruned.
+
+    With ``fixed_vars=True`` each disjunct also states the pinned values as
+    equalities ``(= x_i v_i)``, so the formula mentions every variable and
+    still describes the slice when read back without pinning.
     """
     a, b = axes
     n = len(var_names)
@@ -253,6 +258,10 @@ def slice_formula(
     free_names = [var_names[i] for i in sorted((a, b))]
     parts = [p.substitute(fixed).to_smt2(free_names)
              for p in parse_formula(text, var_names, repair=repair)]
+    if fixed_vars:
+        eqs = " ".join(f"(= {var_names[i]} {_smt_number(v)})" for i, v in fixed.items())
+        # each part is "(and ...)": splice the equalities in before its ")"
+        parts = [f"{p[:-1]} {eqs})" if eqs else p for p in parts]
     return parts[0] if len(parts) == 1 else f"(or {' '.join(parts)})"
 
 

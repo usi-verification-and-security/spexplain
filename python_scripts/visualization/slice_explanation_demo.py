@@ -34,7 +34,7 @@ def main():
     original = load_explanations(data_path(EXP))[SAMPLE]
     point = X[SAMPLE]
 
-    sliced = slice_formula(original, spec.var_names, point, AXES)
+    sliced = slice_formula(original, spec.var_names, point, AXES, fixed_vars=True)
     print(sliced)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
