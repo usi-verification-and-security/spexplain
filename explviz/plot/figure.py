@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 from ..style import DEFAULT_STYLE
 from .legend import build_legend
-from .panel import draw_panel
+from .panel import draw_panel, draw_panel_no_warnings
 
 
 def plot_grid(panels, spec, ncols: int = 3, style=DEFAULT_STYLE, clf=None,
@@ -36,7 +36,7 @@ def plot_grid(panels, spec, ncols: int = 3, style=DEFAULT_STYLE, clf=None,
     flat = axes.reshape(-1)
 
     for ax, panel in zip(flat, panels):
-        draw_panel(ax, panel, spec, style=style, clf=clf, **kw)
+        draw_panel_no_warnings(ax, panel, spec, style=style, clf=clf, **kw)
     for ax in flat[len(panels):]:
         ax.axis("off")
 

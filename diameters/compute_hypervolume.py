@@ -300,7 +300,7 @@ def max_distance_on_surface(ineq,all_vars,ranges):
     print("Maximum distance found: "+str(dist))
     print("Direction of maximum diameter found: "+str(best_direction))
     
-def max_distance_exact2D(ineq,all_vars,ranges):
+def max_distance_exact2D(ineq,all_vars,ranges,output_file):
     tollerance_error = -10e-06
     parsed_ineq,parsed_vars = parse_smt2.parse_and_interpret(ineq,all_vars)
     
@@ -392,11 +392,11 @@ def max_distance_exact2D(ineq,all_vars,ranges):
     name1 = all_vars[0]
     name2 = all_vars[1]
     
+    smt_formula = "(and\n"
     if (delta_x!=0):
         new_value_coeff = delta_y/delta_x
         my_custom_shift = new_value_coeff * (-P2_x) + P2_y
         
-        smt_formula = "(and\n"
         if (my_custom_shift>=0):
             smt_formula += "\t(= "+name2+" (+ (* "+str(new_value_coeff)+" "+name1+") "+str(abs(my_custom_shift))+"))\n"
         else:
@@ -408,7 +408,6 @@ def max_distance_exact2D(ineq,all_vars,ranges):
         print()
         print(smt_formula)
     else:
-        smt_formula = "(and\n"
         smt_formula += "\t(= "+name1+" "+str(P1_x)+")\n"
         smt_formula += "\t(>= "+name2+" "+str(min(P1_y,P2_y))+")\n"
         smt_formula += "\t(<= "+name2+" "+str(max(P2_y,P1_y))+")\n"
@@ -417,8 +416,11 @@ def max_distance_exact2D(ineq,all_vars,ranges):
         print()
         print(smt_formula)
          
-    
-        
+    with open(output_file + ".smt2", "w") as g:
+        g.write(smt_formula)
+
+
+
         
 
 
@@ -434,9 +436,12 @@ def hypervolume_shoelace_exact2D(ineq,all_vars,ranges):
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser(description='Plot a polytope, given as set of inequalities or smt2 file.')
     argparser.add_argument('-t','--test',action='store_true')
-    argparser.add_argument('filename',nargs='?')
+    argparser.add_argument('--filename',nargs='?')
 
-    argparser.add_argument('slices',nargs='*',help='Values of extra variables (to plot a slice), in form "x4=1.234 x11=5.678"')
+    argparser.add_argument('--slices',nargs='*',help='Values of extra variables (to plot a slice), in form "x4=1.234 x11=5.678"')
+    
+    argparser.add_argument('--out', '-o', required=False,
+                   help='output path without suffix (writes .smt2)')
     args = argparser.parse_args()
     if not args.test:
         # needs filename
@@ -471,7 +476,7 @@ if __name__ == '__main__':
         
         print()
         print("METHOD #3: exact method, all distances between vertices")
-        max_distance_exact2D(data,variables,slices)
+        max_distance_exact2D(data,variables,slices,args.out)
       
 
     else:

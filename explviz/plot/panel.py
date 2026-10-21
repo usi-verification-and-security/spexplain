@@ -20,12 +20,158 @@ from ..parsing.smt2 import parse_formula
 from ..style import DEFAULT_STYLE
 from ..validate import contains_point, describe_violations
 
+import re  # <--- AGGIUNTO QUI PER EVITARE IL NAMEERROR
+import numpy as np
+
 # Parsing a 48-term formula costs ~200 ms, and the same formula is reused
 # across axis pairs, so memoize it.
 @lru_cache(maxsize=512)
 def _parse_cached(formula: str, var_names: tuple, repair: bool):
     return parse_formula(formula, list(var_names), repair=repair)
 
+def extract_segment_region(formula_str, axes_names):
+    
+    lower_bound = None
+    upper_bound = None
+    indep_var = None
+    
+   
+    pattern = r'-?\d+\.\d+'
+    valori_stringa = re.findall(pattern, formula_str)
+    coeff = [float(valore) for valore in valori_stringa]
+    
+    if (len(coeff)<4):
+        print("WARNING: segment not supported")
+        return []
+    
+    m = coeff[0]
+    q = coeff[1]
+    lower_bound = coeff[2]
+    upper_bound = coeff[3]
+    
+    tokens = re.findall(r'\(([^()]+)\)', formula_str)
+
+    
+    for token in tokens:
+        parts = token.split()
+        op = parts[0]
+        if op in ('>=', '<='):
+            var = parts[1]
+            val = float(parts[2])
+            indep_var = var
+            if op == '>=':
+                lower_bound = val
+            elif op == '<=':
+                upper_bound = val
+    
+    
+    dep_at_lower = m * lower_bound + q
+    dep_at_upper = m * upper_bound + q
+
+   
+    pt1 = []
+    pt2 = []
+    
+    for axis in axes_names:
+        if axis == indep_var:
+            pt1.append(lower_bound)
+            pt2.append(upper_bound)
+        else:
+            pt1.append(dep_at_lower)
+            pt2.append(dep_at_upper)
+       
+            
+
+    segment = np.array([pt1, pt2])
+    
+    return [segment]
+
+def draw_panel_no_warnings(ax, panel: Panel, spec, style=DEFAULT_STYLE, clf=None,
+               resolution: int = 300, num_samples: int = 5000,
+               n_angles: int = 360, repair: bool = False, seed=None):
+    """Render ``panel`` onto ``ax``."""
+    a, b = panel.axes
+    bounds = spec.bounds
+
+    # --- background: class regions -------------------------------------
+    background = panel.effective_background()
+
+    if background == "none" and panel.background not in ("auto", "none"):
+        warnings.warn(
+            f"background={panel.background!r} is ignored in projection mode: the "
+            "class regions are a slice through the sample point, while a "
+            "projection is the shadow of the whole polytope, so the two are not "
+            "comparable. Use mode='snapshot' to see the class regions.",
+            RuntimeWarning, stacklevel=2,
+        )
+
+    if background != "none":
+        if clf is None:
+            raise ValueError(
+                f"background={background!r} needs a classifier; pass clf=..."
+            )
+        if background == "contour":
+            _draw_contour(ax, clf, panel, spec, style, resolution)
+        elif background == "scatter":
+            _draw_scatter(ax, clf, panel, spec, style, num_samples, seed)
+        else:
+            raise ValueError(f"unknown background {background!r}")
+
+    # --- explanation regions -------------------------------------------
+    for i, exp in enumerate(panel.explanations):
+        series = style.series(i)
+        polys = _parse_cached(exp.formula, tuple(spec.var_names), repair)
+        regions = regions_for_formula(
+            polys, panel.axes, bounds, panel.mode,
+            point=panel.point, n_angles=n_angles,
+        )
+        if (regions==[]):
+            regions=extract_segment_region(exp.formula,[spec.var_names[panel.axes[0]], spec.var_names[panel.axes[1]]])
+        
+        
+       # if panel.mode == "snapshot":
+       #     for poly in polys:
+       #         if not contains_point(poly, panel.point):
+       #             warnings.warn(
+       #                 f"explanation {exp.key or exp.label!r} does not contain its "
+       #                 f"sample point, so its snapshot on axes {panel.axes} is empty: "
+       #                 + describe_violations(poly, panel.point, spec.var_names),
+       #                 RuntimeWarning, stacklevel=2,
+       #             )
+
+        label = exp.label or style.display_label(exp.key or str(i))
+        for k, region in enumerate(regions):
+            # Controlla se la regione ha solo 2 punti unici o è una linea pura (segmento)
+            if len(region) == 2:
+                # Disegna direttamente il segmento senza chiudere l'anello e senza riempimento
+                ax.plot(region[:, 0], region[:, 1], color=series.color,
+                        linewidth=series.linewidth, zorder=2,
+                        label=label if k == 0 else None)
+            else:
+                # Comportamento standard per poligoni e aree chiuse
+                ring = close_ring(region)
+                ax.fill(ring[:, 0], ring[:, 1], color=series.color,
+                        alpha=series.alpha, zorder=1)
+                ax.plot(ring[:, 0], ring[:, 1], color=series.color,
+                        linewidth=series.linewidth, zorder=2,
+                        label=label if k == 0 else None)
+            
+            # Disegna i vertici/punti isolati
+            ax.scatter(region[:, 0], region[:, 1], marker=series.marker,
+                       s=series.size, color=series.color, zorder=2)
+                       
+        if not regions:
+            # keep the legend entry even when this explanation is empty here
+            ax.plot([], [], color=series.color, linewidth=series.linewidth,
+                    label=label)
+
+    # --- the sample point, on top of everything ------------------------
+    ax.scatter([panel.point[a]], [panel.point[b]], marker=style.point_marker,
+               color=style.point_color, s=style.point_size,
+               label=style.point_label, zorder=100,
+               edgecolors="white", linewidths=0.8)
+
+    _finish_axes(ax, panel, spec, style)
 
 def draw_panel(ax, panel: Panel, spec, style=DEFAULT_STYLE, clf=None,
                resolution: int = 300, num_samples: int = 5000,
