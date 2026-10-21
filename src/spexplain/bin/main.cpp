@@ -156,7 +156,9 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
                          "Guide sample neuron activations as specified in the file");
     printUsageOptRow(os, 'S', "", "Print the resulting explanations in the SMT-LIB2 format");
     printUsageOptRow(os, 'I', "", "Print the resulting explanations in the form of intervals");
-    printUsageLongOptRow(os, "format", "smtlib2|intervals|bounds", "Use one of the output explanation formats");
+    printUsageOptRow(os, 'B', "", "Print the resulting explanations in the form of bounds");
+    printUsageLongOptRow(os, "format", "smtlib2|intervals|bounds",
+                         "Use one of the output explanation formats (default: smtlib2)");
     printUsageLongOptRow(os, "shuffle-samples");
     printUsageOptRow(os, 'r', "", "Shuffle (randomize) samples");
     printUsageLongOptRow(os, "max-samples");
@@ -239,7 +241,7 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
         {"time-limit-per", required_argument, nullptr, 't'},
         {0, 0, 0, 0}};
 
-    std::string optString = ":hV:E:e:s:vqRSIrn:i:t:";
+    std::string optString = ":hV:E:e:s:vqRSIBrn:i:t:";
 
     config.init(network);
 
@@ -385,6 +387,9 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                 break;
             case 'I':
                 config.printIntervalExplanationsInIntervalFormat();
+                break;
+            case 'B':
+                config.printIntervalExplanationsInBoundFormat();
                 break;
             case 'r':
                 config.shuffleSamples();

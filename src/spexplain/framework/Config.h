@@ -310,7 +310,7 @@ protected:
     std::unordered_map<Sample::Idx, NetworkMap<bool>> fixSampleNeuronActivationMaps{};
     std::unordered_map<Sample::Idx, NetworkMap<bool>> guideSampleNeuronActivationMaps{};
 
-    IntervalExplanation::PrintFormat intervalExplanationPrintFormat{IntervalExplanation::PrintFormat::bounds};
+    IntervalExplanation::PrintFormat intervalExplanationPrintFormat{IntervalExplanation::PrintFormat::smtlib2};
 
     bool _shuffleSamples{};
 

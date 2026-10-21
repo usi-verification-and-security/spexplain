@@ -245,6 +245,9 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
     preprocessGroundModel(data);
     assertGroundModel();
 
+    //+ the explanations of the samples that are not processed (e.g. due to -i, -n or filtering) should be printed as
+    // invalidExplanationString instead of being skipped entirely, s.t. the explanations match the dataset;
+    // check that the scripts in data/scripts do not break after this change
     Network::Dataset::SampleIndices const indices = makeSampleIndices(data);
     for (auto idx : indices) {
         [[maybe_unused]]
@@ -293,7 +296,6 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
                 cstats << "<timeout>\n";
             }
             if (printingExplanations) {
-                //! the default format does not work if not yielding interval explanations
                 char const delim = config.getPrintingIntervalExplanationsDelim();
                 cexp << invalidExplanationString << delim << std::endl;
             }
