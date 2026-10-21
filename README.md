@@ -220,7 +220,7 @@ It is recommended to also apply the sed script `./data/scripts/polish_psi.sed` t
 Interprets stored explanations of the sample points
 using an extraction technique,
 e.g., `slice x1 x5`, `diam`, or `norm` (optionally `min` or `inv`),
-or directly using a visualization technique, `fspace` or `pixel`.
+or directly using a visualization technique, `fspace`, `pixel`, or `mathexpr`.
 An extraction technique can be followed by a visualization,
 which is triggered by the option `--visualize`;
 the default visualization is determined by the extraction technique.
@@ -231,7 +231,7 @@ Filename to the explanations in the SMT-LIB format (e.g., the default output fil
 one explanation per line for each sample point of the dataset.
 It can be omitted with the technique `pixel`, which then visualizes the sample points.
 * `<technique_spec>`:
-The technique and optionally its parameter in the format `<name>[ <param>]`.
+The technique and optionally its parameters in the format `<name>[ <param>[, <param>]...]`.
 * `<dataset>`:
 Same as in the `explain` action.
 If given, it must contain as many sample points as there are explanations.
@@ -248,8 +248,9 @@ if the option is not given, they are written into the file `tphi.txt` unless the
 The file contains one line for each sample point,
 with `<null>` for the sample points that are not processed.
 Explanations `<null>` (e.g., when `explain` reached the time limit) are skipped.
-The visualizations are written into image files, one per sample point,
-named according to the option `--output-image <file>` (default: `timg.png`)
+The visualizations are written into files, one per sample point,
+named according to the option `--output-visualization <file>`
+(default: `timg.png` for `pixel` and `tphi.tex` for `mathexpr`)
 where `_s<idx>` is added to the name (e.g., `timg_s3.png`) and the extension determines the format.
 If only one sample point is processed, the option `--show` also shows the visualization.
 
@@ -266,9 +267,22 @@ Without the parameter, it shows the explanation, which must be a point
 or the sample point if `<explanation>` is omitted.
 With the parameter `sample`, it shows the sample point and ignores the explanations
 (it cannot be used with `--visualize`).
+* `mathexpr`:
+Shows an interval explanation (e.g., a point extracted by `norm`) as a human-readable math expression
+in the LaTeX syntax (also usable in Markdown math),
+a conjunction of the bounds of the features where the features with full domains [0,1] are omitted.
+The numbers are rounded to at most 2 decimals, or to `digits <n>` decimals using the parameter `digits`,
+and very small numbers are written in a semi-logarithmic form (e.g., `1.23 \cdot 10^{-5}`).
+The parameter `vars x<i>...` restricts the expression to the given features,
+including ranges of features `x<i>-x<j>` (e.g., `'mathexpr vars x1 x10-x20, digits 3'`).
+The expression is written into a `.tex` file,
+and with the extension `.pdf` (e.g., `--output-visualization tphi.pdf`), also rendered into a `.pdf` file.
+The option `--show` shows the rendered PDF without storing it unless the extension is `.pdf`.
+Rendering requires `pdflatex` and showing requires `xdg-open`.
 
 Visualizing an extracted explanation using `--visualize`
-is equivalent to first extracting it into a file and then visualizing the file using `pixel`.
+is equivalent to first extracting it into a file and then visualizing the file directly
+(e.g., using `pixel`).
 
 The action requires the Python packages NumPy, SciPy, pyparsing, and Matplotlib.
 
