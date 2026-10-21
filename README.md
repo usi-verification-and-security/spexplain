@@ -267,13 +267,20 @@ assuming square images with a single channel (e.g., MNIST) and values in [0,1].
 It shows the explanation, which must be a point
 (e.g., extracted by `norm`).
 * `mathexpr`:
-Shows an interval explanation (e.g., a point extracted by `norm`) as a human-readable math expression
-in the LaTeX syntax (also usable in Markdown math),
-a conjunction of the bounds of the features where the features with full domains [0,1] are omitted.
+Shows an explanation that is a conjunction of linear constraints,
+e.g., an interval explanation (including a point extracted by `norm`), a segment, or a bounded plane,
+as a human-readable math expression in the LaTeX syntax (also usable in Markdown math).
+By default, it is the explicit form, a conjunction of the bounds of the features,
+where the features with full domains [0,1] are omitted,
+followed by the other linear constraints.
+With the parameter `param`, a segment is shown in the parametric form,
+`x_{i} = a + b\,t` for each feature with `t \in [0, 1]`,
+which requires the equalities of the segment to be given explicitly (by `=`).
 The numbers are rounded to at most 2 decimals, or to `digits <n>` decimals using the parameter `digits`,
 and very small numbers are written in a semi-logarithmic form (e.g., `1.23 \cdot 10^{-5}`).
 The parameter `vars x<i>...` restricts the expression to the given features,
-including ranges of features `x<i>-x<j>` (e.g., `'mathexpr vars x1 x10-x20, digits 3'`).
+including ranges of features `x<i>-x<j>` (e.g., `'mathexpr vars x1 x10-x20, digits 3'`);
+the constraints that involve any of the given features are shown entirely.
 The expression is written into a `.tex` file,
 and with the extension `.pdf` (e.g., `--output-visualization tphi.pdf`), also rendered into a `.pdf` file.
 The option `--show` shows the rendered PDF without storing it unless the extension is `.pdf`.
