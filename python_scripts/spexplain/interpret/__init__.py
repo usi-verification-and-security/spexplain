@@ -13,11 +13,12 @@ EXTRACTIONS = {
 }
 
 # Visualization techniques, which can also be applied directly
-VISUALIZATIONS = ('fspace', 'pixel')
+VISUALIZATIONS = ('fspace', 'pixel', 'mathexpr')
 
 DEFAULT_OUTPUT_EXPLANATIONS = 'tphi.txt'
 DEFAULT_OUTPUT_VISUALIZATIONS = {
     'pixel': 'timg.png',
+    'mathexpr': 'tphi.tex',
 }
 
 # Same as in the engine, e.g. if a timeout was reached
@@ -135,13 +136,16 @@ def main(args):
     if extraction:
         from . import norm
         extraction_config = norm.Config(extraction[1])
-    if visualization and visualization[0] != 'pixel':
+    if visualization and visualization[0] not in ('pixel', 'mathexpr'):
         raise Error(f"Visualization technique '{visualization[0]}' is not implemented yet")
-    if visualization and visualization[1] not in ([], ['sample']):
+    pixel_visualization = visualization and visualization[0] == 'pixel'
+    mathexpr_visualization = visualization and visualization[0] == 'mathexpr'
+    if pixel_visualization and visualization[1] not in ([], ['sample']):
         raise Error(f'Unknown parameters of pixel: {", ".join(visualization[1])}')
 
     # Only the samples are visualized
-    use_samples_only = not extraction and (visualization[1] == ['sample'] or explanations_file is None)
+    use_samples_only = (pixel_visualization and not extraction
+                        and (visualization[1] == ['sample'] or explanations_file is None))
     if explanations_file is None and not use_samples_only:
         raise Error('Missing the explanations')
     if use_samples_only:
@@ -170,6 +174,10 @@ def main(args):
     if opts.show and len(indices) > 1:
         raise Error('Option --show requires processing only one sample')
 
+    if mathexpr_visualization:
+        from ..visualize import mathexpr
+        visualization_config = mathexpr.Config(visualization[1], dataset.n_features())
+
     explanations = read_explanations(explanations_file, indices) if explanations_file else None
 
     output_explanations = None
@@ -179,6 +187,8 @@ def main(args):
     output_visualization = None
     if visualization:
         output_visualization = opts.output_visualization or DEFAULT_OUTPUT_VISUALIZATIONS[visualization[0]]
+        if mathexpr_visualization:
+            mathexpr.check_output(output_visualization)
         print(f'Writing visualizations to: {output_file(output_visualization, "<idx>")}')
     print()
 
@@ -194,7 +204,7 @@ def main(args):
         print(f'Limited number of samples: {opts.max_samples}')
     print('-' * 60)
 
-    if visualization:
+    if pixel_visualization:
         import matplotlib
         if not opts.show:
             matplotlib.use('Agg')
@@ -220,19 +230,31 @@ def main(args):
                 continue
 
             sample = dataset.get_sample(idx) if dataset else None
+            # An extracted point or the sample, otherwise the bounds of an interval explanation
+            point = None
             if extraction:
                 point = norm.interpret(explanations[idx], extraction_config, sample)
                 if out:
                     out.write(formula.from_point(point) + '\n')
             elif use_samples_only:
                 point = sample
-            else:
+            elif pixel_visualization:
                 point = formula.to_point(explanations[idx], dataset.n_features())
+            else:
+                A, B = formula.parse(explanations[idx], dataset.n_features())
+                if not formula.is_interval(A):
+                    raise Error('Visualization mathexpr supports only interval explanations')
+                lower, upper = formula.interval_bounds(A, B)
 
             # print(f'{idx}: norm {np.linalg.norm(point):.6g}')
 
-            if visualization:
+            if pixel_visualization:
                 pixel.save(point, output_file(output_visualization, idx), show=opts.show)
+            elif mathexpr_visualization:
+                if point is not None:
+                    lower = upper = point
+                mathexpr.save(lower, upper, visualization_config, output_file(output_visualization, idx),
+                           show=opts.show)
 
             print('done')
     finally:
