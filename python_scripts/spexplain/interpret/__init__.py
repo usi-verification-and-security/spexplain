@@ -144,6 +144,7 @@ def main(args):
 
     # All implemented techniques require the dataset
     #+ also allow a CSV with the domains of the features in case they are not normalized to [0,1]
+    #+ then pixel visualizing an explanation will not require the dataset, only the number of features from the CSV
     if dataset_file is None:
         raise Error(f"Interpretation technique '{name}' requires the dataset")
 
