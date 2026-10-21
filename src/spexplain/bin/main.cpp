@@ -5,6 +5,8 @@
 #include <spexplain/network/Dataset.h>
 #include <spexplain/network/Network.h>
 
+#include <algorithm>
+#include <cctype>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -164,8 +166,8 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     printUsageLongOptRow(os, "max-samples");
     printUsageOptRow(os, 'n', "<int>", "Maximum no. samples to be processed");
     printUsageLongOptRow(os, "samples");
-    //+ change s.t. '<idx>' is just one sample and '<idx>,' starts from the sample
-    printUsageOptRow(os, 'i', "<idx>[,<idx2>]", "Only process samples starting from <idx> [and ending at <idx2>]");
+    printUsageOptRow(os, 'i', "<idx>|[<idx>]-[<idx2>]",
+                     "Only process sample <idx>, or samples from <idx> (default: 1) to <idx2> (default: last)");
     printUsageLongOptRow(os, "filter-samples", "[in]correct|class<c>",
                          "Only process sample points that match the given filter");
     printUsageLongOptRow(os, "time-limit-per");
@@ -400,31 +402,30 @@ std::optional<int> getOpts(int argc, char * argv[], spexplain::Framework::Config
                 break;
             }
             case 'i': {
-                std::istringstream iss{optarg};
-                std::size_t idx;
-                iss >> idx;
-                if (iss.fail()) {
-                    std::cerr << "Option '-" << char(c) << "': parsing the first index failed\n";
+                // <idx> | <idx>-<idx2> | <idx>- | -<idx2>
+                std::string_view const sw{optarg};
+                auto const parseIdx = [](std::string_view idxSw) -> std::optional<std::size_t> {
+                    if (idxSw.empty() or
+                        not std::ranges::all_of(idxSw, [](unsigned char ch) { return std::isdigit(ch); })) {
+                        return std::nullopt;
+                    }
+                    std::size_t const idx = std::stoull(std::string{idxSw});
+                    if (idx == 0) { return std::nullopt; }
+                    return idx;
+                };
+                auto const dashPos = sw.find('-');
+                std::string_view const firstSw = sw.substr(0, dashPos);
+                std::string_view const lastSw = (dashPos == std::string_view::npos) ? firstSw : sw.substr(dashPos + 1);
+                auto const optFirstIdx = firstSw.empty() ? std::optional<std::size_t>{1} : parseIdx(firstSw);
+                auto const optLastIdx = lastSw.empty() ? std::optional<std::size_t>{} : parseIdx(lastSw);
+                bool const lastIsValid = lastSw.empty() ? not firstSw.empty() : optLastIdx.has_value();
+                if (not optFirstIdx or not lastIsValid or (optLastIdx and *optLastIdx < *optFirstIdx)) {
+                    std::cerr << "Option '-" << char(c) << "': invalid samples specification: " << sw << '\n';
                     printUsage(argv, std::cerr);
                     return 1;
                 }
-                config.setFirstSampleIdx(idx);
-                if (not iss.eof()) {
-                    char c2;
-                    iss >> c2 >> idx;
-                    if (iss.fail() || c2 != ',') {
-                        std::cerr << "Option '-" << char(c) << "': parsing the second index failed\n";
-                        printUsage(argv, std::cerr);
-                        return 1;
-                    }
-                    if (not iss.eof()) {
-                        std::cerr << "Option '-" << char(c)
-                                  << "': additional arguments after parsing the second index\n";
-                        printUsage(argv, std::cerr);
-                        return 1;
-                    }
-                    config.setLastSampleIdx(idx);
-                }
+                config.setFirstSampleIdx(*optFirstIdx);
+                if (optLastIdx) { config.setLastSampleIdx(*optLastIdx); }
                 break;
             }
             case 't': {

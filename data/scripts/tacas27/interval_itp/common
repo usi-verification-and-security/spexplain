@@ -10,7 +10,7 @@
 ## itp_<ITP>_vars_<x_i>_..., ucore_itp_<ITP>_vars_... and ucore_min_itp_<ITP>_vars_...
 ## ('itp <ITP_PARAMS>, vars <VARS>[; ucore [min]]'), each with its own timeout per sample.
 ##
-## Every sample is one process (engine -i <k>,<k>), so that up to MAX_JOBS processes keep the
+## Every sample is one process (engine -i <k>), so that up to MAX_JOBS processes keep the
 ## node busy and so that the timeout per sample is enforced from outside: the Marabou verifier
 ## ignores the engine's '-t'. The per-sample outputs go to <output_dir>/.work/<experiment>/ and,
 ## once all samples of an experiment are done, they are merged into the usual files

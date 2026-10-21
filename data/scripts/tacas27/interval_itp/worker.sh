@@ -36,7 +36,7 @@ f="$chunk_dir/s$k"
 
 for attempt in 1 2; do
     rm -f "$f".{phi,stats,times,time,out,err}.txt
-    { time $TIMEOUT_BIN -k 30 $HARD_TIMEOUT_S "$CMD" "$model" "$dataset_fn" "$strategies" "${opts[@]}" -i $k,$k \
+    { time $TIMEOUT_BIN -k 30 $HARD_TIMEOUT_S "$CMD" "$model" "$dataset_fn" "$strategies" "${opts[@]}" -i $k \
         --output-explanations="$f.phi.txt" --output-stats="$f.stats.txt" --output-times="$f.times.txt" \
         >"$f.out.txt" 2>"$f.err.txt" ; } 2>"$f.time.txt"
     code=$?
