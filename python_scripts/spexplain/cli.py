@@ -24,7 +24,7 @@ def print_usage(file=sys.stdout):
     print_rows([
         ('explain:', '<nn_model_fn> <dataset_fn> [<exp_strategies_spec>]', 'Run the Explanation Computation Engine'),
         ('dump-psi:', '<nn_model_fn>', 'Print the SMT-LIB encoding of the NN'),
-        ('interpret:', '<explanation> <technique> [<dataset>]', 'Run the Explanation Interpreter'),
+        ('interpret:', '[<explanation>] <technique_spec> [<dataset>]', 'Run the Explanation Interpreter'),
     ], file=file)
     print("Use 'spexplain <action> --help' to print the usage of a particular action.", file=file)
     print('OPTIONS:', file=file)
@@ -71,4 +71,7 @@ def main(args):
         return run(args)
     except Error as e:
         print(f'spexplain: error: {e}', file=sys.stderr)
+        return 1
+    except OSError as e:
+        print(f'spexplain: error: {e.strerror}: {e.filename}', file=sys.stderr)
         return 1
