@@ -181,8 +181,11 @@ followed by the expected class (an integer from 0).
 The column of the expected class must be present,
 but it is only used to filter the sample points (`--filter-samples`) and in the statistics (`-s`);
 the explanations are computed for the class computed by the network.
-The names of the features are used by `interpret` (e.g., for the axes of `fspace`).
-An example can be found in `./data/datasets/toy.csv`.
+The names of the features are used by `interpret` (e.g., for the axes of `fspace`),
+and so are the names of the classes if given in the header of the classification separated by `|`,
+in the order of the classes, that is, starting with the name of the class 0.
+An example can be found in `./data/datasets/toy.csv`,
+with the header `Sweetness,Softness,Acidity,Unripe|Ripe`.
 * `<exp_strategies_spec>`:
 The specification of strategies in the format `<spec1>[; <spec2>]...`, that is, each strategy specification is separated by `;`.
 The first strategy takes the dataset as its input,
@@ -308,6 +311,10 @@ or by the option `--labels <label>[,<label>]...`;
 the explanations `<null>` are omitted but still labelled.
 The axes are labelled by the names of the features (see `--visualization-domains`),
 and with `--visualization-domains`, they show the values in the real units.
+With the option `--model <nn_model_fn>`, the plot also shows the decision regions of the classifier
+in the 2D feature space through the sample point,
+labelled by the names of the classes from the header of the dataset (see `explain`),
+by the option `--class-labels <label>[,<label>]...`, or by default `Class <c>`.
 * `pixel`:
 Shows a point as a gray-scale image,
 assuming square images with a single channel (e.g., MNIST) and values in [0,1].
