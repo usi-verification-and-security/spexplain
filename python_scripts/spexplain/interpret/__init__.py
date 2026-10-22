@@ -17,6 +17,7 @@ VISUALIZATIONS = ('fspace', 'pixel', 'mathexpr')
 
 DEFAULT_OUTPUT_EXPLANATIONS = 'tphi.txt'
 DEFAULT_OUTPUT_VISUALIZATIONS = {
+    'fspace': 'timg.png',
     'pixel': 'timg.png',
     'mathexpr': 'tphi.tex',
 }
@@ -135,14 +136,15 @@ def main(args):
 
     if extraction and extraction[0] not in ('norm', 'slice', 'diam'):
         raise Error(f"Interpretation technique '{extraction[0]}' is not implemented yet")
-    if visualization and visualization[0] not in ('pixel', 'mathexpr'):
-        raise Error(f"Visualization technique '{visualization[0]}' is not implemented yet")
+    fspace_visualization = visualization and visualization[0] == 'fspace'
     pixel_visualization = visualization and visualization[0] == 'pixel'
     mathexpr_visualization = visualization and visualization[0] == 'mathexpr'
     if pixel_visualization and visualization[1]:
         raise Error(f'Unknown parameters of pixel: {", ".join(visualization[1])}')
     if pixel_visualization and extraction and extraction[0] != 'norm':
         raise Error(f"Visualization pixel requires a point, not the result of '{extraction[0]}'")
+    if fspace_visualization and extraction and extraction[0] == 'norm':
+        raise Error("Visualization fspace requires the result of 'slice' or 'diam', not of 'norm'")
 
     # Only the samples are visualized, also if the explanations are omitted
     use_samples_only = not extraction and (opts.samples_only or explanations_file is None)
@@ -185,6 +187,17 @@ def main(args):
                 from . import diam as extraction_module
             extraction_config = extraction_module.Config(extraction[1], dataset.n_features())
 
+    if fspace_visualization:
+        from ..visualize import fspace
+        visualization_config = fspace.Config(visualization[1], dataset.n_features())
+        if extraction:
+            if visualization_config.var_indices is None:
+                visualization_config.var_indices = extraction_config.var_indices
+            elif visualization_config.var_indices != extraction_config.var_indices:
+                raise Error(f"Visualization fspace must use the features of '{extraction[0]}'")
+        elif visualization_config.var_indices is None:
+            raise Error('Visualization fspace requires the parameter vars')
+
     if mathexpr_visualization:
         from ..visualize import mathexpr
         visualization_config = mathexpr.Config(visualization[1], dataset.n_features())
@@ -218,10 +231,11 @@ def main(args):
         print(f'Limited number of samples: {opts.max_samples}')
     print('-' * 60)
 
-    if pixel_visualization:
+    if pixel_visualization or fspace_visualization:
         import matplotlib
         if not opts.show:
             matplotlib.use('Agg')
+    if pixel_visualization:
         from ..visualize import pixel
     from . import formula
 
@@ -267,13 +281,23 @@ def main(args):
                 point = sample
             elif pixel_visualization:
                 point = formula.to_point(explanations[idx], dataset.n_features())
-            else:
+            elif mathexpr_visualization:
                 A, B = formula.parse(explanations[idx], dataset.n_features())
 
             # print(f'{idx}: norm {np.linalg.norm(point):.6g}')
 
             if pixel_visualization:
                 pixel.save(point, output_file(output_visualization, idx), show=opts.show)
+            elif fspace_visualization:
+                vertices = None
+                if not use_samples_only:
+                    from . import region2d
+                    from . import slice as slice_
+                    # The slice of the explanation, also of the diameter
+                    A2, B2 = slice_.interpret(explanations[idx], visualization_config, sample)
+                    vertices = region2d.vertices(A2[:, visualization_config.var_indices], B2)
+                fspace.save(vertices, segment, sample, visualization_config, output_file(output_visualization, idx),
+                            show=opts.show)
             elif mathexpr_visualization:
                 if point is not None:
                     expr = mathexpr.expression(point, point, visualization_config)
