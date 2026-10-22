@@ -126,6 +126,8 @@ def main(args):
     opts = make_parser().parse_intermixed_args(args)
 
     # The explanations are the arguments before the technique, they are optional
+    #+ give the dataset explicitly by --dataset <dataset> instead of as the positional argument after the technique,
+    # the positional arguments would then be just the explanations and the technique
     positional = opts.args
     n_explanations = next((k for k, arg in enumerate(positional)
                            if arg.split() and (arg.split()[0] in EXTRACTIONS or arg.split()[0] in VISUALIZATIONS)),
