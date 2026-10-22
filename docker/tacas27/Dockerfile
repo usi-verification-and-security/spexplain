@@ -8,6 +8,8 @@ USER root
 
 # make: cmake, build-essential, git (fetches OpenSMT), bison, flex, libgmp-dev
 # make marabou: wget (Marabou downloads Boost, OpenBLAS, protobuf, ONNX and pybind11), python3-dev
+# make onnx: libprotobuf-dev, protobuf-compiler (otherwise protobuf is built from source);
+# Marabou does not use them and builds its own tested versions of protobuf, Boost and OpenBLAS
 # spexplain: python3
 # - interpret: numpy, scipy, matplotlib, pyparsing
 # - adversarial neuron activations: pandas, torch
@@ -29,6 +31,8 @@ RUN \
         bison \
         flex \
         libgmp-dev \
+        libprotobuf-dev \
+        protobuf-compiler \
         wget \
         python3 \
         python3-dev \
@@ -76,6 +80,18 @@ RUN \
     export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
     make OPENSMT_GIT_TAG=$OPENSMT_GIT_TAG && \
     make marabou OPENSMT_GIT_TAG=$OPENSMT_GIT_TAG MARABOU_GIT_TAG=$MARABOU_GIT_TAG
+
+# The engine for ONNX networks is built from a frozen revision (a tag, not included in the shallow clone),
+# against the same sources of OpenSMT as above (the frozen revision would otherwise fetch origin/spexplain);
+# it requires `make onnx` in the repository, empty ONNX_ENGINE_GIT_TAG skips it
+ARG ONNX_ENGINE_GIT_TAG=onnx-engine-v1
+RUN \
+    if [ -n "$ONNX_ENGINE_GIT_TAG" ]; then \
+        git fetch --depth 1 origin tag $ONNX_ENGINE_GIT_TAG && \
+        export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
+        make onnx ONNX_ENGINE_REV=$ONNX_ENGINE_GIT_TAG \
+            ONNX_ONLY_CMAKE_FLAGS=-DFETCHCONTENT_SOURCE_DIR_OPENSMT=$HOME/$PROJECT/build/_deps/opensmt-src; \
+    fi
 
 # The outputs (e.g. visualizations, also of the reproducibility script) to be inspected on the host,
 # intended as the mount point of a host directory (see docker/run.sh)
