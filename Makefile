@@ -13,6 +13,18 @@ MARABOU_BUILD_DIR_SUFFIX = -marabou
 MARABOU_RELEASE_BUILD_DIR = $(BUILD_DIR_BASE)$(MARABOU_BUILD_DIR_SUFFIX)$(RELEASE_BUILD_DIR_SUFFIX)
 MARABOU_DEBUG_BUILD_DIR = $(BUILD_DIR_BASE)$(MARABOU_BUILD_DIR_SUFFIX)$(DEBUG_BUILD_DIR_SUFFIX)
 
+ONNX_BUILD_DIR_SUFFIX = -onnx
+## These can be customized via command line
+ONNX_RELEASE_BUILD_DIR = $(BUILD_DIR_BASE)$(ONNX_BUILD_DIR_SUFFIX)$(RELEASE_BUILD_DIR_SUFFIX)
+ONNX_DEBUG_BUILD_DIR = $(BUILD_DIR_BASE)$(ONNX_BUILD_DIR_SUFFIX)$(DEBUG_BUILD_DIR_SUFFIX)
+
+## The engine for ONNX networks is built separately from a frozen git revision,
+## which reproduces the previous experiments; its sources are extracted into <build_dir>/source
+## This can be customized via command line
+ONNX_ENGINE_REV = onnx-engine-v1
+ONNX_ENGINE_TARGET = SpEXplAIn-bin
+ONNX_ENGINE_EXECUTABLE = spexplain
+
 DEFAULT_INSTALL_DIR := /usr/local
 USER_INSTALL_DIR := $(INSTALL_DIR)
 ## This can be customized via command line,
@@ -41,6 +53,10 @@ MARABOU_ONLY_CMAKE_FLAGS += -DENABLE_MARABOU=ON
 MARABOU_RELEASE_CMAKE_FLAGS += $(CMAKE_FLAGS) $(RELEASE_ONLY_CMAKE_FLAGS) $(MARABOU_ONLY_CMAKE_FLAGS)
 MARABOU_DEBUG_CMAKE_FLAGS += $(CMAKE_FLAGS) $(DEBUG_ONLY_CMAKE_FLAGS) $(MARABOU_ONLY_CMAKE_FLAGS)
 
+ONNX_ONLY_CMAKE_FLAGS +=
+ONNX_RELEASE_CMAKE_FLAGS += $(CMAKE_FLAGS) $(RELEASE_ONLY_CMAKE_FLAGS) $(ONNX_ONLY_CMAKE_FLAGS)
+ONNX_DEBUG_CMAKE_FLAGS += $(CMAKE_FLAGS) $(DEBUG_ONLY_CMAKE_FLAGS) $(ONNX_ONLY_CMAKE_FLAGS)
+
 ## These can be customized via command line
 ## Arguments for `cmake --build <build_dir>`
 CMAKE_BUILD_FLAGS +=
@@ -53,6 +69,10 @@ DEBUG_CMAKE_BUILD_FLAGS += $(CMAKE_BUILD_FLAGS) $(DEBUG_ONLY_CMAKE_BUILD_FLAGS)
 MARABOU_ONLY_CMAKE_BUILD_FLAGS +=
 MARABOU_RELEASE_CMAKE_BUILD_FLAGS += $(CMAKE_BUILD_FLAGS) $(RELEASE_ONLY_CMAKE_BUILD_FLAGS) $(MARABOU_ONLY_CMAKE_BUILD_FLAGS)
 MARABOU_DEBUG_CMAKE_BUILD_FLAGS += $(CMAKE_BUILD_FLAGS) $(DEBUG_ONLY_CMAKE_BUILD_FLAGS) $(MARABOU_ONLY_CMAKE_BUILD_FLAGS)
+
+ONNX_ONLY_CMAKE_BUILD_FLAGS += --target $(ONNX_ENGINE_TARGET)
+ONNX_RELEASE_CMAKE_BUILD_FLAGS += $(CMAKE_BUILD_FLAGS) $(RELEASE_ONLY_CMAKE_BUILD_FLAGS) $(ONNX_ONLY_CMAKE_BUILD_FLAGS)
+ONNX_DEBUG_CMAKE_BUILD_FLAGS += $(CMAKE_BUILD_FLAGS) $(DEBUG_ONLY_CMAKE_BUILD_FLAGS) $(ONNX_ONLY_CMAKE_BUILD_FLAGS)
 
 ## These can be customized via command line
 ## Arguments for `cmake --install <build_dir>`
@@ -131,6 +151,39 @@ $(MARABOU_DEBUG_BUILD_DIR):
 	cmake -B $(MARABOU_DEBUG_BUILD_DIR) $(MARABOU_DEBUG_CMAKE_FLAGS)
 
 ################################
+
+.PHONY: onnx onnx-release onnx-debug
+.PHONY: _dir-onnx-release _dir-onnx-debug _build-onnx-release _build-onnx-debug
+
+onnx: onnx-release
+
+onnx-release: _dir-onnx-release _build-onnx-release
+
+_dir-onnx-release: $(ONNX_RELEASE_BUILD_DIR)
+
+_build-onnx-release: _dir-onnx-release
+	cmake --build $(ONNX_RELEASE_BUILD_DIR) $(ONNX_RELEASE_CMAKE_BUILD_FLAGS)
+	ln -sfn $(ONNX_ENGINE_EXECUTABLE) $(ONNX_RELEASE_BUILD_DIR)/engine
+
+$(ONNX_RELEASE_BUILD_DIR):
+	mkdir -p $(ONNX_RELEASE_BUILD_DIR)/source
+	git archive $(ONNX_ENGINE_REV) | tar -x -C $(ONNX_RELEASE_BUILD_DIR)/source
+	cmake -S $(ONNX_RELEASE_BUILD_DIR)/source -B $(ONNX_RELEASE_BUILD_DIR) $(ONNX_RELEASE_CMAKE_FLAGS)
+
+onnx-debug: _dir-onnx-debug _build-onnx-debug
+
+_dir-onnx-debug: $(ONNX_DEBUG_BUILD_DIR)
+
+_build-onnx-debug: _dir-onnx-debug
+	cmake --build $(ONNX_DEBUG_BUILD_DIR) $(ONNX_DEBUG_CMAKE_BUILD_FLAGS)
+	ln -sfn $(ONNX_ENGINE_EXECUTABLE) $(ONNX_DEBUG_BUILD_DIR)/engine
+
+$(ONNX_DEBUG_BUILD_DIR):
+	mkdir -p $(ONNX_DEBUG_BUILD_DIR)/source
+	git archive $(ONNX_ENGINE_REV) | tar -x -C $(ONNX_DEBUG_BUILD_DIR)/source
+	cmake -S $(ONNX_DEBUG_BUILD_DIR)/source -B $(ONNX_DEBUG_BUILD_DIR) $(ONNX_DEBUG_CMAKE_FLAGS)
+
+################################
 ################################
 
 ##++ Tests are not implemented yet
@@ -193,6 +246,18 @@ clean-marabou-release:
 
 clean-marabou-debug:
 	rm -fr $(MARABOU_DEBUG_BUILD_DIR)
+
+################################
+
+.PHONY: clean-onnx clean-onnx-release clean-onnx-debug
+
+clean-onnx: clean-onnx-release
+
+clean-onnx-release:
+	rm -fr $(ONNX_RELEASE_BUILD_DIR)
+
+clean-onnx-debug:
+	rm -fr $(ONNX_DEBUG_BUILD_DIR)
 
 ################################
 ################################
