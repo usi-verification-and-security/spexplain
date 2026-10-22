@@ -111,7 +111,17 @@ make marabou
 which will by default use `build-marabou` build directory.
 To make the corresponding debug type, use `make marabou-debug`.
 
-In order to build all types, run `make all`.
+In order to also process networks in the [ONNX](https://onnx.ai) format (e.g., convolutional networks), run
+```
+make onnx
+```
+which builds a separate engine into the `build-onnx` build directory.
+This engine is less trusted than the default one:
+it is the frozen version used in the previous experiments with ONNX networks (the git tag `onnx-engine-v1`).
+It requires [Protocol Buffers](https://protobuf.dev) (installed on the system, or it is built from source).
+To make the corresponding debug type, use `make onnx-debug`.
+
+In order to build all types, run `make all` (it does not include `make onnx`).
 
 ### Clearing the build
 
@@ -121,7 +131,7 @@ make clean
 ```
 (or `make clean-release`) and then built again with `make` (or `make release`).
 In the case of debug mode, one must run `make clean-debug` and `make debug`.
-It works the same way with `*-marabou*`.
+It works the same way with `*-marabou*` and `*-onnx*`.
 To remove all, run `make clean-all`.
 
 ### Examples
@@ -173,7 +183,8 @@ or that selects or limits what is processed or listed, is an error if it does no
 The actions `explain` and `dump-psi` are implemented by the Explanation Computation Engine,
 the executable `engine` in the build directory (e.g., `./build/engine`),
 which `./spexplain` runs with the forwarded arguments.
-By default, `./build/engine` is used, or `./build-marabou/engine` if the verifier `marabou` is selected;
+By default, `./build/engine` is used, or `./build-marabou/engine` if the verifier `marabou` is selected,
+or `./build-onnx/engine` if the network is in the ONNX format;
 this can be overridden by the option `--engine <path>` or the environment variable `SPEXPLAIN_ENGINE`.
 Running `./spexplain explain --help` also prints the help message of the engine:
 
@@ -207,7 +218,8 @@ provided by the option `--input-explanations`.
 
 The action requires the following arguments:
 * `<nn_model_fn>`:
-Filename to the model, that is, a neural network classifier. The only supported file format is currently [NNet](https://github.com/sisl/NNet) that specifies a fully connected feedforward ReLU network.
+Filename to the model, that is, a neural network classifier. The main supported file format is [NNet](https://github.com/sisl/NNet) that specifies a fully connected feedforward ReLU network.
+Networks in the [ONNX](https://onnx.ai) format (e.g., convolutional networks) are processed by the less trusted engine from `make onnx` (see above).
 An example can be found in `./data/models/toy.nnet`.
 * `<dataset_fn>`:
 Filename to the dataset, that is, a collection of sample points with the expected classification outcomes,
