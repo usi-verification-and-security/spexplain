@@ -133,17 +133,16 @@ def main(args):
         if opts.output_explanations is not None:
             raise Error('Option --output-explanations can only be used with an extraction technique')
 
-    if extraction and extraction[0] != 'norm':
+    if extraction and extraction[0] not in ('norm', 'slice'):
         raise Error(f"Interpretation technique '{extraction[0]}' is not implemented yet")
-    if extraction:
-        from . import norm
-        extraction_config = norm.Config(extraction[1])
     if visualization and visualization[0] not in ('pixel', 'mathexpr'):
         raise Error(f"Visualization technique '{visualization[0]}' is not implemented yet")
     pixel_visualization = visualization and visualization[0] == 'pixel'
     mathexpr_visualization = visualization and visualization[0] == 'mathexpr'
     if pixel_visualization and visualization[1]:
         raise Error(f'Unknown parameters of pixel: {", ".join(visualization[1])}')
+    if pixel_visualization and extraction and extraction[0] != 'norm':
+        raise Error(f"Visualization pixel requires a point, not the result of '{extraction[0]}'")
 
     # Only the samples are visualized, also if the explanations are omitted
     use_samples_only = not extraction and (opts.samples_only or explanations_file is None)
@@ -175,9 +174,20 @@ def main(args):
     if opts.show and len(indices) > 1:
         raise Error('Option --show requires processing only one sample')
 
+    if extraction:
+        if extraction[0] == 'norm':
+            from . import norm as extraction_module
+            extraction_config = extraction_module.Config(extraction[1])
+        else:
+            from . import slice as extraction_module
+            extraction_config = extraction_module.Config(extraction[1], dataset.n_features())
+
     if mathexpr_visualization:
         from ..visualize import mathexpr
         visualization_config = mathexpr.Config(visualization[1], dataset.n_features())
+        # The features outside of a slice are removed
+        if extraction and extraction[0] == 'slice' and visualization_config.var_indices is None:
+            visualization_config.var_indices = extraction_config.var_indices
 
     explanations = read_explanations(explanations_file, indices) if explanations_file else None
 
@@ -234,9 +244,16 @@ def main(args):
             # An extracted point or the sample, otherwise the constraints of an explanation
             point = None
             if extraction:
-                point = norm.interpret(explanations[idx], extraction_config, sample)
-                if out:
-                    out.write(formula.from_point(point) + '\n')
+                result = extraction_module.interpret(explanations[idx], extraction_config, sample)
+                if extraction[0] == 'norm':
+                    point = result
+                    if out:
+                        out.write(formula.from_point(point) + '\n')
+                else:
+                    # The features outside of the slice are fixed to the sample
+                    A, B = formula.fix(*result, extraction_module.fixed_values(extraction_config, sample))
+                    if out:
+                        out.write(formula.from_constraints(A, B) + '\n')
             elif use_samples_only:
                 point = sample
             elif pixel_visualization:

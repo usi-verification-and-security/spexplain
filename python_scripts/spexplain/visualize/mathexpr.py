@@ -6,7 +6,6 @@
 #+ also output the Typst syntax ('.typ'; 'and', '<=', 'x_1', 'dot 10^(-5)', 'top'),
 # then also choose the intermediate format of '.pdf' (e.g. '.typ.pdf')
 
-import re
 import shutil
 import subprocess
 import tempfile
@@ -48,27 +47,13 @@ class Config:
                 raise Error(f'Duplicate parameter of mathexpr: {name}')
             names.add(name)
             if name == 'vars':
-                self.var_indices = parse_vars(args, n_vars)
+                self.var_indices = formula.parse_vars(args, n_vars, 'mathexpr')
             elif name == 'digits' and len(args) == 1 and args[0].isdigit():
                 self.digits = int(args[0])
             elif name == 'param' and not args:
                 self.param = True
             else:
                 raise Error(f'Unknown parameter of mathexpr: {param}')
-
-
-def parse_vars(args, n_vars):
-    """Parse the features 'x<i>' or ranges 'x<i>-x<j>' (from 1) into sorted indices (from 0)."""
-    if not args:
-        raise Error('Missing the features of parameter vars of mathexpr')
-    indices = set()
-    for arg in args:
-        m = re.fullmatch(r'x(\d+)(?:-x(\d+))?', arg)
-        first, last = (int(m[1]), int(m[2] or m[1])) if m else (0, 0)
-        if not 1 <= first <= last <= n_vars:
-            raise Error(f'Invalid features for {n_vars} features: {arg}')
-        indices.update(range(first - 1, last))
-    return sorted(indices)
 
 
 def check_output(file):
@@ -127,24 +112,6 @@ def expression(lower, upper, config):
     return _conjunction(_bound_terms(lower, upper, config))
 
 
-def _row_key(row, b):
-    # Also identifies -0.0 with 0.0
-    return (row + 0.0).tobytes() + np.float64(b + 0.0).tobytes()
-
-
-def _equalities(A, B):
-    """The rows that form equalities with an opposite row: maps the first of each pair to the second."""
-    first_of = {}
-    pairs = {}
-    for i, (row, b) in enumerate(zip(A, B)):
-        j = first_of.pop(_row_key(-row, -b), None)
-        if j is not None:
-            pairs[j] = i
-        else:
-            first_of.setdefault(_row_key(row, b), i)
-    return pairs
-
-
 def _linear_term(row, b, relation, config):
     """The linear constraint 'row * x <relation> b', with the first coefficient positive."""
     nonzero = np.flatnonzero(row)
@@ -168,7 +135,7 @@ def explicit_expression(A, B, config):
     terms = _bound_terms(*formula.interval_bounds(A[single], B[single]), config)
 
     multi = np.flatnonzero(~single)
-    pairs = _equalities(A[multi], B[multi])
+    pairs = formula.equalities(A[multi], B[multi])
     seconds = set(pairs.values())
     for k, i in enumerate(multi):
         if k in seconds or not _selected(np.flatnonzero(A[i]), config):
@@ -181,7 +148,7 @@ def explicit_expression(A, B, config):
 def segment_endpoints(A, B):
     """The endpoints of the segment given by the constraints A x <= B within the domains [0,1]."""
     n_vars = A.shape[1]
-    pairs = _equalities(A, B)
+    pairs = formula.equalities(A, B)
     eq = sorted(pairs)
 
     # The affine hull of the equalities: a point and the directions
