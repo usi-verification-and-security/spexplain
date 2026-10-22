@@ -116,21 +116,36 @@ def expression(lower, upper, config):
     return _conjunction(_bound_terms(lower, upper, config))
 
 
-def _linear_term(row, b, relation, config):
-    """The linear constraint 'row * x <relation> b', with the first coefficient positive."""
-    nonzero = np.flatnonzero(row)
-    if row[nonzero[0]] < 0:
-        row, b = -row, -b
-        relation = {r'\le': r'\ge', '=': '='}[relation]
-    lhs = ''
-    for j in nonzero:
-        c_str = format_number(abs(row[j]), config.digits)
+def _sum(terms, config):
+    """The sum of the (coefficient, variable or None for the constant) terms, omitting those rounded to zero."""
+    out = ''
+    for c, var in terms:
+        c_str = format_number(abs(c), config.digits)
         if c_str == '0':
             continue
-        coef = '' if c_str == '1' else c_str + ' '
-        sign = ('-' if row[j] < 0 else '') if not lhs else (' - ' if row[j] < 0 else ' + ')
-        lhs += f'{sign}{coef}{_var(j)}'
-    return f'{lhs or "0"} {relation} {format_number(b, config.digits)}'
+        if var is not None:
+            c_str = '' if c_str == '1' else c_str + ' '
+        sign = ('-' if c < 0 else '') if not out else (' - ' if c < 0 else ' + ')
+        out += f'{sign}{c_str}{_var(var) if var is not None else ""}'
+    return out or '0'
+
+
+def _linear_term(row, b, relation, config):
+    """The linear constraint 'row * x <relation> b'.
+
+    An equality is solved for its last variable, otherwise it is normalized to the first coefficient 1.
+    """
+    nonzero = np.flatnonzero(row)
+    if relation == '=':
+        last = nonzero[-1]
+        rhs = [(-row[j] / row[last], j) for j in nonzero[:-1]] + [(b / row[last], None)]
+        return f'{_var(last)} = {_sum(rhs, config)}'
+
+    first = row[nonzero[0]]
+    if first < 0:
+        relation = r'\ge'
+    row, b = row / first, b / first
+    return f'{_sum([(row[j], j) for j in nonzero], config)} {relation} {format_number(b, config.digits)}'
 
 
 def explicit_expression(A, B, config):
