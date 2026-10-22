@@ -124,7 +124,7 @@ USAGE: spexplain [--engine <path>] [<action>] <args> [<options>]
 ACTIONS: [explain] dump-psi interpret
     explain:    <nn_model_fn> <dataset_fn> [<exp_strategies_spec>]  Run the Explanation Computation Engine
     dump-psi:   <nn_model_fn>                                       Print the SMT-LIB encoding of the NN
-    interpret:  [<explanation>] <technique_spec> [<dataset>]        Run the Explanation Interpreter
+    interpret:  [<explanation>...] <technique_spec> [<dataset>]     Run the Explanation Interpreter
 Use 'spexplain <action> --help' to print the usage of a particular action.
 ...
 ```
@@ -227,10 +227,11 @@ the default visualization is determined by the extraction technique
 (`pixel` for `norm`, otherwise `fspace`).
 
 The action accepts the following arguments:
-* `<explanation>`:
+* `<explanation>...`:
 Filename to the explanations in the SMT-LIB format (e.g., the default output file `phi.txt` of `explain`),
 one explanation per line for each sample point of the dataset.
 It can be omitted with a visualization technique, which then visualizes the sample points.
+Multiple files (each at most once) are supported only with the visualization `fspace`.
 * `<technique_spec>`:
 The technique and optionally its parameters in the format `<name>[ <param>[, <param>]...]`.
 * `<dataset>`:
@@ -278,6 +279,12 @@ Shows the slice of the explanation (see `slice`) in the 2D feature space of the 
 given by the parameter `vars x<i> x<j>`,
 together with the sample point and, if extracted by `diam`, the diameter.
 After `slice` or `diam`, the features are those of the extraction technique.
+With multiple explanations files, they are shown together in one plot (also after `slice` or `diam`),
+labelled by their filenames without the common prefixes and suffixes delimited by `/` or `_`
+(e.g., `guide-all/itp_aweak_bstrong.phi.txt` and `fix-all/itp_aweak_bstrong.phi.txt`
+result in `guide-all` and `fix-all`),
+or by the option `--labels <label>[,<label>]...`;
+the explanations `<null>` are omitted but still labelled.
 * `pixel`:
 Shows a point as a gray-scale image,
 assuming square images with a single channel (e.g., MNIST) and values in [0,1].
