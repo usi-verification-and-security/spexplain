@@ -23,6 +23,15 @@ INSTALL_DIR = $(DEFAULT_INSTALL_DIR)
 ## Arguments for `cmake -B <build_dir>`
 CMAKE_FLAGS += -DCMAKE_INSTALL_PREFIX=$(INSTALL_DIR)
 
+## These can be customized via command line
+## Git revisions (branches, tags or commits) of the dependencies (default: see CMakeLists.txt)
+ifneq ($(OPENSMT_GIT_TAG),)
+  CMAKE_FLAGS += -DOPENSMT_GIT_TAG=$(OPENSMT_GIT_TAG)
+endif
+ifneq ($(MARABOU_GIT_TAG),)
+  CMAKE_FLAGS += -DMARABOU_GIT_TAG=$(MARABOU_GIT_TAG)
+endif
+
 RELEASE_ONLY_CMAKE_FLAGS +=
 DEBUG_ONLY_CMAKE_FLAGS += -DCMAKE_BUILD_TYPE=Debug
 RELEASE_CMAKE_FLAGS += $(CMAKE_FLAGS) $(RELEASE_ONLY_CMAKE_FLAGS)

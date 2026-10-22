@@ -7,17 +7,31 @@ option(ENABLE_MARABOU "Enable Marabou verifier" OFF)
 
 include(FetchContent)
 
+# Git revisions (branches, tags or commits) of the dependencies
+set(OPENSMT_GIT_TAG origin/spexplain CACHE STRING "Git revision of OpenSMT")
+set(MARABOU_GIT_TAG origin/spexplain CACHE STRING "Git revision of Marabou")
+
+# A shallow clone is not possible with a commit
+function(git_shallow git_tag var)
+    if (git_tag MATCHES "^[0-9a-f]+$")
+        set(${var} false PARENT_SCOPE)
+    else()
+        set(${var} true PARENT_SCOPE)
+    endif()
+endfunction()
+
 # Find OpenSMT2
 SET(OPENSMT_HOME CACHE STRING "OpenSMT installation directory")
 # find_package(OpenSMT 2.6.0 EXACT CONFIG PATHS ${OPENSMT_HOME} NO_DEFAULT_PATH)
 
 # if (OpenSMT_FOUND)
 # else(OpenSMT_FOUND)
+    git_shallow(${OPENSMT_GIT_TAG} OPENSMT_GIT_SHALLOW)
     FetchContent_Declare(
         OpenSMT
         GIT_REPOSITORY https://github.com/usi-verification-and-security/opensmt.git
-        GIT_TAG origin/spexplain
-        GIT_SHALLOW true
+        GIT_TAG ${OPENSMT_GIT_TAG}
+        GIT_SHALLOW ${OPENSMT_GIT_SHALLOW}
         GIT_PROGRESS true
     )
     set(BUILD_EXECUTABLES OFF CACHE INTERNAL "")
@@ -40,13 +54,14 @@ SET(OPENSMT_HOME CACHE STRING "OpenSMT installation directory")
 
 
 if (ENABLE_MARABOU)
+    git_shallow(${MARABOU_GIT_TAG} MARABOU_GIT_SHALLOW)
     FetchContent_Declare(
             Marabou
             # GIT_REPOSITORY https://github.com/NeuralNetworkVerification/Marabou.git
             # GIT_TAG 215828c64e624be7917e69e4e873c746d8df25a2
             GIT_REPOSITORY https://github.com/Tomaqa/Marabou.git
-            GIT_TAG origin/spexplain
-            GIT_SHALLOW true
+            GIT_TAG ${MARABOU_GIT_TAG}
+            GIT_SHALLOW ${MARABOU_GIT_SHALLOW}
             GIT_PROGRESS true
         )
     FetchContent_MakeAvailable(Marabou)
