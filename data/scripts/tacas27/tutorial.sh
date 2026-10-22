@@ -1,6 +1,6 @@
 #!/bin/bash
 # Runs all command blocks of tutorial/README.md in order, from the root of the repository (~/spexplain in Docker),
-# with the outputs into $OUTPUT (default /output in Docker); each block is timed, the run stops at the first failure.
+# with the outputs into $OUTPUT (default data/output in Docker); each block is timed, the run stops at the first failure.
 # The setup blocks (docker/run.sh, choosing OUTPUT) are skipped; 'ucore min' (about 4 minutes) only with SLOW=1;
 # '--show' is removed (it opens windows) unless SHOW=1.
 set -eu

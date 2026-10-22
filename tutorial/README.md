@@ -27,7 +27,8 @@ see [Showing visualizations](../docker/tacas27/README.md#showing-visualizations)
 X11=1 OUTPUT=<dir> docker/run.sh docker/tacas27
 ```
 Inside the container, you are in the root of the repository (`~/spexplain`),
-and the variable `OUTPUT` is already set to `/output`, which is the directory `<dir>` of your computer.
+and the variable `OUTPUT` is already set to `~/spexplain/data/output`,
+which is the directory `<dir>` of your computer.
 
 **On your computer:** run the commands from the root of the repository.
 Part 2 also uses the verifier Marabou, built by `make marabou`.
