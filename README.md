@@ -219,11 +219,12 @@ It is recommended to also apply the sed script `./data/scripts/polish_psi.sed` t
 
 Interprets stored explanations of the sample points
 using an extraction technique,
-e.g., `slice x1 x5`, `diam`, or `norm` (optionally `min` or `inv`),
+e.g., `slice vars x1 x5`, `diam vars x1 x5`, or `norm` (optionally `min` or `inv`),
 or directly using a visualization technique, `fspace`, `pixel`, or `mathexpr`.
 An extraction technique can be followed by a visualization,
 which is triggered by the option `--visualize`;
-the default visualization is determined by the extraction technique.
+the default visualization is determined by the extraction technique
+(`pixel` for `norm`, otherwise `fspace`).
 
 The action accepts the following arguments:
 * `<explanation>`:
@@ -257,10 +258,26 @@ With a visualization technique, the option `--samples-only` visualizes the sampl
 which is the same as omitting `<explanation>`.
 
 Currently, the following techniques are implemented:
+* `slice`:
+Computes the slice of the explanation in the two features given by the parameter `vars x<i> x<j>`
+through the sample point, that is, the values of the sample point are substituted for all other features.
+Only 2D slices are supported.
+The extracted explanation contains the constraints of the slice
+and the equalities of the other features to the sample point.
+* `diam`:
+Computes the maximal diameter of the slice (see `slice`) within the domains [0,1],
+that is, the segment between the two farthest points of the slice,
+using the parameter `vars x<i> x<j>` and optionally `max` (the default).
+The extracted explanation is the segment, with the other features equal to the sample point.
 * `norm`:
 Computes the point of the explanation with the minimal (L2) norm,
 or with the maximal norm using the parameter `inv`.
 Assumes that the domains of all features are normalized to [0,1].
+* `fspace`:
+Shows the slice of the explanation (see `slice`) in the 2D feature space of the two features
+given by the parameter `vars x<i> x<j>`,
+together with the sample point and, if extracted by `diam`, the diameter.
+After `slice` or `diam`, the features are those of the extraction technique.
 * `pixel`:
 Shows a point as a gray-scale image,
 assuming square images with a single channel (e.g., MNIST) and values in [0,1].
