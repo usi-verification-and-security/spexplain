@@ -1,0 +1,14 @@
+Var,Feature,Min,Max
+x1,Age,29,77
+x2,Sex,0,1
+x3,Chest pain,0,3
+x4,Blood pressure,94,200
+x5,Cholesterol [mg/dl],126,564
+x6,Fasting blood sugar,0,1
+x7,Resting electrocardiographic,0,2
+x8,Maximum heart rate,71,202
+x9,Exercise induced angina,0,1
+X10,Oldpeak,0,6.2
+x11,Peak slope,0,2
+x12,Major vessels,0,4
+x13,Thal,0,3

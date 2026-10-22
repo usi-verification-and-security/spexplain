@@ -2,7 +2,7 @@
 
 Run from the repo root:
 
-    PYTHONPATH=. python python_scripts/visualization/plot_diameter.py \
+    PYTHONPATH=. python3 python_scripts/visualization/plot_diameter.py \
         --index 71 \
         --exp data/explanations/heart_attack/50x1/s100_scaled/fix-all/itp_aweak_bstrong.phi.txt \
         --model data/models/heart_attack/heart_attack_50x1.nnet \
@@ -23,11 +23,32 @@ from explviz.specs import HEART_ATTACK_SCALED as spec
 
 import sys
 import runpy
+import csv
 
 def feature_index(s):
     """'x10' -> 9 (1-based variable name); '9' -> 9 (0-based index)."""
     return int(s[1:]) - 1 if s.startswith("x") else int(s)
 
+def read_csv(file_path):
+    min_values = []
+    max_values = []
+    feature_names = []
+    the_variables = []
+    
+    with open(file_path, mode='r', encoding='utf-8') as file:
+        reader = csv.DictReader(file)
+        
+        for row in reader:
+            try:
+                min_values.append(float(row['Min']))
+                max_values.append(float(row['Max']))
+                feature_names.append(row['Feature'])
+                the_variables.append(row['Var'])
+                
+            except ValueError:
+                print("Error")
+                
+    return min_values, max_values, the_variables, feature_names
 
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__,
@@ -48,6 +69,7 @@ def parse_args():
                    default=str(data_path("datasets/heart_attack/heart_attack_s100_scaled.csv",
                                          must_exist=False)),
                    help="dataset CSV the sample index refers to")
+    p.add_argument("--domain",required=False,help="Feature domain ranges")
     return p.parse_args()
 
 
@@ -78,6 +100,24 @@ def main():
         sys.argv = original_argv
         sys.path = original_path
 
+    min_values = []
+    max_values = []
+    the_variables = []
+    feature_names = []
+    x_min = 0
+    x_max = 1
+    y_min = 0
+    y_max = 1
+    if (args.domain):
+        min_values, max_values, the_variables, feature_names = read_csv(args.domain)
+        for i in range(len(the_variables)):
+            if (the_variables[i]==args.x):
+                x_min = min_values[i]
+                x_max = max_values[i]
+            if (the_variables[i]==args.y):
+                y_min = min_values[i]
+                y_max = max_values[i]
+        
     X, _ = load_points(args.data)
     clf = Classifier.from_nnet(args.model)
     i = args.index
@@ -97,7 +137,7 @@ def main():
         explanations=explanations,
         mode="snapshot",
     )
-    fig = plot_grid([panel], spec, ncols=1, clf=clf)
+    fig = plot_grid([panel], x_min, x_max, y_min, y_max, spec, ncols=1, clf=clf)
     for written in save_figure(fig, args.out):
         print(written)
 

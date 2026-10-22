@@ -17,8 +17,28 @@ import random
 
 import parse_smt2
 import math
+import csv
 
-
+def custom_read_csv(file_path):
+    min_values = []
+    max_values = []
+    feature_names = []
+    the_variables = []
+    
+    with open(file_path, mode='r', encoding='utf-8') as file:
+        reader = csv.DictReader(file)
+        
+        for row in reader:
+            try:
+                min_values.append(float(row['Min']))
+                max_values.append(float(row['Max']))
+                feature_names.append(row['Feature'])
+                the_variables.append(row['Var'])
+                
+            except ValueError:
+                print("Error")
+                
+    return min_values, max_values, the_variables, feature_names
 
 def plot(ineq,fixed_vars,x_bounds,y_bounds,*,axes=None,interactive=False,axes_labels=(None,None)):
     assert ineq.shape[1] - 3 == fixed_vars.shape[0]
@@ -300,7 +320,33 @@ def max_distance_on_surface(ineq,all_vars,ranges):
     print("Maximum distance found: "+str(dist))
     print("Direction of maximum diameter found: "+str(best_direction))
     
-def max_distance_exact2D(ineq,all_vars,ranges,output_file):
+def rescale_points(best_points,domains_file,all_vars):
+    custom_best_points = []
+    min_values, max_values, the_variables, feature_names = custom_read_csv(domains_file)
+    
+    min_point1 = 0
+    max_point1 = 1
+    min_point2 = 0
+    max_point2 = 1
+    
+    for i in range(len(the_variables)):
+        if (the_variables[i] == all_vars[0]):
+            min_point1 = min_values[i]
+            max_point1 = max_values[i]
+        
+        if (the_variables[i] == all_vars[1]):
+            min_point2 = min_values[i]
+            max_point2 = max_values[i]
+    
+    custom_x1 = best_points[0][0]*(max_point1-min_point1)+min_point1
+    custom_x2 = best_points[1][0]*(max_point2-min_point2)+min_point2
+    custom_y1 = best_points[0][1]*(max_point1-min_point1)+min_point1
+    custom_y2 = best_points[1][1]*(max_point2-min_point2)+min_point2
+    
+    custom_best_points = [[custom_x1,custom_y1],[custom_x2,custom_y2]]
+    return custom_best_points
+
+def max_distance_exact2D(ineq,all_vars,ranges,output_file,domains_file):
     tollerance_error = -10e-06
     parsed_ineq,parsed_vars = parse_smt2.parse_and_interpret(ineq,all_vars)
     
@@ -381,6 +427,12 @@ def max_distance_exact2D(ineq,all_vars,ranges,output_file):
     print("Direction of maximum diameter found: "+str(best_direction))
     print("Vertices: "+str(best_points))
     
+    partial_suffix = "_normalized"
+    if (domains_file):
+        # Need to scale the domains
+        best_points = rescale_points(best_points,domains_file,all_vars)
+        partial_suffix = "_scaled"
+    
     P1_x = best_points[0][0]
     P1_y = best_points[0][1]
     P2_x = best_points[1][0]
@@ -416,7 +468,7 @@ def max_distance_exact2D(ineq,all_vars,ranges,output_file):
         print()
         print(smt_formula)
          
-    with open(output_file + ".smt2", "w") as g:
+    with open(output_file+partial_suffix+".smt2", "w") as g:
         g.write(smt_formula)
 
 
@@ -442,6 +494,7 @@ if __name__ == '__main__':
     
     argparser.add_argument('--out', '-o', required=False,
                    help='output path without suffix (writes .smt2)')
+    argparser.add_argument('--domain',required=False,help="Feature domain ranges")
     args = argparser.parse_args()
     if not args.test:
         # needs filename
@@ -476,7 +529,7 @@ if __name__ == '__main__':
         
         print()
         print("METHOD #3: exact method, all distances between vertices")
-        max_distance_exact2D(data,variables,slices,args.out)
+        max_distance_exact2D(data,variables,slices,args.out,args.domain)
       
 
     else:
