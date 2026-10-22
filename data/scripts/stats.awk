@@ -13,7 +13,8 @@ function assert(condition, string) {
    dataset_size = $NF
 }
 
-/Number of samples:/ {
+## spexplain writes 'Limited number of samples: <N>'
+/[Nn]umber of samples:/ {
    assert(max_samples == "", "Multiple occurencies of max no. samples!")
    max_samples = $NF
    assert(max_samples < dataset_size, "max_samples < dataset_size : " max_samples " < " dataset_size)

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 SCRIPTS_DIR=$(dirname "$0")
 
@@ -39,6 +39,12 @@ set_timeout
 
 activations="${MODEL/models\//neuron_activations\/}"
 activations="${activations%.*}.txt"
+## The activations are indexed by the samples of the dataset, so a dataset other than the
+## original one has its own in <dataset>/, named as the results directory, e.g. s100_scaled_short
+## OUTPUT_DIR is <...>/<dataset>/<variant>
+dataset_dir=$(basename "$(dirname "$OUTPUT_DIR")")
+dataset_activations="$(dirname "$activations")/$dataset_dir/$(basename "$activations")"
+[[ -r $dataset_activations ]] && activations="$dataset_activations"
 [[ -r $activations ]] && {
     for options_var in VAR_OPTIONS OPTIONS; do
         declare -n lOPTIONS=$options_var
@@ -61,7 +67,7 @@ options=(
 }
 
 [[ -n $TIMEOUT_PER ]] && {
-    [[ $TIMEOUT_PER =~ ^[0-9]+(|\.[0-9]*)(|[smhd])$ ]] || {
+    [[ $TIMEOUT_PER =~ ^[0-9]+(\.[0-9]*)?[smhd]?$ ]] || {
         printf "Unrecognized timeout per explanations: %s\n" "$TIMEOUT_PER" >&2
         usage 1 >&2
     }

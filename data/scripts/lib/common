@@ -1,3 +1,8 @@
+# macOS ships BSD realpath without --relative-to; prefer GNU coreutils' grealpath when available
+if ! realpath --relative-to=. . &>/dev/null && command -v grealpath &>/dev/null; then
+    function realpath { grealpath "$@"; }
+fi
+
 # 1 - input string
 #<2>- array var. name to write into
 #(3)- field separator to use
