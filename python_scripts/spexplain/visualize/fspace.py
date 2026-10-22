@@ -3,9 +3,11 @@
 # Only 2D slices are supported, assumes that the domains of the features are normalized to [0,1]
 # Based on explviz/plot/panel.py of the branch explviz
 #+ also show the decision regions of the classifier as the background (requires the model and torch)
+#+ title the plot by the number of the sample, e.g. 'sample <s>'
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 from .. import Error
 from ..interpret import slice as slice_
@@ -24,6 +26,10 @@ class Config:
 
     def __init__(self, params, n_vars):
         self.var_indices = None
+        # The domains of the features in the real units, otherwise normalized
+        self.domains = None
+        # The names of the features, or None
+        self.names = None
 
         names = set()
         for param in params:
@@ -35,6 +41,12 @@ class Config:
                 self.var_indices = slice_.parse_vars(args, n_vars, 'fspace')
             else:
                 raise Error(f'Unknown parameter of fspace: {param}')
+
+
+def _axis_label(i, names):
+    name = names[i] if names else None
+    var = f'$x_{{{i + 1}}}$'
+    return f'{name} ({var})' if name else var
 
 
 def save(series, sample, config, file, show=False):
@@ -77,8 +89,14 @@ def save(series, sample, config, file, show=False):
     axes.set_xlim(-MARGIN, 1 + MARGIN)
     axes.set_ylim(-MARGIN, 1 + MARGIN)
     axes.set_aspect('equal')
-    axes.set_xlabel(f'$x_{{{a + 1}}}$')
-    axes.set_ylabel(f'$x_{{{b + 1}}}$')
+    axes.set_xlabel(_axis_label(a, config.names))
+    axes.set_ylabel(_axis_label(b, config.names))
+    if config.domains:
+        # Only the ticks are in the real units, with round values
+        for axis, i in ((axes.xaxis, a), (axes.yaxis, b)):
+            lo, hi = config.domains.lower[i], config.domains.upper[i]
+            ticks = [v for v in MaxNLocator().tick_values(lo, hi) if lo <= v <= hi]
+            axis.set_ticks([(v - lo) / (hi - lo) for v in ticks], [f'{v:g}' for v in ticks])
     axes.grid(alpha=0.3)
     axes.legend(loc='best')
 

@@ -115,6 +115,9 @@ def make_parser():
                              '(default: ' + ', '.join(f'{file} for {name}'
                                                       for name, file in DEFAULT_OUTPUT_VISUALIZATIONS.items()) + ')')
     parser.add_argument('--show', action='store_true', help='also show the visualization (only for one sample)')
+    parser.add_argument('--visualization-domains', metavar='<file>',
+                        help='CSV file with the domains of the features in the real units (columns Min, Max, '
+                             'optionally Var, Feature), only for the outputs of fspace and mathexpr')
     parser.add_argument('--labels', metavar='<label>[,<label>]...',
                         help='labels of the explanations (default: from their paths without the common parts)')
     parser.add_argument('--samples-only', action='store_true',
@@ -195,7 +198,7 @@ def main(args):
         explanations_files = []
 
     # All implemented techniques require the dataset
-    #+ also allow a CSV with the domains of the features in case they are not normalized to [0,1]
+    #+ also allow a CSV with the domains of the features by --domains in case they are not normalized to [0,1]
     #+ then pixel visualizing an explanation will not require the dataset, only the number of features from the CSV
     if dataset_file is None:
         raise Error(f"Interpretation technique '{name}' requires the dataset")
@@ -244,6 +247,17 @@ def main(args):
         # The features outside of a slice are removed
         if extraction and extraction[0] != 'norm' and visualization_config.var_indices is None:
             visualization_config.var_indices = extraction_config.var_indices
+
+    domains = None
+    if opts.visualization_domains is not None:
+        if not (fspace_visualization or mathexpr_visualization):
+            raise Error('Option --visualization-domains can only be used with the visualizations fspace and mathexpr')
+        from ..domains import Domains
+        domains = Domains(opts.visualization_domains, dataset)
+        visualization_config.domains = domains
+    if fspace_visualization:
+        # The names from the dataset, unless given by the domains
+        visualization_config.names = domains.names if domains else dataset.feature_names
 
     explanations_list = [read_explanations(file, indices) for file in explanations_files]
     # The single explanations file of the techniques other than fspace

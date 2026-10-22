@@ -39,6 +39,8 @@ class Config:
         self.digits = DEFAULT_DIGITS
         # The parametric form, otherwise the explicit one
         self.param = False
+        # The domains of the features in the real units, otherwise normalized
+        self.domains = None
 
         names = set()
         for param in params:
@@ -91,12 +93,14 @@ def _bound_terms(lower, upper, config):
         if lo == 0 and hi == 1:
             continue
         var = _var(i)
+        if config.domains:
+            lo, hi = config.domains.scale(lo, i), config.domains.scale(hi, i)
         lo_str, hi_str = format_number(lo, config.digits), format_number(hi, config.digits)
-        if lo == hi:
+        if lower[i] == upper[i]:
             terms.append(f'{var} = {lo_str}')
-        elif lo == 0:
+        elif lower[i] == 0:
             terms.append(rf'{var} \le {hi_str}')
-        elif hi == 1:
+        elif upper[i] == 1:
             terms.append(rf'{lo_str} \le {var}')
         else:
             terms.append(rf'{lo_str} \le {var} \le {hi_str}')
@@ -137,10 +141,11 @@ def explicit_expression(A, B, config):
     multi = np.flatnonzero(~single)
     pairs = formula.equalities(A[multi], B[multi])
     seconds = set(pairs.values())
+    A_scaled, B_scaled = config.domains.scale_constraints(A, B) if config.domains else (A, B)
     for k, i in enumerate(multi):
         if k in seconds or not _selected(np.flatnonzero(A[i]), config):
             continue
-        terms.append(_linear_term(A[i], B[i], '=' if k in pairs else r'\le', config))
+        terms.append(_linear_term(A_scaled[i], B_scaled[i], '=' if k in pairs else r'\le', config))
 
     return _conjunction(terms)
 
@@ -193,6 +198,8 @@ def segment_endpoints(A, B):
 def parametric_expression(p, q, config):
     """The segment between the points as x = p + t (q - p) with t in [0,1]."""
     indices = config.var_indices if config.var_indices is not None else range(p.size)
+    if config.domains:
+        p, q = config.domains.scale(p), config.domains.scale(q)
     terms = []
     varying = False
     for i in indices:

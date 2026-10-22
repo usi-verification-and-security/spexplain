@@ -1,4 +1,4 @@
-# Datasets in the CSV format: an optional header, then one sample per line
+# Datasets in the CSV format: an optional header with the names of the features, then one sample per line
 # with the values of the features followed by the expected classification
 
 import csv
@@ -12,20 +12,24 @@ class Dataset:
     def __init__(self, path):
         samples = []
         labels = []
+        header = None
         with open(path, newline='') as f:
             for i, row in enumerate(csv.reader(f)):
+                #+ do not require the expected class, as in the TODO in the engine
                 try:
                     samples.append([float(x) for x in row[:-1]])
                     labels.append(int(float(row[-1])))
                 except ValueError:
-                    # The header
                     if i == 0:
+                        header = row
                         continue
                     raise Error(f'Invalid sample at line {i + 1} of the dataset: {path}')
 
         self.path = path
         self.samples = np.array(samples)
         self.labels = np.array(labels)
+        # The names of the features from the header, without the expected classification
+        self.feature_names = [name.strip() or None for name in header[:-1]] if header else [None] * self.n_features()
 
     def __len__(self):
         return len(self.samples)
