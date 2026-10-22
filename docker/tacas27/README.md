@@ -14,7 +14,9 @@ From the root of the repository:
   the variable `PLATFORM` selects the target platform, e.g., `linux/arm64`;
   the Git revisions of the dependencies OpenSMT and Marabou are pinned to concrete commits,
   which can be changed with `--build-arg OPENSMT_GIT_TAG=...` and `--build-arg MARABOU_GIT_TAG=...`
-  using `docker build` directly)
+  using `docker build` directly;
+  the engine for ONNX networks is built from the frozen revision (a tag) `--build-arg ONNX_ENGINE_GIT_TAG=...`
+  (default: `onnx-engine-v1`), which requires `make onnx` in the repository, and is skipped if empty)
 * Run the image: `OUTPUT=<dir> docker/run.sh docker/tacas27`  
   (the host directory `<dir>` is mounted at `~/spexplain/data/output` inside the container,
   which is also in the variable `OUTPUT`)
