@@ -172,7 +172,16 @@ The action requires the following arguments:
 Filename to the model, that is, a neural network classifier. The only supported file format is currently [NNet](https://github.com/sisl/NNet) that specifies a fully connected feedforward ReLU network.
 An example can be found in `./data/models/toy.nnet`.
 * `<dataset_fn>`:
-Filename to the dataset, that is, a collection of sample points, optionally with the expected classification outcome, in the CSV format.
+Filename to the dataset, that is, a collection of sample points with the expected classification outcomes,
+in the CSV format with comma-separated values:
+the first line is a header with the names of the features followed by the name of the classification
+(it is always skipped, so it must be present),
+and each further line is a sample point, that is, the values of the features
+followed by the expected class (an integer from 0).
+The column of the expected class must be present,
+but it is only used to filter the sample points (`--filter-samples`) and in the statistics (`-s`);
+the explanations are computed for the class computed by the network.
+The names of the features are used by `interpret` (e.g., for the axes of `fspace`).
 An example can be found in `./data/datasets/toy.csv`.
 * `<exp_strategies_spec>`:
 The specification of strategies in the format `<spec1>[; <spec2>]...`, that is, each strategy specification is separated by `;`.
@@ -250,6 +259,10 @@ if the option is not given, they are written into the file `tphi.txt` unless the
 The file contains one line for each sample point,
 with `<null>` for the sample points that are not processed.
 Explanations `<null>` (e.g., when `explain` reached the time limit) are skipped.
+
+Note that `explain` currently writes the explanations only of the processed sample points,
+so with its options `-i`, `-n`, or `--filter-samples`, the explanations do not match the dataset
+and `interpret` fails; use `explain` on the whole dataset instead.
 The visualizations are written into files, one per sample point,
 named according to the option `--output-visualization <file>`
 (default: `timg.png` for `pixel` and `tphi.tex` for `mathexpr`)
@@ -257,6 +270,14 @@ where `_s<idx>` is added to the name (e.g., `timg_s3.png`) and the extension det
 If only one sample point is processed, the option `--show` also shows the visualization.
 With a visualization technique, the option `--samples-only` visualizes the sample points and ignores the explanations,
 which is the same as omitting `<explanation>`.
+With the visualizations `fspace` and `mathexpr`, the option `--visualization-domains <file>`
+shows the values in the real units given by a CSV file with the columns `Min`, `Max`,
+and optionally `Var` and `Feature` (e.g., `x1,Age,29,77`),
+which map the normalized domain [0,1] of each listed feature linearly to [`Min`,`Max`]
+(e.g., `./data/domains/heart_attack/heart_attack.csv`);
+without `Var`, the rows are the features in their order,
+and without `Feature`, the names of the features are those in the header of the dataset.
+The explanations are still assumed to be normalized, and the extracted explanations (`-e`) stay normalized.
 
 Currently, the following techniques are implemented:
 * `slice`:
@@ -285,6 +306,8 @@ labelled by their filenames without the common prefixes and suffixes delimited b
 result in `guide-all` and `fix-all`),
 or by the option `--labels <label>[,<label>]...`;
 the explanations `<null>` are omitted but still labelled.
+The axes are labelled by the names of the features (see `--visualization-domains`),
+and with `--visualization-domains`, they show the values in the real units.
 * `pixel`:
 Shows a point as a gray-scale image,
 assuming square images with a single channel (e.g., MNIST) and values in [0,1].
@@ -296,7 +319,9 @@ e.g., an interval explanation (including a point extracted by `norm`), a segment
 as a human-readable math expression in the LaTeX syntax (also usable in Markdown math).
 By default, it is the explicit form, a conjunction of the bounds of the features,
 where the features with full domains [0,1] are omitted,
-followed by the other linear constraints.
+followed by the other linear constraints,
+where an equality is solved for its last feature (e.g., `x_{5} = 4 x_{1} - 27`)
+and an inequality is normalized to the first coefficient 1 (e.g., `x_{1} + 32.11 x_{10} \le 115.13`).
 With the parameter `param`, a segment is shown in the parametric form,
 `x_{i} = a + b\,t` for each feature with `t \in [0, 1]`,
 which requires the equalities of the segment to be given explicitly (by `=`).
@@ -397,6 +422,9 @@ alternatively, in the form of intervals (`-I`) or bounds (`-B`).
 A subset of the sample points can be selected with the option `-i`,
 either a single sample point `<idx>`, or a range `[<idx>]-[<idx2>]`
 (indexed from 1, the bounds default to the first and the last sample point, respectively).
+Note that only the explanations of the processed sample points are written (`<null>` when reaching the time limit),
+so with `-i`, `-n`, or `--filter-samples`, the explanations do not correspond to all sample points of the dataset
+(see `interpret`).
 
 ### Examples
 
