@@ -8,7 +8,8 @@ Run from the repo root:
         --model data/models/heart_attack/heart_attack_50x1.nnet \
         --x x10 --y x1 \
         --out plots/ha_s71_oldpeak_age \
-        --slice plots/ha_s71_sliced_x10_x1.phi.txt
+        --slice plots/ha_s71_sliced_x10_x1.phi.txt \
+        --domain data/domain/heart_attack/ranges.csv
 
 Several explanation files can be overlaid by repeating them after --exp.
 """
