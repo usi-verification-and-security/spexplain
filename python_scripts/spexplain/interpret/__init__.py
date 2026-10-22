@@ -8,7 +8,7 @@ from .. import Error
 # Extraction techniques, each determines its default visualization
 EXTRACTIONS = {
     'slice': 'fspace',
-    'diam': 'pixel',
+    'diam': 'fspace',
     'norm': 'pixel',
 }
 
@@ -133,7 +133,7 @@ def main(args):
         if opts.output_explanations is not None:
             raise Error('Option --output-explanations can only be used with an extraction technique')
 
-    if extraction and extraction[0] not in ('norm', 'slice'):
+    if extraction and extraction[0] not in ('norm', 'slice', 'diam'):
         raise Error(f"Interpretation technique '{extraction[0]}' is not implemented yet")
     if visualization and visualization[0] not in ('pixel', 'mathexpr'):
         raise Error(f"Visualization technique '{visualization[0]}' is not implemented yet")
@@ -179,14 +179,17 @@ def main(args):
             from . import norm as extraction_module
             extraction_config = extraction_module.Config(extraction[1])
         else:
-            from . import slice as extraction_module
+            if extraction[0] == 'slice':
+                from . import slice as extraction_module
+            else:
+                from . import diam as extraction_module
             extraction_config = extraction_module.Config(extraction[1], dataset.n_features())
 
     if mathexpr_visualization:
         from ..visualize import mathexpr
         visualization_config = mathexpr.Config(visualization[1], dataset.n_features())
         # The features outside of a slice are removed
-        if extraction and extraction[0] == 'slice' and visualization_config.var_indices is None:
+        if extraction and extraction[0] != 'norm' and visualization_config.var_indices is None:
             visualization_config.var_indices = extraction_config.var_indices
 
     explanations = read_explanations(explanations_file, indices) if explanations_file else None
@@ -241,17 +244,23 @@ def main(args):
                 continue
 
             sample = dataset.get_sample(idx) if dataset else None
-            # An extracted point or the sample, otherwise the constraints of an explanation
+            # An extracted point or the sample, a segment, otherwise the constraints of an explanation
             point = None
+            segment = None
             if extraction:
                 result = extraction_module.interpret(explanations[idx], extraction_config, sample)
                 if extraction[0] == 'norm':
                     point = result
                     if out:
                         out.write(formula.from_point(point) + '\n')
-                else:
+                elif extraction[0] == 'slice':
                     # The features outside of the slice are fixed to the sample
                     A, B = formula.fix(*result, extraction_module.fixed_values(extraction_config, sample))
+                    if out:
+                        out.write(formula.from_constraints(A, B) + '\n')
+                else:
+                    segment = result
+                    A, B = formula.segment_constraints(*segment)
                     if out:
                         out.write(formula.from_constraints(A, B) + '\n')
             elif use_samples_only:
@@ -269,7 +278,9 @@ def main(args):
                 if point is not None:
                     expr = mathexpr.expression(point, point, visualization_config)
                 elif visualization_config.param:
-                    expr = mathexpr.parametric_expression(*mathexpr.segment_endpoints(A, B), visualization_config)
+                    if segment is None:
+                        segment = mathexpr.segment_endpoints(A, B)
+                    expr = mathexpr.parametric_expression(*segment, visualization_config)
                 else:
                     expr = mathexpr.explicit_expression(A, B, visualization_config)
                 mathexpr.save(expr, output_file(output_visualization, idx), show=opts.show)

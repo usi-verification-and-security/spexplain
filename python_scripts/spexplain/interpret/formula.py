@@ -127,6 +127,39 @@ def _linear(row):
     return terms[0] if len(terms) == 1 else '(+ %s)' % ' '.join(terms)
 
 
+def segment_constraints(p, q):
+    """The constraints A x <= B of the segment between the points.
+
+    The features that differ are expressed linearly in the first of them (the reference),
+    which is bounded by the endpoints; the other features are fixed.
+    """
+    n_vars = p.size
+    varying = np.flatnonzero(p != q)
+    A, B = fix(np.empty((0, n_vars)), np.empty(0), {i: p[i] for i in range(n_vars) if p[i] == q[i]})
+    if varying.size == 0:
+        return A, B
+
+    k = varying[0]
+    rows, rhs = [A], [B]
+    for j in varying[1:]:
+        # x_j = p_j + c (x_k - p_k)
+        c = (q[j] - p[j]) / (q[k] - p[k])
+        e = np.zeros(n_vars)
+        e[j], e[k] = 1, -c
+        rows += [e[None, :], -e[None, :]]
+        rhs += [[p[j] - c * p[k]], [c * p[k] - p[j]]]
+    e = np.zeros(n_vars)
+    e[k] = 1
+    rows += [e[None, :], -e[None, :]]
+    rhs += [[max(p[k], q[k])], [-min(p[k], q[k])]]
+    return np.vstack(rows), np.concatenate(rhs)
+
+
+def from_segment(p, q):
+    """The explanation of the segment between the points."""
+    return from_constraints(*segment_constraints(p, q))
+
+
 def from_constraints(A, B):
     """The explanation of the constraints A x <= B, with the pairs of opposite constraints as equalities."""
     pairs = equalities(A, B)
