@@ -7,6 +7,8 @@ import numpy as np
 
 from . import Error
 
+CLASS_NAMES_SEPARATOR = '|'
+
 
 class Dataset:
     def __init__(self, path):
@@ -30,6 +32,10 @@ class Dataset:
         self.labels = np.array(labels)
         # The names of the features from the header, without the expected classification
         self.feature_names = [name.strip() or None for name in header[:-1]] if header else [None] * self.n_features()
+        # The names of the classes, if given in the header of the expected classification separated by '|',
+        # e.g. 'Low risk|High risk'
+        self.class_names = ([name.strip() for name in header[-1].split(CLASS_NAMES_SEPARATOR)]
+                            if header and CLASS_NAMES_SEPARATOR in header[-1] else None)
 
     def __len__(self):
         return len(self.samples)

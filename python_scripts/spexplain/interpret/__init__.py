@@ -118,6 +118,11 @@ def make_parser():
     parser.add_argument('--visualization-domains', metavar='<file>',
                         help='CSV file with the domains of the features in the real units (columns Min, Max, '
                              'optionally Var, Feature), only for the outputs of fspace and mathexpr')
+    parser.add_argument('--model', metavar='<nn_model_fn>',
+                        help='the classifier in the NNet format, for the decision regions of fspace')
+    parser.add_argument('--class-labels', metavar='<label>[,<label>]...',
+                        help="labels of the classes (default: from the header of the dataset separated by '|', "
+                             "e.g. 'Low risk|High risk', otherwise 'Class <c>')")
     parser.add_argument('--labels', metavar='<label>[,<label>]...',
                         help='labels of the explanations (default: from their paths without the common parts)')
     parser.add_argument('--samples-only', action='store_true',
@@ -258,6 +263,23 @@ def main(args):
     if fspace_visualization:
         # The names from the dataset, unless given by the domains
         visualization_config.names = domains.names if domains else dataset.feature_names
+
+    if opts.model is not None or opts.class_labels is not None:
+        if not fspace_visualization:
+            raise Error('Options --model and --class-labels can only be used with the visualization fspace')
+        if opts.model is None:
+            raise Error('Option --class-labels requires the option --model')
+        from ..model import Model
+        model = Model(opts.model)
+        if model.n_inputs() != dataset.n_features():
+            raise Error(f'The number of the inputs of the model ({model.n_inputs()}) does not match the number '
+                        f'of the features of the dataset ({dataset.n_features()})')
+        class_names = opts.class_labels.split(',') if opts.class_labels else dataset.class_names
+        if class_names is not None and len(class_names) != model.n_classes():
+            raise Error(f'The number of the labels of the classes ({len(class_names)}) does not match the number '
+                        f'of the classes of the model ({model.n_classes()})')
+        visualization_config.model = model
+        visualization_config.class_names = class_names
 
     explanations_list = [read_explanations(file, indices) for file in explanations_files]
     # The single explanations file of the techniques other than fspace

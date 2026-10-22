@@ -1,12 +1,13 @@
 # Visualization fspace: shows the slice of an explanation in the 2D feature space through the sample (see slice),
-# together with the diameter (see diam) and the sample
+# together with the diameter (see diam), the sample, and the decision regions of the classifier if given
 # Only 2D slices are supported, assumes that the domains of the features are normalized to [0,1]
 # Based on explviz/plot/panel.py of the branch explviz
-#+ also show the decision regions of the classifier as the background (requires the model and torch)
 #+ title the plot by the number of the sample, e.g. 'sample <s>'
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+from matplotlib.patches import Patch
 from matplotlib.ticker import MaxNLocator
 
 from .. import Error
@@ -19,6 +20,13 @@ FILL_ALPHAS = (0.20, 0.25, 0.35, 0.15, 0.30, 0.70)
 MIN_LINE_WIDTH = 2
 SAMPLE_COLOR = 'black'
 MARGIN = 0.05
+# The decision regions: light colors different from those of the explanations, cycled
+CLASS_COLORS = ('navajowhite', 'lightskyblue', 'palegreen', 'thistle', 'lightgray', 'lightpink', 'paleturquoise',
+                'wheat', 'lavender', 'peachpuff')
+CLASS_ALPHA = 0.5
+BOUNDARY_COLOR = 'black'
+# The number of the points of the grid in each dimension
+RESOLUTION = 300
 
 
 class Config:
@@ -30,6 +38,9 @@ class Config:
         self.domains = None
         # The names of the features, or None
         self.names = None
+        # The classifier for the decision regions, or None, and the names of the classes
+        self.model = None
+        self.class_names = None
 
         names = set()
         for param in params:
@@ -49,6 +60,26 @@ def _axis_label(i, names):
     return f'{name} ({var})' if name else var
 
 
+def _draw_decision_regions(axes, sample, config):
+    """The classes of the grid of points on the plane of the features through the sample."""
+    a, b = config.var_indices
+    grid = np.linspace(0, 1, RESOLUTION)
+    xx, yy = np.meshgrid(grid, grid)
+    X = np.tile(sample, (xx.size, 1))
+    X[:, a], X[:, b] = xx.ravel(), yy.ravel()
+    labels = config.model.classify(X).reshape(xx.shape)
+
+    n_classes = config.model.n_classes()
+    colors = [CLASS_COLORS[c % len(CLASS_COLORS)] for c in range(n_classes)]
+    axes.imshow(labels, extent=(0, 1, 0, 1), origin='lower', interpolation='nearest', cmap=ListedColormap(colors),
+                vmin=-0.5, vmax=n_classes - 0.5, alpha=CLASS_ALPHA, zorder=0)
+    axes.contour(xx, yy, labels, levels=np.arange(n_classes - 1) + 0.5, colors=BOUNDARY_COLOR, linewidths=1.2,
+                 zorder=0.5)
+
+    names = config.class_names or [f'Class {c}' for c in range(n_classes)]
+    return [Patch(facecolor=colors[c], alpha=CLASS_ALPHA, label=names[c]) for c in np.unique(labels)]
+
+
 def save(series, sample, config, file, show=False):
     """Save the explanations and the sample.
 
@@ -58,6 +89,8 @@ def save(series, sample, config, file, show=False):
     a, b = config.var_indices
     single = len(series) == 1
     fig, axes = plt.subplots()
+
+    class_handles = _draw_decision_regions(axes, sample, config) if config.model else []
 
     for k, (label, vertices, diameter, invalid) in enumerate(series):
         color, alpha = (style[k % len(style)] for style in (COLORS, FILL_ALPHAS))
@@ -98,7 +131,8 @@ def save(series, sample, config, file, show=False):
             ticks = [v for v in MaxNLocator().tick_values(lo, hi) if lo <= v <= hi]
             axis.set_ticks([(v - lo) / (hi - lo) for v in ticks], [f'{v:g}' for v in ticks])
     axes.grid(alpha=0.3)
-    axes.legend(loc='best')
+    handles, _ = axes.get_legend_handles_labels()
+    axes.legend(handles=handles + class_handles, loc='best')
 
     fig.savefig(file)
     if show:
