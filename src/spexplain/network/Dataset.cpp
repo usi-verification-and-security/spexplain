@@ -40,6 +40,8 @@ Network::Dataset::Dataset(std::size_t nInputs_, std::size_t nClasses_, std::stri
             sample.push_back(std::stod(field));
         }
         assert(not sample.empty());
+        //+ do not require the expected class: it is only used for filtering the samples and in the statistics,
+        // e.g. determine its presence by the number of the inputs of the network
         Float expectedClassFloat = sample.back();
         assert(expectedClassFloat == std::floor(expectedClassFloat));
         sample.pop_back();

@@ -246,8 +246,10 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
     assertGroundModel();
 
     //+ the explanations of the samples that are not processed (e.g. due to -i, -n or filtering) should be printed as
-    // invalidExplanationString instead of being skipped entirely, s.t. the explanations match the dataset;
-    // check that the scripts in data/scripts do not break after this change
+    // invalidExplanationString instead of being skipped entirely, s.t. the explanations match the dataset
+    // (otherwise, e.g. `spexplain interpret` fails on the mismatch with the dataset);
+    // check that the scripts in data/scripts do not break after this change, in particular the statistics
+    // must distinguish such skipped samples from timeouts (e.g. if they treat every invalid explanation as a timeout)
     Network::Dataset::SampleIndices const indices = makeSampleIndices(data);
     for (auto idx : indices) {
         [[maybe_unused]]
