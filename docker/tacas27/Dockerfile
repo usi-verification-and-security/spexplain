@@ -69,10 +69,13 @@ RUN \
     git config --global advice.detachedHead false && \
     git clone https://github.com/usi-verification-and-security/$PROJECT.git --branch $SPEXPLAIN_GIT_TAG --depth 1
 WORKDIR $HOME/$PROJECT
+# The Git revisions (branches, tags or commits) of the dependencies
+ARG OPENSMT_GIT_TAG=195762e8eeb3c5d611fa0aa01a9217e766f2cf5a
+ARG MARABOU_GIT_TAG=4dc5e53e5bec22a15b4cfe6b558c02bd15ee14a9
 RUN \
     export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
-    make && \
-    make marabou
+    make OPENSMT_GIT_TAG=$OPENSMT_GIT_TAG && \
+    make marabou OPENSMT_GIT_TAG=$OPENSMT_GIT_TAG MARABOU_GIT_TAG=$MARABOU_GIT_TAG
 
 # The outputs (e.g. visualizations, also of the reproducibility script) to be inspected on the host,
 # intended as the mount point of a host directory (see docker/run.sh)

@@ -11,7 +11,10 @@ From the root of the repository:
 
 * Build the image: `docker/build.sh docker/tacas27`  
   (the variable `SPEXPLAIN_GIT_TAG` selects the branch or tag of the repository, default: `tacas27-artifact`;
-  the variable `PLATFORM` selects the target platform, e.g., `linux/arm64`)
+  the variable `PLATFORM` selects the target platform, e.g., `linux/arm64`;
+  the Git revisions of the dependencies OpenSMT and Marabou are pinned to concrete commits,
+  which can be changed with `--build-arg OPENSMT_GIT_TAG=...` and `--build-arg MARABOU_GIT_TAG=...`
+  using `docker build` directly)
 * Run the image: `OUTPUT=<dir> docker/run.sh docker/tacas27`  
   (the host directory `<dir>` is mounted at `~/spexplain/data/output` inside the container,
   which is also in the variable `OUTPUT`)
