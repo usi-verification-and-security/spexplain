@@ -10,8 +10,11 @@ import matplotlib.pyplot as plt
 from .. import Error
 from ..interpret import slice as slice_
 
-REGION_COLOR = 'red'
-DIAMETER_COLOR = 'blue'
+# The styles of the explanations, cycled (from explviz/style.py)
+COLORS = ('red', 'darkorange', 'green', 'blue', 'purple', 'cyan')
+FILL_ALPHAS = (0.20, 0.25, 0.35, 0.15, 0.30, 0.70)
+# The line widths are decreasing to the minimal one, so that coinciding outlines stay visible
+MIN_LINE_WIDTH = 2
 SAMPLE_COLOR = 'black'
 MARGIN = 0.05
 
@@ -34,28 +37,39 @@ class Config:
                 raise Error(f'Unknown parameter of fspace: {param}')
 
 
-def save(vertices, diameter, sample, config, file, show=False):
-    """Save the region of the slice given by its vertices (or None), the diameter (or None) and the sample.
+def save(series, sample, config, file, show=False):
+    """Save the explanations and the sample.
 
-    The diameter is given by a pair of points, all points with all features.
+    Each of the series of the explanations is (label, vertices of the region of the slice, diameter or None,
+    whether the explanation is invalid); the diameter is given by a pair of points, all points with all features.
     """
     a, b = config.var_indices
+    single = len(series) == 1
     fig, axes = plt.subplots()
 
-    if vertices is not None and len(vertices) > 0:
+    for k, (label, vertices, diameter, invalid) in enumerate(series):
+        color, alpha = (style[k % len(style)] for style in (COLORS, FILL_ALPHAS))
+        width = MIN_LINE_WIDTH + len(series) - 1 - k
+        if invalid:
+            # Keep the entry in the legend
+            axes.plot([], [], color=color, linewidth=width, label=f'{label} (<null>)')
+            continue
+
         if len(vertices) >= 3:
             ring = np.vstack([vertices, vertices[:1]])
-            axes.fill(ring[:, 0], ring[:, 1], color=REGION_COLOR, alpha=0.2, zorder=1)
-            axes.plot(ring[:, 0], ring[:, 1], color=REGION_COLOR, linewidth=2, zorder=2, label='Explanation')
-        else:
+            axes.fill(ring[:, 0], ring[:, 1], color=color, alpha=alpha, zorder=1)
+            axes.plot(ring[:, 0], ring[:, 1], color=color, linewidth=width, zorder=2, label=label)
+        elif len(vertices) > 0:
             # A degenerate region: a segment or a point
-            axes.plot(vertices[:, 0], vertices[:, 1], color=REGION_COLOR, linewidth=2, marker='o', zorder=2,
-                      label='Explanation')
+            axes.plot(vertices[:, 0], vertices[:, 1], color=color, linewidth=width, marker='o', zorder=2,
+                      label=label)
+        else:
+            axes.plot([], [], color=color, linewidth=width, label=label)
 
-    if diameter is not None:
-        p, q = diameter
-        axes.plot([p[a], q[a]], [p[b], q[b]], color=DIAMETER_COLOR, linewidth=2, marker='o', zorder=3,
-                  label='Diameter')
+        if diameter is not None:
+            p, q = diameter
+            axes.plot([p[a], q[a]], [p[b], q[b]], color=color, linewidth=width, linestyle='--', marker='o', zorder=3,
+                      label='Diameter' if single else f'{label} (diameter)')
 
     axes.scatter([sample[a]], [sample[b]], marker='d', color=SAMPLE_COLOR, s=40, zorder=4, edgecolors='white',
                  linewidths=0.8, label='Sample')
