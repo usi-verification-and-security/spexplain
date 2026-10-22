@@ -673,25 +673,31 @@ void OnnxParser::validateUserTerminalNames( const Set<String> &terminalNames )
 const Set<String> OnnxParser::readInputNames()
 {
     // TODO: this is only for debug!
+#ifndef NDEBUG
     std::cout << "_network.input().size: " << _network.input().size() << std::endl;
     std::cout << "_network.initializer().size: " << _network.initializer().size() << std::endl;
     std::cout << "_network.output().size: " << _network.output().size() << std::endl;
     std::cout << "_terminalNames.size: " << _terminalNames.size() << std::endl;
     std::cout << "network.input_size: " << _network.input_size() << std::endl;
+#endif
 
     assert(_network.input().size() >= 1 );
 
     Set<String> initializerNames;
     for ( auto &initNode : _network.initializer() )
     {
+#ifndef NDEBUG
         std::cout << "ONNX LOG: Found initialiser '" << initNode.name() << "'" << std::endl;
+#endif
         initializerNames.insert( initNode.name() );
     }
 
     Set<String> inputNames;
     for ( auto &inputNode : _network.input() )
     {
+#ifndef NDEBUG
         std::cout << "ONNX LOG: Found input '" << inputNode.name() << "'" << std::endl;
+#endif
         inputNames.insert( inputNode.name() );
     }
 
@@ -705,7 +711,9 @@ const Set<String> OnnxParser::readOutputNames()
     {
         // ONNX_LOG( Stringf( "Found output '%s'", outputNode.name().c_str() ).ascii() );
 
+#ifndef NDEBUG
         std::cout << "ONNX LOG: Found output '" << outputNode.name() << "'" << std::endl;
+#endif
         outputNames.insert( outputNode.name() );
     }
     return outputNames;
@@ -934,7 +942,9 @@ void OnnxParser::makeNodeObjects( onnx::NodeProto &node, bool makeEquations )
     auto nodeType = node.op_type().c_str();
     // ONNX_LOG(
         // Stringf( "Processing node '%s' of type '%s'", node.name().c_str(), nodeType ).ascii() );
+#ifndef NDEBUG
     std::cout << "ONNX LOG: Processing node '" << node.name() << "' of type '" << nodeType << "'" << std::endl;
+#endif
 
     if ( strcmp( nodeType, "Constant" ) == 0 )
     {
