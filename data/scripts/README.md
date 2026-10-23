@@ -213,6 +213,11 @@ VARIANTS_SPEC=neuron_activations ./scripts/run-experiments.sh ${M[@]/%/ datasets
 ```
 
 
+## Experiments with ONNX networks
+
+The scripts for networks in the ONNX format are in the folder `cnn`, see `cnn/README.md`.
+
+
 ## `collect_stats.sh`
 
 ```
