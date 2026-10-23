@@ -41,6 +41,8 @@ class Config:
         # The classifier for the decision regions, or None, and the names of the classes
         self.model = None
         self.class_names = None
+        # Whether the sample is not shown
+        self.exclude_sample = False
 
         names = set()
         for param in params:
@@ -132,8 +134,9 @@ def save(series, sample, config, file, title=None, show=False):
             axes.plot([p[a], q[a]], [p[b], q[b]], color=color, linewidth=width, linestyle='--', marker='o', zorder=3,
                       label='Diameter' if single else f'{label} (diameter)')
 
-    axes.scatter([sample[a]], [sample[b]], marker='d', color=SAMPLE_COLOR, s=40, zorder=4, edgecolors='white',
-                 linewidths=0.8, label='Sample')
+    if not config.exclude_sample:
+        axes.scatter([sample[a]], [sample[b]], marker='d', color=SAMPLE_COLOR, s=40, zorder=4, edgecolors='white',
+                     linewidths=0.8, label='Sample')
 
     axes.set_xlim(-MARGIN, 1 + MARGIN)
     axes.set_ylim(-MARGIN, 1 + MARGIN)

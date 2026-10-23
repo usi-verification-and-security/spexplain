@@ -201,6 +201,8 @@ def make_parser():
                              'and the default names)')
     parser.add_argument('--samples-only', action='store_true',
                         help='visualize the samples and ignore the explanations (only for visualization techniques)')
+    parser.add_argument('--exclude-samples', action='store_true',
+                        help='do not visualize the samples together with the explanations (only for pixel and fspace)')
     return parser
 
 
@@ -273,6 +275,11 @@ def main(args):
         raise Error(f"Visualization pixel requires a point, not the result of '{extraction[0]}'")
     if fspace_visualization and extraction and extraction[0] == 'norm' and not use_samples_only:
         raise Error("Visualization fspace requires the result of 'slice' or 'diam', not of 'norm'")
+    if opts.exclude_samples and not (pixel_visualization or fspace_visualization):
+        warn('Option --exclude-samples is ignored without the visualizations pixel and fspace')
+        opts.exclude_samples = False
+    if opts.exclude_samples and use_samples_only:
+        raise Error('Option --exclude-samples conflicts with visualizing only the samples')
 
     if len({Path(file).resolve() for file in explanations_files}) < len(explanations_files):
         raise Error('An explanations file is given more than once')
@@ -289,7 +296,7 @@ def main(args):
         raise Error(f'The number of labels ({len(labels)}) does not match the number of explanations files '
                     f'({len(explanations_files)})')
     if labels is None:
-        labels = default_labels(explanations_files)
+        labels = default_labels(explanations_files, 'Explanation' if fspace_visualization else 'explanation')
 
     if not explanations_files and not use_samples_only:
         raise Error('Missing the explanations')
@@ -390,6 +397,7 @@ def main(args):
                         f'of {of} ({n_classes})')
         visualization_config.model = model
         visualization_config.class_names = class_names
+        visualization_config.exclude_sample = opts.exclude_samples
 
     explanations_list = [read_explanations(file, indices) for file in explanations_files]
     # The single explanations file of the techniques other than fspace
@@ -425,6 +433,8 @@ def main(args):
             matplotlib.use('Agg')
     if pixel_visualization:
         from ..visualize import pixel
+        # The title of the point: the kind of norm, otherwise the label of the explanation
+        point_title = ('inv' if extraction_config.maximal else 'min') if extraction else labels[0] if labels else None
     from . import formula
 
     selected = set(indices)
@@ -476,7 +486,11 @@ def main(args):
             # print(f'{idx}: norm {np.linalg.norm(point):.6g}')
 
             if pixel_visualization:
-                pixel.save(point, output_file(output_visualization, idx), show=opts.show)
+                # The sample first, then the point
+                panels = [] if opts.exclude_samples else [(f'sample {idx}', sample)]
+                if not use_samples_only:
+                    panels.append((point_title, point))
+                pixel.save(panels, output_file(output_visualization, idx), show=opts.show)
             elif fspace_visualization:
                 from . import region2d
                 from . import slice as slice_
