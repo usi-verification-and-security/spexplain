@@ -2,7 +2,8 @@
 # together with the diameter (see diam), the sample, and the decision regions of the classifier if given
 # Only 2D slices are supported, assumes that the domains of the features are normalized to [0,1]
 # Based on explviz/plot/panel.py of the branch explviz
-#+ title the plot by the number of the sample, e.g. 'sample <s>'
+#+ also include the number of the sample in the title, once it is consistent with the numbering in the paper
+# (from 0, here from 1)
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -80,7 +81,22 @@ def _draw_decision_regions(axes, sample, config):
     return [Patch(facecolor=colors[c], alpha=CLASS_ALPHA, label=names[c]) for c in np.unique(labels)]
 
 
-def save(series, sample, config, file, show=False):
+def _class_name(c, config):
+    return config.class_names[c] if config.class_names else str(c)
+
+
+def caption(expected, sample, config):
+    """The computed class of the sample if the classifier is given, and the expected class if different."""
+    if not config.model:
+        return f'Expected class: {_class_name(expected, config)}'
+    computed = int(config.model.classify(sample[None, :])[0])
+    title = f'Sample class: {_class_name(computed, config)}'
+    if computed != expected:
+        title += f' (expected: {_class_name(expected, config)})'
+    return title
+
+
+def save(series, sample, config, file, title=None, show=False):
     """Save the explanations and the sample.
 
     Each of the series of the explanations is (label, vertices of the region of the slice, diameter or None,
@@ -131,6 +147,8 @@ def save(series, sample, config, file, show=False):
             ticks = [v for v in MaxNLocator().tick_values(lo, hi) if lo <= v <= hi]
             axis.set_ticks([(v - lo) / (hi - lo) for v in ticks], [f'{v:g}' for v in ticks])
     axes.grid(alpha=0.3)
+    if title:
+        axes.set_title(title)
     handles, _ = axes.get_legend_handles_labels()
     axes.legend(handles=handles + class_handles, loc='best')
 

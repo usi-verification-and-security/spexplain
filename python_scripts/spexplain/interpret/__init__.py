@@ -120,9 +120,10 @@ def make_parser():
                              'optionally Var, Feature), only for the outputs of fspace and mathexpr')
     parser.add_argument('--model', metavar='<nn_model_fn>',
                         help='the classifier in the NNet format, for the decision regions of fspace')
+    #+ extend or replace by a CSV file with the classes, as for --visualization-domains
     parser.add_argument('--class-labels', metavar='<label>[,<label>]...',
-                        help="labels of the classes (default: from the header of the dataset separated by '|', "
-                             "e.g. 'Low risk|High risk', otherwise 'Class <c>')")
+                        help="labels of all the classes (default: from the header of the dataset separated by '|', "
+                             "e.g. 'Low risk|High risk', otherwise the numbers of the classes)")
     parser.add_argument('--labels', metavar='<label>[,<label>]...',
                         help='labels of the explanations (default: from their paths without the common parts)')
     parser.add_argument('--samples-only', action='store_true',
@@ -264,20 +265,32 @@ def main(args):
         # The names from the dataset, unless given by the domains
         visualization_config.names = domains.names if domains else dataset.feature_names
 
-    if opts.model is not None or opts.class_labels is not None:
-        if not fspace_visualization:
-            raise Error('Options --model and --class-labels can only be used with the visualization fspace')
-        if opts.model is None:
-            raise Error('Option --class-labels requires the option --model')
+    if (opts.model is not None or opts.class_labels is not None) and not fspace_visualization:
+        raise Error('Options --model and --class-labels can only be used with the visualization fspace')
+    model = None
+    if opts.model is not None:
         from ..model import Model
         model = Model(opts.model)
         if model.n_inputs() != dataset.n_features():
             raise Error(f'The number of the inputs of the model ({model.n_inputs()}) does not match the number '
                         f'of the features of the dataset ({dataset.n_features()})')
+    if fspace_visualization:
+        # All the classes: of the model, otherwise given by the header of the dataset, otherwise the expected ones
+        n_expected_classes = int(dataset.labels.max()) + 1 if len(dataset) else 0
+        if model:
+            n_classes, of = model.n_classes(), 'the classes of the model'
+        elif dataset.class_names is not None:
+            n_classes, of = len(dataset.class_names), 'the names of the classes in the header of the dataset'
+        else:
+            n_classes, of = n_expected_classes, 'the expected classes of the dataset'
+        n_all_classes = max(n_classes, n_expected_classes)
+        if dataset.class_names is not None and len(dataset.class_names) < n_all_classes:
+            raise Error(f'The number of the names of the classes in the header of the dataset '
+                        f'({len(dataset.class_names)}) does not cover all the classes ({n_all_classes})')
         class_names = opts.class_labels.split(',') if opts.class_labels else dataset.class_names
-        if class_names is not None and len(class_names) != model.n_classes():
+        if class_names is not None and len(class_names) != n_classes:
             raise Error(f'The number of the labels of the classes ({len(class_names)}) does not match the number '
-                        f'of the classes of the model ({model.n_classes()})')
+                        f'of {of} ({n_classes})')
         visualization_config.model = model
         visualization_config.class_names = class_names
 
@@ -384,6 +397,7 @@ def main(args):
                             exps[idx], extraction_config, sample)
                     series.append((label, vertices, diameter, False))
                 fspace.save(series, sample, visualization_config, output_file(output_visualization, idx),
+                            title=fspace.caption(dataset.labels[idx - 1], sample, visualization_config),
                             show=opts.show)
             elif mathexpr_visualization:
                 if point is not None:
