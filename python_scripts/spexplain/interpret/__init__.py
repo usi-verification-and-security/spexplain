@@ -131,6 +131,11 @@ def make_parser():
                              '(default: ' + ', '.join(f'{file} for {name}'
                                                       for name, file in DEFAULT_OUTPUT_VISUALIZATIONS.items()) + ')')
     parser.add_argument('--show', action='store_true', help='also show the visualization (only for one sample)')
+    #+ verbose mode does not do anything yet, as in the engine
+    parser.add_argument('-v', '--verbose', dest='verbosity', action='store_const', const=1, default=0,
+                        help='run in verbose mode')
+    parser.add_argument('-q', '--quiet', dest='verbosity', action='store_const', const=-1,
+                        help='run in quiet mode: do not print the information to the standard output')
     parser.add_argument('--visualization-domains', metavar='<file>',
                         help='CSV file with the domains of the features in the real units (columns Min, Max, '
                              'optionally Var, Feature), only for the outputs of fspace and mathexpr')
@@ -149,6 +154,8 @@ def make_parser():
 
 def main(args):
     opts = make_parser().parse_intermixed_args(split_visualize_value(args))
+    # The information to the standard output, unless quiet; the warnings and the errors are printed regardless
+    info = print if opts.verbosity >= 0 else (lambda *args, **kwargs: None)
     # Without the value
     if opts.visualize == '':
         opts.visualize = True
@@ -339,26 +346,26 @@ def main(args):
     output_explanations = None
     if extraction and not use_samples_only and (opts.output_explanations or not visualization):
         output_explanations = opts.output_explanations or DEFAULT_OUTPUT_EXPLANATIONS
-        print(f'Writing explanations to: {output_explanations}')
+        info(f'Writing explanations to: {output_explanations}')
     output_visualization = None
     if visualization:
         output_visualization = opts.output_visualization or DEFAULT_OUTPUT_VISUALIZATIONS[visualization[0]]
         if mathexpr_visualization:
             mathexpr.check_output(output_visualization)
-        print(f'Writing visualizations to: {output_file(output_visualization, "<idx>")}')
-    print()
+        info(f'Writing visualizations to: {output_file(output_visualization, "<idx>")}')
+    info()
 
     # Similar to the engine
     if dataset:
-        print(f'Dataset size: {n_samples}')
-        print(f'Number of variables: {dataset.n_features()}')
+        info(f'Dataset size: {n_samples}')
+        info(f'Number of variables: {dataset.n_features()}')
     else:
-        print(f'Number of explanations: {n_samples}')
+        info(f'Number of explanations: {n_samples}')
     if opts.samples:
-        print(f'Selected samples: {opts.samples}')
+        info(f'Selected samples: {opts.samples}')
     if limiting_samples:
-        print(f'Limited number of samples: {opts.max_samples}')
-    print('-' * 60)
+        info(f'Limited number of samples: {opts.max_samples}')
+    info('-' * 60)
 
     if pixel_visualization or fspace_visualization:
         import matplotlib
@@ -378,13 +385,13 @@ def main(args):
                     out.write(INVALID_EXPLANATION + '\n')
                 continue
 
-            print(f'sample [{idx}/{n_samples}] ... ', end='', flush=True)
+            info(f'sample [{idx}/{n_samples}] ... ', end='', flush=True)
 
             invalid = [exps[idx] == INVALID_EXPLANATION for exps in explanations_list]
             if invalid and all(invalid):
                 if out:
                     out.write(INVALID_EXPLANATION + '\n')
-                print(f'skipped ({INVALID_EXPLANATION})')
+                info(f'skipped ({INVALID_EXPLANATION})')
                 continue
 
             sample = dataset.get_sample(idx) if dataset else None
@@ -449,11 +456,11 @@ def main(args):
                 mathexpr.save(expr, output_file(output_visualization, idx), show=opts.show)
 
             invalid_labels = [label for label, is_invalid in zip(labels, invalid) if is_invalid]
-            print(f'done ({INVALID_EXPLANATION}: {", ".join(invalid_labels)})' if invalid_labels else 'done')
+            info(f'done ({INVALID_EXPLANATION}: {", ".join(invalid_labels)})' if invalid_labels else 'done')
     finally:
         if out:
             out.close()
 
-    print('\nDone.')
+    info('\nDone.')
 
     return 0
