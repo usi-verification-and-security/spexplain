@@ -3,7 +3,8 @@
 source "$SCRIPTS_DIR/lib/common"
 
 SPEC_DIR="$SCRIPTS_DIR/spec"
-VARIANTS_SPEC_DIR="$SPEC_DIR/variants"
+## Can be set beforehand to use other variants (e.g. by the scripts in cnn/)
+[[ -z $VARIANTS_SPEC_DIR ]] && VARIANTS_SPEC_DIR="$SPEC_DIR/variants"
 
 function _read_variants_spec_source {
     local f="$1"

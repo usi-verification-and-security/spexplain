@@ -1,0 +1,161 @@
+## ONNX counterpart of `lib/run`, used by `run-experiments.sh` and `run1.sh` in this directory.
+##
+## Everything from `lib/run` (experiments/variants specs, `set_cmd`, `set_timeout`,
+## `set_experiment_name_from_strategies`, ...) is inherited unchanged. On top of it this file
+##   * runs the frozen engine for ONNX networks (`build-onnx/engine`, see `make onnx`)
+##     with the variants of these experiments (`spec/variants` in this directory),
+##   * relaxes the model/dataset type check of `set_output_dir_from_model_dataset`, so that ONNX
+##     models may live in subdirectories (e.g. models/mnist/cnn-bench/S1.onnx pairs with
+##     datasets/mnist/mnist_test100.csv),
+##   * resolves the per-feature input domain bounds that ONNX models do not carry themselves
+##     (`set_input_bounds`), and
+##   * provides the `explain-onnx` action and the ONNX-only spexplain options.
+
+[[ -z $CNN_DIR ]] && CNN_DIR=$(dirname "$0")
+[[ -z $SCRIPTS_DIR ]] && SCRIPTS_DIR="$CNN_DIR/.."
+## The variants of the experiments with ONNX networks, with the options of the frozen engine
+[[ -z $VARIANTS_SPEC_DIR ]] && VARIANTS_SPEC_DIR="$CNN_DIR/spec/variants"
+export CNN_DIR SCRIPTS_DIR VARIANTS_SPEC_DIR
+
+source "$SCRIPTS_DIR/lib/run"
+
+function set_cmd {
+    [[ -z $CMD ]] && CMD="$SCRIPTS_DIR/../../build-onnx/engine"
+    export CMD
+}
+
+## Spec with per-model input bounds (arrays MODELS, INPUT_MINS, INPUT_MAXS; paths relative to data/),
+## consulted when INPUT_MIN/INPUT_MAX are not given. Overridable from the environment.
+[[ -z $MODELS_DATASETS2_SPEC ]] && MODELS_DATASETS2_SPEC="$CNN_DIR/spec/models_datasets"
+export MODELS_DATASETS2_SPEC
+
+## Same as in lib/run, except that
+##   * the model must be an .onnx file, and
+##   * only the top-level types have to match (models/<type>/... vs. datasets/<type>/...),
+##     instead of the whole directories.
+## The output directory is derived exactly as in lib/run:
+##   explanations/<model path without extension>/<dataset base without '<type>_'>/<variant>
+function set_output_dir_from_model_dataset {
+    [[ -n $1 ]] && {
+        set_model_dataset "$1" "$2" || return $?
+    }
+
+    [[ $MODEL == *.onnx ]] || {
+        printf "Expected an ONNX model, got: %s\n" "$MODEL" >&2
+        printf "Use run-experiments.sh in the parent directory for .nnet models.\n" >&2
+        return 2
+    }
+
+    local model_type=$(dirname "$MODEL")
+    model_type="${model_type#*models/}"
+    local dataset_type=$(dirname "$DATASET")
+    dataset_type="${dataset_type#*datasets/}"
+
+    local type_base=${model_type%%/*}
+    local dataset_type_base=${dataset_type%%/*}
+
+    [[ $type_base == $dataset_type_base ]] || {
+        printf "Mismatch between model and dataset type:\n%s != %s\n" "$type_base" "$dataset_type_base" >&2
+        return 3
+    }
+
+    local model_base="${MODEL/models/explanations}"
+    model_base="${model_base%.*}"
+    local dataset_base=$(basename -s .csv "${DATASET}")
+
+    local output_dir="${model_base}/${dataset_base}"
+    output_dir="${output_dir//\/${type_base}_/\/}"
+    output_dir="${output_dir//\/${type_base}-/\/}"
+
+    local variant=default
+    [[ -n $VARIANT ]] && variant="$VARIANT"
+    output_dir+="/${variant}"
+
+    set_output_dir "$output_dir"
+    return $?
+}
+
+## Number of input features of the dataset (all CSV columns but the trailing label).
+function _dataset_n_features {
+    head -n 1 "$DATASET" | awk -F, '{ print NF - 1 }'
+}
+
+## A single number is expanded to one value per input feature.
+function _expand_bound {
+    local -n lbound=$1
+
+    [[ -z $lbound || $lbound =~ , ]] && return 0
+
+    local n=$(_dataset_n_features)
+    (( $n > 1 )) || return 0
+    lbound="$(printf "${lbound},%.0s" $(seq 1 $(( $n - 1 ))))${lbound}"
+}
+
+## Looks MODEL up in MODELS_DATASETS2_SPEC and sets the given variables to its bounds.
+function _lookup_spec_bounds {
+    local -n lmin=$1
+    local -n lmax=$2
+
+    [[ -r $MODELS_DATASETS2_SPEC ]] || return 1
+
+    ## Local, so that sourcing the spec does not clobber the caller's MODELS/DATASETS
+    local OUTPUT_DIRS MODELS DATASETS INPUT_MINS INPUT_MAXS
+    source "$MODELS_DATASETS2_SPEC" || return 1
+
+    local idx
+    for idx in ${!MODELS[@]}; do
+        [[ ${MODELS[$idx]#*models/} == ${MODEL#*models/} ]] || continue
+        lmin="${INPUT_MINS[$idx]}"
+        lmax="${INPUT_MAXS[$idx]}"
+        return 0
+    done
+
+    return 1
+}
+
+## Resolves INPUT_MIN / INPUT_MAX (comma-separated, one value per input feature) for MODEL/DATASET:
+##   1. the INPUT_MIN / INPUT_MAX environment variables; a single number applies to every feature,
+##   2. otherwise the entry of MODEL in MODELS_DATASETS2_SPEC,
+##   3. otherwise unset, i.e. spexplain's ONNX default [0,1] for every feature (with a warning).
+function set_input_bounds {
+    local min="$INPUT_MIN"
+    local max="$INPUT_MAX"
+
+    [[ -z $min || -z $max ]] && {
+        local spec_min spec_max
+        _lookup_spec_bounds spec_min spec_max && {
+            [[ -z $min ]] && min="$spec_min"
+            [[ -z $max ]] && max="$spec_max"
+        }
+    }
+
+    _expand_bound min
+    _expand_bound max
+
+    [[ -z $min || -z $max ]] && (( ! ${QUIET_BOUNDS_WARNING:-0} )) && {
+        printf "WARNING: no input domain bounds for %s.\n" "$MODEL" >&2
+        printf "         ONNX models carry no input domain, so every feature defaults to [0,1].\n" >&2
+        printf "         Set INPUT_MIN/INPUT_MAX or add the model to %s.\n" "$MODELS_DATASETS2_SPEC" >&2
+    }
+
+    export INPUT_MIN="$min"
+    export INPUT_MAX="$max"
+}
+
+## Appends the ONNX-only options to the array named by $1.
+function append_onnx_options {
+    local -n lopts=$1
+
+    [[ -n $INPUT_MIN ]] && lopts+=(--input-min="$INPUT_MIN")
+    [[ -n $INPUT_MAX ]] && lopts+=(--input-max="$INPUT_MAX")
+    ## Only pass --drop-sigmoid when explicitly requested; the default (true) is what we want.
+    [[ -n $DROP_SIGMOID ]] && lopts+=(--drop-sigmoid="$DROP_SIGMOID")
+
+    return 0
+}
+
+## `explain-onnx` is the ONNX counterpart of the default `explain` action.
+function set_action {
+    [[ -z $ACTION ]] && ACTION=explain-onnx
+    export ACTION
+}
