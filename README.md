@@ -314,7 +314,13 @@ and with `--visualization-domains`, they show the values in the real units.
 With the option `--model <nn_model_fn>`, the plot also shows the decision regions of the classifier
 in the 2D feature space through the sample point,
 labelled by the names of the classes from the header of the dataset (see `explain`),
-by the option `--class-labels <label>[,<label>]...`, or by default `Class <c>`.
+by the option `--class-labels <label>[,<label>]...` (which must give all the classes),
+or by default `Class <c>`.
+The plot is captioned by the class of the sample point:
+the class computed by the classifier with `--model`, followed by the expected class if they differ
+(e.g., `Sample class: Low risk (expected: High risk)`),
+otherwise the expected class (e.g., `Expected class: High risk`),
+using the names of the classes as above, or the numbers of the classes.
 * `pixel`:
 Shows a point as a gray-scale image,
 assuming square images with a single channel (e.g., MNIST) and values in [0,1].
