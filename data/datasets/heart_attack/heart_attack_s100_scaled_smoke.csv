@@ -1,4 +1,4 @@
-age,sex,cp,trtbps,chol,fbs,restecg,thalachh,exng,oldpeak,slp,caa,thall,output
+Age,Sex,Chest pain,Blood pressure,Cholesterol [mg/dl],Fasting blood sugar,Resting electrocardiographic,Maximum heart rate,Exercise induced angina,Oldpeak,Peak slope,Major vessels,Thal,High risk|Low risk
 0.7291666666666666,1.0,1.0,0.7169811320754716,0.2305936073059361,0.0,0.0,0.6412213740458014,0.0,0.0967741935483871,0.5,0.0,1.0,1
 0.6041666666666666,1.0,0.0,0.2924528301886792,0.3972602739726027,0.0,0.0,0.763358778625954,0.0,0.0,1.0,0.5,1.0,0
 0.6041666666666666,1.0,0.0,0.5283018867924528,0.32876712328767127,0.0,0.0,0.30534351145038163,1.0,0.12903225806451613,1.0,0.0,1.0,0
