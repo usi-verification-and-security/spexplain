@@ -93,28 +93,36 @@ class Config:
     """The configuration of the technique given by its parameters."""
 
     def __init__(self, params):
-        if params in ([], ['min']):
-            self.maximal = False
+        # The kinds of the points in their order: 'min' or 'inv'
         # Inconsistent: 'inv' yields the point with the maximal norm, not the one from get_inv_norm_point
-        elif params == ['inv']:
-            self.maximal = True
-        else:
-            raise Error('Unknown parameters of norm: %s' % ', '.join(params))
+        self.kinds = []
+        for param in params:
+            if param not in ('min', 'inv'):
+                raise Error('Unknown parameter of norm: %s' % param)
+            if param in self.kinds:
+                raise Error('Duplicate parameter of norm: %s' % param)
+            self.kinds.append(param)
+        if not self.kinds:
+            self.kinds = ['min']
 
 
 def interpret(explanation, config, sample):
-    """The point of the explanation of the sample with the minimal or the maximal norm."""
+    """The points of the explanation of the sample with the minimal or the maximal norm, one for each kind."""
     A, B = formula.parse(explanation, sample.size)
 
-    if formula.is_interval(A):
-        # The domains are non-negative
-        lower, upper = formula.interval_bounds(A, B)
-        point = upper if config.maximal else lower
-    elif config.maximal:
-        point = get_max_norm_point(A, B, sample)
-    else:
-        point = get_min_norm_point(A, B, sample)
+    points = []
+    for kind in config.kinds:
+        maximal = kind == 'inv'
+        if formula.is_interval(A):
+            # The domains are non-negative
+            lower, upper = formula.interval_bounds(A, B)
+            point = upper if maximal else lower
+        elif maximal:
+            point = get_max_norm_point(A, B, sample)
+        else:
+            point = get_min_norm_point(A, B, sample)
 
-    check_point(A, B, point)
+        check_point(A, B, point)
+        points.append(point)
 
-    return point
+    return points

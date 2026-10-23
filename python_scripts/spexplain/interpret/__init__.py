@@ -23,7 +23,7 @@ technique spec: '<name>[ <param>[, <param>]...]'
 extraction techniques and possible parameters [default visualization]:
        slice: vars x<i> x<j>  [fspace]
         diam: vars x<i> x<j>, max  [fspace]
-        norm: min or inv (default: min)  [pixel]
+        norm: min, inv (the points in their order, default: min)  [pixel]
 visualization techniques and possible parameters:
       fspace: vars x<i> x<j> (default after an extraction: its features)
        pixel: center (the sample in between the points, otherwise first)
@@ -141,6 +141,12 @@ def default_labels(paths, default='Explanation'):
     return make_labels(stripped) if paths else []
 
 
+def output_kind_file(base, kind):
+    """The output of the explanations of the kind, e.g. 'tphi_min.txt'."""
+    base = Path(base)
+    return str(base.with_name(f'{base.stem}_{kind}{base.suffix}'))
+
+
 def output_file(base, idx):
     base = Path(base)
     return base.with_name(f'{base.stem}_s{idx}{base.suffix}')
@@ -173,7 +179,9 @@ def make_parser():
     parser.add_argument('-n', '--max-samples', type=int, metavar='<int>', help='maximum no. samples to be processed')
     parser.add_argument('-e', '--output-explanations', metavar='<file>',
                         help=f'output the extracted explanations into the file (default: {DEFAULT_OUTPUT_EXPLANATIONS} '
-                             'unless visualizing)')
+                             'unless visualizing); the kinds of norm are added to the name of the default file '
+                             f"(e.g. {output_kind_file(DEFAULT_OUTPUT_EXPLANATIONS, 'min')}), "
+                             'and of the given file with more kinds')
     parser.add_argument('--visualize', nargs='?', const=True, metavar='<visualization_spec>',
                         help='visualize the extracted explanations by the visualization technique '
                              '(default: determined by the extraction technique, see below)')
@@ -354,6 +362,8 @@ def main(args):
     if mathexpr_visualization:
         from ..visualize import mathexpr
         visualization_config = mathexpr.Config(visualization[1], dataset.n_features())
+        if extraction and extraction[0] == 'norm' and len(extraction_config.kinds) > 1 and not use_samples_only:
+            raise Error('Visualization mathexpr requires a single point, not more kinds of norm')
         # The features outside of a slice are removed
         if extraction and extraction[0] != 'norm' and visualization_config.var_indices is None:
             visualization_config.var_indices = extraction_config.var_indices
@@ -407,10 +417,17 @@ def main(args):
     # The single explanations file of the techniques other than fspace
     explanations = explanations_list[0] if explanations_list else None
 
-    output_explanations = None
+    # Each kind of norm is written into its own file with the kind added to the name,
+    # unless a single kind is written into the given file
+    outputs_explanations = []
     if extraction and not use_samples_only and (opts.output_explanations or not visualization):
         output_explanations = opts.output_explanations or DEFAULT_OUTPUT_EXPLANATIONS
-        info(f'Writing explanations to: {output_explanations}')
+        kinds = extraction_config.kinds if extraction[0] == 'norm' else []
+        if len(kinds) > 1 or (kinds and not opts.output_explanations):
+            outputs_explanations = [output_kind_file(output_explanations, kind) for kind in kinds]
+        else:
+            outputs_explanations = [output_explanations]
+        info(f'Writing explanations to: {", ".join(outputs_explanations)}')
     output_visualization = None
     if visualization:
         output_visualization = opts.output_visualization or DEFAULT_OUTPUT_VISUALIZATIONS[visualization[0]]
@@ -436,21 +453,23 @@ def main(args):
         if not opts.show:
             matplotlib.use('Agg')
     if pixel_visualization:
-        # The titles of the points: the labels of the explanations, with the kind of norm if extracted,
-        # only the kind for a single explanations file without the labels given
-        point_titles = labels
+        # The titles of the points of each explanations file: its label, with the kinds of norm if extracted,
+        # only the kinds for a single explanations file without the labels given
+        point_titles = [[label] for label in labels]
         if extraction:
-            kind = 'inv' if extraction_config.maximal else 'min'
-            point_titles = [kind] if not multiple and opts.labels is None else [f'{label} {kind}' for label in labels]
+            kinds = extraction_config.kinds
+            point_titles = ([kinds] if not multiple and opts.labels is None
+                            else [[f'{label} {kind}' for kind in kinds] for label in labels])
     from . import formula
 
     selected = set(indices)
-    out = open(output_explanations, 'w') if output_explanations else None
+    outs = []
     try:
+        outs = [open(file, 'w') for file in outputs_explanations]
         # The output contains an explanation for each sample, the samples not processed are invalid
         for idx in range(1, n_samples + 1):
             if idx not in selected:
-                if out:
+                for out in outs:
                     out.write(INVALID_EXPLANATION + '\n')
                 continue
 
@@ -458,7 +477,7 @@ def main(args):
 
             invalid = [exps[idx] == INVALID_EXPLANATION for exps in explanations_list]
             if invalid and all(invalid):
-                if out:
+                for out in outs:
                     out.write(INVALID_EXPLANATION + '\n')
                 info(f'skipped ({INVALID_EXPLANATION})')
                 continue
@@ -470,18 +489,20 @@ def main(args):
             if extraction and not multiple and not use_samples_only:
                 result = extraction_module.interpret(explanations[idx], extraction_config, sample)
                 if extraction[0] == 'norm':
-                    point = result
-                    if out:
-                        out.write(formula.from_point(point) + '\n')
+                    # The points of the kinds, a single one for mathexpr
+                    points = result
+                    point = points[0]
+                    for out, p in zip(outs, points):
+                        out.write(formula.from_point(p) + '\n')
                 elif extraction[0] == 'slice':
                     # The features outside of the slice are fixed to the sample
                     A, B = formula.fix(*result, extraction_module.fixed_values(extraction_config, sample))
-                    if out:
+                    for out in outs:
                         out.write(formula.from_constraints(A, B) + '\n')
                 else:
                     segment = result
                     A, B = formula.segment_constraints(*segment)
-                    if out:
+                    for out in outs:
                         out.write(formula.from_constraints(A, B) + '\n')
             elif use_samples_only:
                 point = sample
@@ -493,15 +514,17 @@ def main(args):
             if pixel_visualization:
                 # The points of the explanations, the invalid ones are empty
                 panels = []
-                for title, exps, is_invalid in zip(point_titles, explanations_list, invalid):
+                for titles, exps, is_invalid in zip(point_titles, explanations_list, invalid):
                     if is_invalid:
-                        panels.append((f'{title} ({INVALID_EXPLANATION})', None))
-                    elif extraction and multiple:
-                        panels.append((title, extraction_module.interpret(exps[idx], extraction_config, sample)))
+                        panels += [(f'{title} ({INVALID_EXPLANATION})', None) for title in titles]
+                        continue
+                    if extraction and multiple:
+                        file_points = extraction_module.interpret(exps[idx], extraction_config, sample)
                     elif extraction:
-                        panels.append((title, point))
+                        file_points = points
                     else:
-                        panels.append((title, formula.to_point(exps[idx], dataset.n_features())))
+                        file_points = [formula.to_point(exps[idx], dataset.n_features())]
+                    panels += zip(titles, file_points)
                 # The sample first, or in between the points
                 if not opts.exclude_samples:
                     panels.insert(len(panels) // 2 if visualization_config.center else 0, (f'sample {idx}', sample))
@@ -539,7 +562,7 @@ def main(args):
             invalid_labels = [label for label, is_invalid in zip(labels, invalid) if is_invalid]
             info(f'done ({INVALID_EXPLANATION}: {", ".join(invalid_labels)})' if invalid_labels else 'done')
     finally:
-        if out:
+        for out in outs:
             out.close()
 
     info('\nDone.')
