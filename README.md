@@ -272,7 +272,11 @@ named according to the option `--output-visualization <file>`
 where `_s<idx>` is added to the name (e.g., `timg_s3.png`) and the extension determines the format.
 If only one sample point is processed, the option `--show` also shows the visualization.
 With a visualization technique, the option `--samples-only` visualizes the sample points and ignores the explanations,
-which is the same as omitting `<explanation>`.
+which is the same as omitting `<explanation>`;
+with an extraction technique followed by `--visualize`, the extraction technique is ignored as well.
+Options that are not used by the given techniques are ignored with a warning,
+and `--visualize` without a visualization technique does not take the following argument if it is not one
+(e.g., `--visualize <dataset>`).
 With the visualizations `fspace` and `mathexpr`, the option `--visualization-domains <file>`
 shows the values in the real units given by a CSV file with the columns `Min`, `Max`,
 and optionally `Var` and `Feature` (e.g., `x1,Age,29,77`),
