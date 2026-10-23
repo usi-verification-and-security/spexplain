@@ -26,7 +26,7 @@ extraction techniques and possible parameters [default visualization]:
         norm: min or inv (default: min)  [pixel]
 visualization techniques and possible parameters:
       fspace: vars x<i> x<j> (default after an extraction: its features)
-       pixel:
+       pixel: center (the sample in between the points, otherwise first)
     mathexpr: vars x<i>[-x<j>]..., digits <int>, param (default: digits 2)
 examples: 'norm inv', 'diam vars x1 x10', 'mathexpr vars x1-x9, digits 3'"""
 
@@ -267,8 +267,9 @@ def main(args):
     fspace_visualization = visualization and visualization[0] == 'fspace'
     pixel_visualization = visualization and visualization[0] == 'pixel'
     mathexpr_visualization = visualization and visualization[0] == 'mathexpr'
-    if pixel_visualization and visualization[1]:
-        raise Error(f'Unknown parameters of pixel: {", ".join(visualization[1])}')
+    if pixel_visualization:
+        from ..visualize import pixel
+        visualization_config = pixel.Config(visualization[1])
     # Only the samples are visualized, also if the explanations are omitted
     use_samples_only = bool(visualization) and (opts.samples_only or (not extraction and not explanations_files))
     if pixel_visualization and extraction and extraction[0] != 'norm' and not use_samples_only:
@@ -280,16 +281,19 @@ def main(args):
         opts.exclude_samples = False
     if opts.exclude_samples and use_samples_only:
         raise Error('Option --exclude-samples conflicts with visualizing only the samples')
+    if pixel_visualization and visualization_config.center and (opts.exclude_samples or use_samples_only):
+        warn("Parameter 'center' of pixel is ignored without visualizing both the samples and the explanations")
+        visualization_config.center = False
 
     if len({Path(file).resolve() for file in explanations_files}) < len(explanations_files):
         raise Error('An explanations file is given more than once')
     multiple = len(explanations_files) > 1
-    if multiple and not fspace_visualization and not use_samples_only:
-        raise Error('Multiple explanations are supported only with the visualization fspace')
+    if multiple and not (fspace_visualization or pixel_visualization) and not use_samples_only:
+        raise Error('Multiple explanations are supported only with the visualizations fspace and pixel')
     if multiple and opts.output_explanations is not None and not use_samples_only:
         raise Error('Option --output-explanations requires a single explanations file')
-    if opts.labels is not None and not (fspace_visualization and not use_samples_only):
-        warn('Option --labels is ignored without the visualization fspace of explanations')
+    if opts.labels is not None and not ((fspace_visualization or pixel_visualization) and not use_samples_only):
+        warn('Option --labels is ignored without the visualizations fspace and pixel of explanations')
         opts.labels = None
     labels = opts.labels.split(',') if opts.labels else None
     if labels is not None and len(labels) != len(explanations_files):
@@ -432,9 +436,12 @@ def main(args):
         if not opts.show:
             matplotlib.use('Agg')
     if pixel_visualization:
-        from ..visualize import pixel
-        # The title of the point: the kind of norm, otherwise the label of the explanation
-        point_title = ('inv' if extraction_config.maximal else 'min') if extraction else labels[0] if labels else None
+        # The titles of the points: the labels of the explanations, with the kind of norm if extracted,
+        # only the kind for a single explanations file without the labels given
+        point_titles = labels
+        if extraction:
+            kind = 'inv' if extraction_config.maximal else 'min'
+            point_titles = [kind] if not multiple and opts.labels is None else [f'{label} {kind}' for label in labels]
     from . import formula
 
     selected = set(indices)
@@ -478,18 +485,26 @@ def main(args):
                         out.write(formula.from_constraints(A, B) + '\n')
             elif use_samples_only:
                 point = sample
-            elif pixel_visualization:
-                point = formula.to_point(explanations[idx], dataset.n_features())
             elif mathexpr_visualization:
                 A, B = formula.parse(explanations[idx], dataset.n_features())
 
             # print(f'{idx}: norm {np.linalg.norm(point):.6g}')
 
             if pixel_visualization:
-                # The sample first, then the point
-                panels = [] if opts.exclude_samples else [(f'sample {idx}', sample)]
-                if not use_samples_only:
-                    panels.append((point_title, point))
+                # The points of the explanations, the invalid ones are empty
+                panels = []
+                for title, exps, is_invalid in zip(point_titles, explanations_list, invalid):
+                    if is_invalid:
+                        panels.append((f'{title} ({INVALID_EXPLANATION})', None))
+                    elif extraction and multiple:
+                        panels.append((title, extraction_module.interpret(exps[idx], extraction_config, sample)))
+                    elif extraction:
+                        panels.append((title, point))
+                    else:
+                        panels.append((title, formula.to_point(exps[idx], dataset.n_features())))
+                # The sample first, or in between the points
+                if not opts.exclude_samples:
+                    panels.insert(len(panels) // 2 if visualization_config.center else 0, (f'sample {idx}', sample))
                 pixel.save(panels, output_file(output_visualization, idx), show=opts.show)
             elif fspace_visualization:
                 from . import region2d
