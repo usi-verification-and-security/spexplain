@@ -2,8 +2,7 @@
 # together with the diameter (see diam), the sample, and the decision regions of the classifier if given
 # Only 2D slices are supported, assumes that the domains of the features are normalized to [0,1]
 # Based on explviz/plot/panel.py of the branch explviz
-#+ also include the number of the sample in the title, once it is consistent with the numbering in the paper
-# (from 0, here from 1)
+# The samples are numbered from 1 as in the engine
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -85,12 +84,13 @@ def _class_name(c, config):
     return config.class_names[c] if config.class_names else str(c)
 
 
-def caption(expected, sample, config):
-    """The computed class of the sample if the classifier is given, and the expected class if different."""
+def caption(idx, expected, sample, config):
+    """The number of the sample and its computed class if the classifier is given, with the expected class if different,
+    otherwise only the expected class."""
     if not config.model:
-        return f'Expected class: {_class_name(expected, config)}'
+        return f'Sample {idx} (expected class: {_class_name(expected, config)})'
     computed = int(config.model.classify(sample[None, :])[0])
-    title = f'Sample class: {_class_name(computed, config)}'
+    title = f'Sample {idx} class {_class_name(computed, config)}'
     if computed != expected:
         title += f' (expected: {_class_name(expected, config)})'
     return title

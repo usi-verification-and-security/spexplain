@@ -466,7 +466,7 @@ def main(args):
                             exps[idx], extraction_config, sample)
                     series.append((label, vertices, diameter, False))
                 fspace.save(series, sample, visualization_config, output_file(output_visualization, idx),
-                            title=fspace.caption(dataset.labels[idx - 1], sample, visualization_config),
+                            title=fspace.caption(idx, dataset.labels[idx - 1], sample, visualization_config),
                             show=opts.show)
             elif mathexpr_visualization:
                 if point is not None:
