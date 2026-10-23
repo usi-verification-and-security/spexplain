@@ -17,6 +17,19 @@ EXTRACTIONS = {
 # Visualization techniques, which can also be applied directly
 VISUALIZATIONS = ('fspace', 'pixel', 'mathexpr')
 
+# The techniques and their parameters in the help, as in the engine
+TECHNIQUES_HELP = """\
+technique spec: '<name>[ <param>[, <param>]...]'
+extraction techniques and possible parameters [default visualization]:
+       slice: vars x<i> x<j>  [fspace]
+        diam: vars x<i> x<j>, max  [fspace]
+        norm: min or inv (default: min)  [pixel]
+visualization techniques and possible parameters:
+      fspace: vars x<i> x<j> (default after an extraction: its features)
+       pixel:
+    mathexpr: vars x<i>[-x<j>]..., digits <int>, param (default: digits 2)
+examples: 'norm inv', 'diam vars x1 x10', 'mathexpr vars x1-x9, digits 3'"""
+
 DEFAULT_OUTPUT_EXPLANATIONS = 'tphi.txt'
 DEFAULT_OUTPUT_VISUALIZATIONS = {
     'fspace': 'timg.png',
@@ -106,18 +119,28 @@ def output_file(base, idx):
     return base.with_name(f'{base.stem}_s{idx}{base.suffix}')
 
 
+class HelpFormatter(argparse.RawDescriptionHelpFormatter):
+    """Also keeps the line breaks in the help of the arguments, each line is wrapped separately."""
+
+    def _split_lines(self, text, width):
+        return [line for part in text.splitlines() for line in super()._split_lines(part, width)]
+
+
 def make_parser():
     parser = argparse.ArgumentParser(
         prog='spexplain interpret',
         usage='%(prog)s [<explanation>...] <technique_spec> [<dataset>] [<options>]',
-        description='Interpret stored explanations of samples using an extraction or a visualization technique.',
+        # Not wrapped by the formatter
+        description='Interpret stored explanations of samples\nusing an extraction or a visualization technique.',
+        epilog=TECHNIQUES_HELP,
+        formatter_class=HelpFormatter,
     )
     parser.add_argument('args', nargs='+', metavar='[<explanation>...] <technique_spec> [<dataset>]',
-                        help='files with explanations in the SMT-LIB2 format, one per sample (e.g. phi.txt), '
-                             'more of them only for fspace; '
-                             "technique spec '<name>[ <param>[, <param>]...]', e.g. 'norm', 'norm inv', 'pixel', "
-                             "'mathexpr vars x1-x9'; "
-                             'CSV file with the samples')
+                        help='<explanation>: file with the explanations in the SMT-LIB2 format, one per sample '
+                             '(e.g. phi.txt); can be omitted with a visualization technique; '
+                             'more of them only for fspace\n'
+                             '<technique_spec>: extraction or visualization technique (see below)\n'
+                             '<dataset>: CSV file with the samples')
     parser.add_argument('-i', '--samples', metavar='<sel>[,<sel>]...',
                         help="only process the given samples, each '<sel>' is '<idx>' or '[<idx>]-[<idx2>]' (from 1)")
     parser.add_argument('-n', '--max-samples', type=int, metavar='<int>', help='maximum no. samples to be processed')
@@ -125,7 +148,8 @@ def make_parser():
                         help=f'output the extracted explanations into the file (default: {DEFAULT_OUTPUT_EXPLANATIONS} '
                              'unless visualizing)')
     parser.add_argument('--visualize', nargs='?', const=True, metavar='<visualization_spec>',
-                        help='visualize the extracted explanations (default: determined by the technique)')
+                        help='visualize the extracted explanations by the visualization technique '
+                             '(default: determined by the extraction technique, see below)')
     parser.add_argument('--output-visualization', metavar='<file>',
                         help="output the visualizations into the files with '_s<idx>' added to the name "
                              '(default: ' + ', '.join(f'{file} for {name}'
