@@ -231,7 +231,7 @@ It is recommended to also apply the sed script `./data/scripts/polish_psi.sed` t
 
 Interprets stored explanations of the sample points
 using an extraction technique,
-e.g., `slice vars x1 x5`, `diam vars x1 x5`, or `norm` (optionally `min` or `inv`),
+e.g., `slice vars x1 x5`, `diam vars x1 x5`, or `norm` (optionally `min`, `inv`, or both, e.g., `norm min, inv`),
 or directly using a visualization technique, `fspace`, `pixel`, or `mathexpr`.
 An extraction technique can be followed by a visualization,
 which is triggered by the option `--visualize`;
@@ -243,7 +243,7 @@ The action accepts the following arguments:
 Filename to the explanations in the SMT-LIB format (e.g., the default output file `phi.txt` of `explain`),
 one explanation per line for each sample point of the dataset.
 It can be omitted with a visualization technique, which then visualizes the sample points.
-Multiple files (each at most once) are supported only with the visualization `fspace`.
+Multiple files (each at most once) are supported only with the visualizations `fspace` and `pixel`.
 * `<technique_spec>`:
 The technique and optionally its parameters in the format `<name>[ <param>[, <param>]...]`.
 * `<dataset>`:
@@ -258,9 +258,12 @@ where each `<sel>` is either a single sample point `<idx>`, or a range `[<idx>]-
 and with the option `-n <int>`, which limits the number of processed sample points.
 
 The extracted explanations are written into the file given by the option `-e <file>`;
-if the option is not given, they are written into the file `tphi.txt` unless they are visualized.
+if the option is not given, they are written into the file `tphi.txt` unless they are visualized,
+with the kind of the points of `norm` added to the name (e.g., `tphi_min.txt`).
 The file contains one line for each sample point,
 with `<null>` for the sample points that are not processed.
+With more kinds of points of `norm` (e.g., `norm min, inv`), each kind is written into its own file
+with the kind added to the name, also of the file given by `-e` (e.g., `out_min.txt` and `out_inv.txt`).
 Explanations `<null>` (e.g., when `explain` reached the time limit) are skipped.
 
 Note that `explain` currently writes the explanations only of the processed sample points,
@@ -274,6 +277,8 @@ If only one sample point is processed, the option `--show` also shows the visual
 With a visualization technique, the option `--samples-only` visualizes the sample points and ignores the explanations,
 which is the same as omitting `<explanation>`;
 with an extraction technique followed by `--visualize`, the extraction technique is ignored as well.
+With the visualizations `fspace` and `pixel`, the sample point is shown together with the explanations
+unless the option `--exclude-samples` is given (which conflicts with visualizing only the sample points).
 Options that are not used by the given techniques are ignored with a warning,
 and `--visualize` without a visualization technique does not take the following argument if it is not one
 (e.g., `--visualize <dataset>`).
@@ -302,19 +307,24 @@ that is, the segment between the two farthest points of the slice,
 using the parameter `vars x<i> x<j>` and optionally `max` (the default).
 The extracted explanation is the segment, with the other features equal to the sample point.
 * `norm`:
-Computes the point of the explanation with the minimal (L2) norm,
-or with the maximal norm using the parameter `inv`.
+Computes the point of the explanation with the minimal (L2) norm using the parameter `min` (the default),
+or with the maximal norm using the parameter `inv`;
+with both parameters (e.g., `norm min, inv`), it computes both points in the order of the parameters.
 Assumes that the domains of all features are normalized to [0,1].
 * `fspace`:
 Shows the slice of the explanation (see `slice`) in the 2D feature space of the two features
 given by the parameter `vars x<i> x<j>`,
-together with the sample point and, if extracted by `diam`, the diameter.
+together with the sample point (unless `--exclude-samples`) and, if extracted by `diam`, the diameter.
 After `slice` or `diam`, the features are those of the extraction technique.
 With multiple explanations files, they are shown together in one plot (also after `slice` or `diam`),
 labelled by their filenames without the common prefixes and suffixes delimited by `/` or `_`
 (e.g., `guide-all/itp_aweak_bstrong.phi.txt` and `fix-all/itp_aweak_bstrong.phi.txt`
-result in `guide-all` and `fix-all`),
+result in `guide-all` and `fix-all`)
+and without a default basename `phi_` or `tphi_` at the start of their names
+(e.g., `test.txt` and `tphi_inv.txt` result in `test` and `inv`),
 or by the option `--labels <label>[,<label>]...`;
+a single explanations file is labelled `Explanation`,
+unless its name starts with a default basename (e.g., `tphi_min.txt` results in `min`);
 the explanations `<null>` are omitted but still labelled.
 The axes are labelled by the names of the features (see `--visualization-domains`),
 and with `--visualization-domains`, they show the values in the real units.
@@ -329,10 +339,16 @@ the class computed by the classifier with `--model`, followed by the expected cl
 otherwise only the expected class (e.g., `Sample 3 (expected class: Low risk)`),
 using the names of the classes as above, or the numbers of the classes.
 * `pixel`:
-Shows a point as a gray-scale image,
+Shows points as gray-scale images side by side in one image,
 assuming square images with a single channel (e.g., MNIST) and values in [0,1].
-It shows the explanation, which must be a point
-(e.g., extracted by `norm`).
+It shows the sample point first (unless `--exclude-samples`) and then the explanations, which must be points
+(e.g., extracted by `norm`, including all its points);
+with the parameter `center`, the sample point is placed in between the points (after the first half of them,
+e.g., `norm min, inv` with `pixel center` shows the minimal point, the sample point, and the maximal point).
+Multiple explanations files are supported as in `fspace`.
+The sample point is titled `sample <idx>`, and the points by the labels of the explanations as in `fspace`
+(`explanation` by default), with the kinds of the points of `norm` (only the kinds for a single explanations file
+without `--labels`); the explanations `<null>` are shown empty.
 * `mathexpr`:
 Shows an explanation that is a conjunction of linear constraints,
 e.g., an interval explanation (including a point extracted by `norm`), a segment, or a bounded plane,
