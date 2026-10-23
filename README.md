@@ -277,6 +277,9 @@ with an extraction technique followed by `--visualize`, the extraction technique
 Options that are not used by the given techniques are ignored with a warning,
 and `--visualize` without a visualization technique does not take the following argument if it is not one
 (e.g., `--visualize <dataset>`).
+As in the engine, the option `-q` (`--quiet`) does not print the information to the standard output
+(the warnings and the errors are still printed to the standard error),
+and the option `-v` (`--verbose`) currently has no effect; if both are given, the last one applies.
 With the visualizations `fspace` and `mathexpr`, the option `--visualization-domains <file>`
 shows the values in the real units given by a CSV file with the columns `Min`, `Max`,
 and optionally `Var` and `Feature` (e.g., `x1,Age,29,77`),
