@@ -31,6 +31,8 @@ visualization techniques and possible parameters:
 examples: 'norm inv', 'diam vars x1 x10', 'mathexpr vars x1-x9, digits 3'"""
 
 DEFAULT_OUTPUT_EXPLANATIONS = 'tphi.txt'
+# The default names of the files with the explanations, of explain and of interpret
+DEFAULT_EXPLANATIONS_FILES = ('phi.txt', DEFAULT_OUTPUT_EXPLANATIONS)
 DEFAULT_OUTPUT_VISUALIZATIONS = {
     'fspace': 'timg.png',
     'pixel': 'timg.png',
@@ -114,6 +116,31 @@ def make_labels(paths):
     return [label or Path(name).name for label, name in zip(labels, names)]
 
 
+def _strip_default_basename(path):
+    """The path without a default basename at the start of its name, e.g. 'out/tphi_min.txt' results in 'out/min.txt'.
+
+    The rest of the name must not be empty, e.g. 'tphi_.txt' is kept.
+    """
+    path = Path(path)
+    for stem in (Path(file).stem for file in DEFAULT_EXPLANATIONS_FILES):
+        rest = path.name[len(stem) + 1:]
+        if path.name.startswith(stem + '_') and rest and not rest.startswith('.'):
+            return path.with_name(rest)
+    return path
+
+
+def default_labels(paths, default='Explanation'):
+    """Labels of the explanations from their paths without a default basename (see make_labels).
+
+    A single path is labelled by the rest of its name only if it starts with a default basename, otherwise
+    by the default, e.g. 'tphi_min.txt' results in 'min', and 'tphi.txt' or 'fix-all/itp.phi.txt' in the default.
+    """
+    stripped = [_strip_default_basename(path) for path in paths]
+    if len(paths) == 1 and stripped[0] == Path(paths[0]):
+        return [default]
+    return make_labels(stripped) if paths else []
+
+
 def output_file(base, idx):
     base = Path(base)
     return base.with_name(f'{base.stem}_s{idx}{base.suffix}')
@@ -170,7 +197,8 @@ def make_parser():
                         help="labels of all the classes (default: from the header of the dataset separated by '|', "
                              "e.g. 'Low risk|High risk', otherwise the numbers of the classes)")
     parser.add_argument('--labels', metavar='<label>[,<label>]...',
-                        help='labels of the explanations (default: from their paths without the common parts)')
+                        help='labels of the explanations (default: from their paths without the common parts '
+                             'and the default names)')
     parser.add_argument('--samples-only', action='store_true',
                         help='visualize the samples and ignore the explanations (only for visualization techniques)')
     return parser
@@ -261,7 +289,7 @@ def main(args):
         raise Error(f'The number of labels ({len(labels)}) does not match the number of explanations files '
                     f'({len(explanations_files)})')
     if labels is None:
-        labels = make_labels(explanations_files) if multiple else ['Explanation'] * len(explanations_files)
+        labels = default_labels(explanations_files)
 
     if not explanations_files and not use_samples_only:
         raise Error('Missing the explanations')
