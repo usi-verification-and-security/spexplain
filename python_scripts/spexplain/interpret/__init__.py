@@ -2,6 +2,7 @@
 
 import argparse
 import re
+import sys
 from pathlib import Path
 
 from .. import Error
@@ -64,6 +65,21 @@ def read_explanations(path, indices):
     wanted = set(indices)
     with open(path) as f:
         return {idx: line.strip() for idx, line in enumerate(f, start=1) if idx in wanted}
+
+
+def warn(msg):
+    print(f'spexplain: warning: {msg}', file=sys.stderr)
+
+
+def split_visualize_value(args):
+    """Let '--visualize' without the value not take the next argument if it is not a visualization spec."""
+    args = list(args)
+    for k, arg in enumerate(args[:-1]):
+        following = args[k + 1]
+        if arg == '--visualize' and not following.startswith('-') and following.split()[:1] != [] \
+                and following.split()[0] not in VISUALIZATIONS:
+            args[k] = '--visualize='
+    return args
 
 
 def make_labels(paths):
@@ -132,7 +148,10 @@ def make_parser():
 
 
 def main(args):
-    opts = make_parser().parse_intermixed_args(args)
+    opts = make_parser().parse_intermixed_args(split_visualize_value(args))
+    # Without the value
+    if opts.visualize == '':
+        opts.visualize = True
 
     # The explanations are the arguments before the technique, they are optional
     #+ give the dataset explicitly by --dataset <dataset> instead of as the positional argument after the technique,
@@ -153,6 +172,8 @@ def main(args):
     if name in EXTRACTIONS:
         extraction = (name, params)
         if opts.visualize is None:
+            if opts.samples_only:
+                raise Error('Option --samples-only requires a visualization technique (e.g. by --visualize)')
             visualization = None
         elif opts.visualize is True:
             visualization = (EXTRACTIONS[name], [])
@@ -161,14 +182,24 @@ def main(args):
             if visualization[0] not in VISUALIZATIONS:
                 raise Error(f'Not a visualization technique: {visualization[0]}')
         if opts.samples_only:
-            raise Error('Option --samples-only can only be used with a visualization technique')
+            warn(f"Option --samples-only: the extraction technique '{name}' and the explanations are ignored, "
+                 f"the samples are visualized by '{visualization[0]}'")
+            if opts.output_explanations is not None:
+                warn('Option --output-explanations is ignored with --samples-only')
     else:
         extraction = None
         visualization = (name, params)
         if opts.visualize is not None:
-            raise Error('Option --visualize can only follow an extraction technique')
+            if opts.visualize is not True and parse_technique_spec(opts.visualize) != visualization:
+                raise Error(f"Option --visualize '{opts.visualize}' conflicts with the visualization technique "
+                            f"'{technique_spec}'")
+            warn('Option --visualize is redundant with a visualization technique')
         if opts.output_explanations is not None:
-            raise Error('Option --output-explanations can only be used with an extraction technique')
+            warn('Option --output-explanations is ignored without an extraction technique')
+    if visualization is None:
+        for opt, value in [('--output-visualization', opts.output_visualization), ('--show', opts.show or None)]:
+            if value is not None:
+                warn(f'Option {opt} is ignored without a visualization')
 
     if extraction and extraction[0] not in ('norm', 'slice', 'diam'):
         raise Error(f"Interpretation technique '{extraction[0]}' is not implemented yet")
@@ -177,18 +208,23 @@ def main(args):
     mathexpr_visualization = visualization and visualization[0] == 'mathexpr'
     if pixel_visualization and visualization[1]:
         raise Error(f'Unknown parameters of pixel: {", ".join(visualization[1])}')
-    if pixel_visualization and extraction and extraction[0] != 'norm':
+    # Only the samples are visualized, also if the explanations are omitted
+    use_samples_only = bool(visualization) and (opts.samples_only or (not extraction and not explanations_files))
+    if pixel_visualization and extraction and extraction[0] != 'norm' and not use_samples_only:
         raise Error(f"Visualization pixel requires a point, not the result of '{extraction[0]}'")
-    if fspace_visualization and extraction and extraction[0] == 'norm':
+    if fspace_visualization and extraction and extraction[0] == 'norm' and not use_samples_only:
         raise Error("Visualization fspace requires the result of 'slice' or 'diam', not of 'norm'")
 
     if len({Path(file).resolve() for file in explanations_files}) < len(explanations_files):
         raise Error('An explanations file is given more than once')
     multiple = len(explanations_files) > 1
-    if multiple and not fspace_visualization:
+    if multiple and not fspace_visualization and not use_samples_only:
         raise Error('Multiple explanations are supported only with the visualization fspace')
-    if multiple and opts.output_explanations is not None:
+    if multiple and opts.output_explanations is not None and not use_samples_only:
         raise Error('Option --output-explanations requires a single explanations file')
+    if opts.labels is not None and not (fspace_visualization and not use_samples_only):
+        warn('Option --labels is ignored without the visualization fspace of explanations')
+        opts.labels = None
     labels = opts.labels.split(',') if opts.labels else None
     if labels is not None and len(labels) != len(explanations_files):
         raise Error(f'The number of labels ({len(labels)}) does not match the number of explanations files '
@@ -196,8 +232,6 @@ def main(args):
     if labels is None:
         labels = make_labels(explanations_files) if multiple else ['Explanation'] * len(explanations_files)
 
-    # Only the samples are visualized, also if the explanations are omitted
-    use_samples_only = not extraction and (opts.samples_only or not explanations_files)
     if not explanations_files and not use_samples_only:
         raise Error('Missing the explanations')
     if use_samples_only:
@@ -255,9 +289,10 @@ def main(args):
             visualization_config.var_indices = extraction_config.var_indices
 
     domains = None
+    if opts.visualization_domains is not None and not (fspace_visualization or mathexpr_visualization):
+        warn('Option --visualization-domains is ignored without the visualizations fspace and mathexpr')
+        opts.visualization_domains = None
     if opts.visualization_domains is not None:
-        if not (fspace_visualization or mathexpr_visualization):
-            raise Error('Option --visualization-domains can only be used with the visualizations fspace and mathexpr')
         from ..domains import Domains
         domains = Domains(opts.visualization_domains, dataset)
         visualization_config.domains = domains
@@ -265,8 +300,11 @@ def main(args):
         # The names from the dataset, unless given by the domains
         visualization_config.names = domains.names if domains else dataset.feature_names
 
-    if (opts.model is not None or opts.class_labels is not None) and not fspace_visualization:
-        raise Error('Options --model and --class-labels can only be used with the visualization fspace')
+    if not fspace_visualization:
+        for opt in ('model', 'class_labels'):
+            if getattr(opts, opt) is not None:
+                warn(f'Option --{opt.replace("_", "-")} is ignored without the visualization fspace')
+                setattr(opts, opt, None)
     model = None
     if opts.model is not None:
         from ..model import Model
@@ -299,7 +337,7 @@ def main(args):
     explanations = explanations_list[0] if explanations_list else None
 
     output_explanations = None
-    if extraction and (opts.output_explanations or not visualization):
+    if extraction and not use_samples_only and (opts.output_explanations or not visualization):
         output_explanations = opts.output_explanations or DEFAULT_OUTPUT_EXPLANATIONS
         print(f'Writing explanations to: {output_explanations}')
     output_visualization = None
@@ -353,7 +391,7 @@ def main(args):
             # An extracted point or the sample, a segment, otherwise the constraints of an explanation
             point = None
             segment = None
-            if extraction and not multiple:
+            if extraction and not multiple and not use_samples_only:
                 result = extraction_module.interpret(explanations[idx], extraction_config, sample)
                 if extraction[0] == 'norm':
                     point = result
