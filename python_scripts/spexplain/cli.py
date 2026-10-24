@@ -10,12 +10,13 @@ ACTIONS = ('explain', *ENGINE_ACTIONS, 'interpret', 'list')
 DEFAULT_ACTION = 'explain'
 
 
-def print_rows(rows, file=sys.stdout):
-    """Print rows of columns aligned with spaces."""
+def print_rows(rows, file=sys.stdout, right=()):
+    """Print rows of columns aligned with spaces, the columns with the indices in right are aligned to the right."""
     widths = [max(len(row[i]) for row in rows if i < len(row) - 1) for i in range(max(map(len, rows)) - 1)]
     for row in rows:
-        cells = [cell.ljust(widths[i]) for i, cell in enumerate(row[:-1])] + [row[-1]]
-        print('    ' + '  '.join(cells), file=file)
+        cells = [cell.rjust(widths[i]) if i in right else cell.ljust(widths[i]) for i, cell in enumerate(row[:-1])]
+        cells += [row[-1]]
+        print(('    ' + '  '.join(cells)).rstrip(), file=file)
 
 
 def print_usage(file=sys.stdout):
@@ -25,7 +26,8 @@ def print_usage(file=sys.stdout):
         ('explain:', '<nn_model_fn> <dataset_fn> [<exp_strategies_spec>]', 'Run the Explanation Computation Engine'),
         ('dump-psi:', '<nn_model_fn>', 'Print the SMT-LIB encoding of the NN'),
         ('interpret:', '[<explanation>...] <technique_spec> [<dataset>]', 'Run the Explanation Interpreter'),
-        ('list:', 'vars [<var>...] <dataset> | classes <dataset>', 'List the variables or the classes of the dataset'),
+        ('list:', 'vars|samples [<sel>...] <dataset> | classes <dataset>',
+         'List the variables, the samples, or the classes of the dataset'),
     ], file=file)
     print("Use 'spexplain <action> --help' to print the usage of a particular action.", file=file)
     print('OPTIONS:', file=file)

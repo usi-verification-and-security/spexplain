@@ -1,4 +1,4 @@
-# Action list: lists the variables or the classes of a dataset, one row per item
+# Action list: lists the variables, the samples, or the classes of a dataset, one row per item
 # Named listing, not list, which would shadow the built-in list where it is imported
 
 import argparse
@@ -9,27 +9,36 @@ from . import Error
 from .cli import print_rows
 from .interpret import warn
 
+# The maximal number of the variables of the samples listed by default
+MAX_DEFAULT_VARS = 20
+
 # The items that can be listed, with their arguments and descriptions
 TARGETS = {
     'vars': ('[<var>...] <dataset>',
              'the variables x<i> of the dataset with the names and the domains of their features'),
+    'samples': ('[<sel>...] <dataset>', 'the samples of the dataset (from 1) with their values and expected classes, '
+                                         'also computed by a model'),
     'classes': ('<dataset>', 'the classes of the dataset (from 0) with their names'),
 }
 
 # The options of all targets: (flags, keyword arguments, the targets where they are used, whether it is specific);
+# the help may differ by the targets (a dictionary);
 # the other targets accept them but do not show them in their help: a specific option selects or limits the listed
 # items, so it is an error there, the others only add information, so they are ignored with a warning
 OPTIONS = [
     (('--domains',), dict(metavar='<file>',
                           help='CSV file with the domains of the features in the real units (columns Min, Max, '
                                'optionally Var, Feature), otherwise normalized to [0,1]'),
-     ('vars',), False),
+     ('vars', 'samples'), False),
     (('--vars',), dict(metavar='<var>[,<var>]...',
                        help="select the variables, each '<var>' is 'x<i>' or 'x<i>-x<j>' (from 1)"),
-     ('vars',), True),
+     ('vars', 'samples'), True),
+    (('-n', '--max-samples'), dict(type=int, metavar='<int>', help='maximum no. samples to be listed'),
+     ('samples',), True),
     (('--model',), dict(metavar='<nn_model_fn>',
-                        help='the classifier in the NNet format, for the number of the classes'),
-     ('classes',), False),
+                        help={'samples': 'the classifier in the NNet format, for the computed classes',
+                              'classes': 'the classifier in the NNet format, for the number of the classes'}),
+     ('samples', 'classes'), False),
 ]
 
 
@@ -52,11 +61,21 @@ def make_parser(target):
         parser.add_argument('args', nargs='+', metavar='[<var>...] <dataset>',
                             help="the selected variables (default: all), each '<var>' is 'x<i>' or 'x<i>-x<j>' "
                                  "(from 1), as in the parameter vars of the techniques; the dataset in the CSV format")
+    elif target == 'samples':
+        parser.add_argument('args', nargs='+', metavar='[<sel>...] <dataset>',
+                            help="the selected samples (default: all), each '<sel>' is '<idx>' or '[<idx>]-[<idx2>]' "
+                                 "(from 1), separated by spaces or commas, as in -i of interpret; "
+                                 "the dataset in the CSV format")
     else:
         parser.add_argument('dataset', metavar='<dataset>', help='the dataset in the CSV format')
     for flags, kwargs, targets, _ in OPTIONS:
         if target not in targets:
             kwargs = dict(kwargs, help=argparse.SUPPRESS)
+        elif isinstance(kwargs['help'], dict):
+            kwargs = dict(kwargs, help=kwargs['help'][target])
+        elif target == 'samples' and flags == ('--vars',):
+            kwargs = dict(kwargs, help=kwargs['help'] + f', the columns (default: all, at most the first '
+                                                        f'{MAX_DEFAULT_VARS} variables)')
         parser.add_argument(*flags, **kwargs)
     return parser
 
@@ -67,9 +86,10 @@ def check_options(target, opts):
         dest = flags[-1].lstrip('-').replace('-', '_')
         if target in targets or getattr(opts, dest) is None:
             continue
+        opt = '/'.join(flags)
         if specific:
-            raise Error(f'Option {flags[-1]} is not supported by list {target}')
-        warn(f'Option {flags[-1]} is ignored by list {target}')
+            raise Error(f'Option {opt} is not supported by list {target}')
+        warn(f'Option {opt} is ignored by list {target}')
 
 
 def split_selectors(values):
@@ -133,6 +153,73 @@ def load_model(path, dataset):
     return model
 
 
+def class_str(c, names):
+    """The name of the class with its number if the names are given, otherwise the default name."""
+    from .dataset import default_class_name
+
+    return f'{names[c]} ({c})' if names else default_class_name(c)
+
+
+def list_samples(opts):
+    import numpy as np
+
+    from .dataset import Dataset
+    from .interpret import formula, parse_samples_spec
+
+    selectors, dataset_file = selectors_and_dataset(opts)
+    dataset = Dataset(dataset_file)
+    n_vars = dataset.n_features()
+    indices = (parse_samples_spec(','.join(selectors), len(dataset)) if selectors
+               else list(range(1, len(dataset) + 1)))
+    if opts.max_samples is not None:
+        indices = indices[:opts.max_samples]
+
+    # By default, at most the first variables, followed by '...' if there are more
+    trimmed = opts.vars is None and n_vars > MAX_DEFAULT_VARS
+    if opts.vars is not None:
+        var_indices = formula.parse_vars(split_selectors([opts.vars]), n_vars, 'list samples')
+    else:
+        var_indices = list(range(min(n_vars, MAX_DEFAULT_VARS)))
+    if trimmed:
+        info(f'Only the first {MAX_DEFAULT_VARS} of the {n_vars} variables are listed, select them by --vars')
+    etc = ['...'] if trimmed else []
+
+    domains = None
+    if opts.domains is not None:
+        from .domains import Domains
+        domains = Domains(opts.domains, dataset)
+        info(f'The values are rescaled to the domains of {opts.domains}, they are not the values of the dataset')
+
+    names = dataset.class_names
+    # Checks that the names in the header cover the expected classes
+    dataset.n_classes()
+    model = None
+    if opts.model is not None:
+        model = load_model(opts.model, dataset)
+        computed = model.classify(dataset.samples[np.array(indices, dtype=int) - 1]) if indices else []
+
+    header = ['Sample', *[f'x{i + 1}' for i in var_indices], *etc, 'Expected']
+    # The domains of the variables
+    domain_row = ['', *[domain_str(domains.lower[i], domains.upper[i]) if domains else domain_str(0, 1)
+                        for i in var_indices], *etc, '']
+    if model:
+        header += ['Computed', '']
+        domain_row += ['', '']
+    rows = [header, domain_row] if var_indices else [header]
+    for k, idx in enumerate(indices):
+        values = dataset.samples[idx - 1]
+        if domains:
+            values = domains.scale(values)
+        expected = int(dataset.labels[idx - 1])
+        row = [str(idx), *[f'{values[i]:.4g}' for i in var_indices], *etc, class_str(expected, names)]
+        if model:
+            # Marked if misclassified
+            c = int(computed[k])
+            row += [class_str(c, names), '!' if c != expected else '']
+        rows.append(row)
+    print_rows(rows, right=range(1, 1 + len(var_indices)))
+
+
 def list_classes(opts):
     from .dataset import Dataset, default_class_name
 
@@ -164,6 +251,8 @@ def main(args):
 
     if target == 'vars':
         list_vars(opts)
+    elif target == 'samples':
+        list_samples(opts)
     elif target == 'classes':
         list_classes(opts)
 
