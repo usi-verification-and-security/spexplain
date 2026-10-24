@@ -28,6 +28,7 @@ def print_usage(file=sys.stdout):
         ('interpret:', '[<explanation>...] <technique_spec> [<dataset>]', 'Run the Explanation Interpreter'),
         ('list:', 'vars|samples [<sel>...] <dataset> | classes <dataset>',
          'List the variables, the samples, or the classes of the dataset'),
+        ('', 'layers <nn_model_fn>', 'List the layers of the model'),
     ], file=file)
     print("Use 'spexplain <action> --help' to print the usage of a particular action.", file=file)
     print('OPTIONS:', file=file)

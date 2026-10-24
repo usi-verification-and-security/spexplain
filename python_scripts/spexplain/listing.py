@@ -1,4 +1,5 @@
-# Action list: lists the variables, the samples, or the classes of a dataset, one row per item
+# Action list: lists the variables, the samples, or the classes of a dataset, or the layers of a model,
+# one row per item
 # Named listing, not list, which would shadow the built-in list where it is imported
 
 import argparse
@@ -19,6 +20,7 @@ TARGETS = {
     'samples': ('[<sel>...] <dataset>', 'the samples of the dataset (from 1) with their values and expected classes, '
                                          'also computed by a model'),
     'classes': ('<dataset>', 'the classes of the dataset (from 0) with their names'),
+    'layers': ('<nn_model_fn>', 'the layers of the model in the NNet format and the classification by its outputs'),
 }
 
 # The options of all targets: (flags, keyword arguments, the targets where they are used, whether it is specific);
@@ -66,6 +68,8 @@ def make_parser(target):
                             help="the selected samples (default: all), each '<sel>' is '<idx>' or '[<idx>]-[<idx2>]' "
                                  "(from 1), separated by spaces or commas, as in -i of interpret; "
                                  "the dataset in the CSV format")
+    elif target == 'layers':
+        parser.add_argument('model_file', metavar='<nn_model_fn>', help='the model in the NNet format')
     else:
         parser.add_argument('dataset', metavar='<dataset>', help='the dataset in the CSV format')
     for flags, kwargs, targets, _ in OPTIONS:
@@ -239,6 +243,20 @@ def list_classes(opts):
     print_rows(rows)
 
 
+def list_layers(opts):
+    from .model import Model
+
+    # As evaluated by the engine
+    model = Model(opts.model_file)
+    rows = [('Layer', 'Size', 'Activation'), ('input', str(model.n_inputs()), '')]
+    for weights in model.weights[:-1]:
+        rows.append(('hidden', str(weights.shape[0]), 'ReLU'))
+    n_outputs = model.weights[-1].shape[0]
+    classification = 'binary: class 1 iff >= 0' if n_outputs == 1 else 'class: the maximal output'
+    rows.append(('output', str(n_outputs), f'linear ({classification})'))
+    print_rows(rows)
+
+
 def main(args):
     if not args or args[0] in ('-h', '--help'):
         print_usage()
@@ -255,5 +273,7 @@ def main(args):
         list_samples(opts)
     elif target == 'classes':
         list_classes(opts)
+    elif target == 'layers':
+        list_layers(opts)
 
     return 0

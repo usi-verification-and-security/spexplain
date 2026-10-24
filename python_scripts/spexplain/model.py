@@ -6,10 +6,15 @@ import numpy as np
 
 from nnet_utils.readNNet import readNNet
 
+from . import Error
+
 
 class Model:
     def __init__(self, path):
-        weights, biases = readNNet(str(path))
+        try:
+            weights, biases = readNNet(str(path))
+        except (ValueError, IndexError):
+            raise Error(f'Invalid model in the NNet format: {path}')
         self.weights = [np.asarray(w, dtype=float) for w in weights]
         self.biases = [np.asarray(b, dtype=float) for b in biases]
 
