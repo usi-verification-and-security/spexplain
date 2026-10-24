@@ -28,7 +28,8 @@ visualization techniques and possible parameters:
       fspace: vars x<i> x<j> (default after an extraction: its features)
        pixel: center (the sample in between the points, otherwise first)
     mathexpr: vars x<i>[-x<j>]..., digits <int>, param (default: digits 2)
-examples: 'norm inv', 'diam vars x1 x10', 'mathexpr vars x1-x9, digits 3'"""
+examples: 'norm inv', 'diam vars x1 x10', 'mathexpr vars x1-x9, digits 3'
+the variables x<i> of a dataset: spexplain list vars <dataset>"""
 
 DEFAULT_OUTPUT_EXPLANATIONS = 'tphi.txt'
 # The default names of the files with the explanations, of explain and of interpret

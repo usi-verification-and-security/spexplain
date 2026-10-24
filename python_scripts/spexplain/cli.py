@@ -6,7 +6,7 @@ from . import Error, engine, explain
 
 # Actions implemented directly by the engine, without any intervention
 ENGINE_ACTIONS = ('dump-psi',)
-ACTIONS = ('explain', *ENGINE_ACTIONS, 'interpret')
+ACTIONS = ('explain', *ENGINE_ACTIONS, 'interpret', 'list')
 DEFAULT_ACTION = 'explain'
 
 
@@ -25,6 +25,7 @@ def print_usage(file=sys.stdout):
         ('explain:', '<nn_model_fn> <dataset_fn> [<exp_strategies_spec>]', 'Run the Explanation Computation Engine'),
         ('dump-psi:', '<nn_model_fn>', 'Print the SMT-LIB encoding of the NN'),
         ('interpret:', '[<explanation>...] <technique_spec> [<dataset>]', 'Run the Explanation Interpreter'),
+        ('list:', 'vars [<var>...] <dataset>', 'List the variables of the dataset'),
     ], file=file)
     print("Use 'spexplain <action> --help' to print the usage of a particular action.", file=file)
     print('OPTIONS:', file=file)
@@ -62,6 +63,9 @@ def run(args):
     if action == 'interpret':
         from . import interpret
         return interpret.main(args)
+    if action == 'list':
+        from . import listing
+        return listing.main(args)
 
     assert False, action
 
