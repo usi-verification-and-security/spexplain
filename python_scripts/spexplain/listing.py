@@ -3,7 +3,12 @@
 # Named listing, not list, which would shadow the built-in list where it is imported
 
 import argparse
+import io
+import os
 import re
+import shlex
+import shutil
+import subprocess
 import sys
 
 from . import Error
@@ -41,6 +46,9 @@ OPTIONS = [
                         help={'samples': 'the classifier in the NNet format, for the computed classes',
                               'classes': 'the classifier in the NNet format, for the number of the classes'}),
      ('samples', 'classes'), False),
+    (('--no-pager',), dict(action='store_true',
+                           help='do not page the output (default: through $PAGER or less if on a terminal)'),
+     tuple(TARGETS), False),
 ]
 
 
@@ -136,7 +144,7 @@ def list_vars(opts):
     for i in indices:
         domain = domain_str(domains.lower[i], domains.upper[i]) if domains else domain_str(0, 1)
         rows.append((f'x{i + 1}', names[i] or '-', domain))
-    print_rows(rows)
+    return rows, ()
 
 
 def load_model(path, dataset):
@@ -221,7 +229,7 @@ def list_samples(opts):
             c = int(computed[k])
             row += [class_str(c, names), '!' if c != expected else '']
         rows.append(row)
-    print_rows(rows, right=range(1, 1 + len(var_indices)))
+    return rows, range(1, 1 + len(var_indices))
 
 
 def list_classes(opts):
@@ -240,7 +248,7 @@ def list_classes(opts):
     rows = [('Class', 'Name')]
     for c in range(n_classes):
         rows.append((str(c), names[c] if names else default_class_name(c)))
-    print_rows(rows)
+    return rows, ()
 
 
 def list_layers(opts):
@@ -254,7 +262,36 @@ def list_layers(opts):
     n_outputs = model.weights[-1].shape[0]
     classification = 'binary: class 1 iff >= 0' if n_outputs == 1 else 'class: the maximal output'
     rows.append(('output', str(n_outputs), f'linear ({classification})'))
-    print_rows(rows)
+    return rows, ()
+
+
+def page(text, use_pager=True):
+    """Print the text, through a pager if the standard output is a terminal, as git does: $PAGER or less,
+    with LESS=FRSX unless set (quit at once if it fits on one screen, chop long lines)."""
+    pager = os.environ.get('PAGER', 'less')
+    if use_pager and sys.stdout.isatty() and pager.strip() and shutil.which(shlex.split(pager)[0]):
+        env = dict(os.environ)
+        env.setdefault('LESS', 'FRSX')
+        proc = subprocess.Popen(pager, shell=True, stdin=subprocess.PIPE, env=env, text=True)
+        try:
+            proc.stdin.write(text)
+            proc.stdin.close()
+        except BrokenPipeError:
+            # The pager was quit before reading everything
+            pass
+        while True:
+            try:
+                proc.wait()
+                return
+            except KeyboardInterrupt:
+                # Handled by the pager
+                pass
+    try:
+        sys.stdout.write(text)
+        sys.stdout.flush()
+    except BrokenPipeError:
+        # E.g. piped into head: the rest is discarded
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
 
 
 def main(args):
@@ -268,12 +305,15 @@ def main(args):
     check_options(target, opts)
 
     if target == 'vars':
-        list_vars(opts)
+        rows, right = list_vars(opts)
     elif target == 'samples':
-        list_samples(opts)
+        rows, right = list_samples(opts)
     elif target == 'classes':
-        list_classes(opts)
+        rows, right = list_classes(opts)
     elif target == 'layers':
-        list_layers(opts)
+        rows, right = list_layers(opts)
+    out = io.StringIO()
+    print_rows(rows, file=out, right=right)
+    page(out.getvalue(), not opts.no_pager)
 
     return 0
