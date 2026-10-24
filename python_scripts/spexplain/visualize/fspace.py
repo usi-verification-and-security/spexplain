@@ -11,6 +11,7 @@ from matplotlib.patches import Patch
 from matplotlib.ticker import MaxNLocator
 
 from .. import Error
+from ..dataset import default_class_name
 from ..interpret import slice as slice_
 
 # The styles of the explanations, cycled (from explviz/style.py)
@@ -78,7 +79,7 @@ def _draw_decision_regions(axes, sample, config):
     axes.contour(xx, yy, labels, levels=np.arange(n_classes - 1) + 0.5, colors=BOUNDARY_COLOR, linewidths=1.2,
                  zorder=0.5)
 
-    names = config.class_names or [f'Class {c}' for c in range(n_classes)]
+    names = config.class_names or [default_class_name(c) for c in range(n_classes)]
     return [Patch(facecolor=colors[c], alpha=CLASS_ALPHA, label=names[c]) for c in np.unique(labels)]
 
 

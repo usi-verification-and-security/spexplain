@@ -10,6 +10,11 @@ from . import Error
 CLASS_NAMES_SEPARATOR = '|'
 
 
+def default_class_name(c):
+    """The name of the class c (from 0) if the names are not given."""
+    return f'Class {c}'
+
+
 class Dataset:
     def __init__(self, path):
         samples = []
@@ -42,6 +47,16 @@ class Dataset:
 
     def n_features(self):
         return self.samples.shape[1]
+
+    def n_classes(self):
+        """The number of the names of the classes in the header, otherwise the largest expected class + 1."""
+        n_expected = int(self.labels.max()) + 1 if len(self) else 0
+        if self.class_names is None:
+            return n_expected
+        if len(self.class_names) < n_expected:
+            raise Error(f'The number of the names of the classes in the header of the dataset '
+                        f'({len(self.class_names)}) does not cover all the classes ({n_expected})')
+        return len(self.class_names)
 
     def check_sample_idx(self, idx):
         """Samples are indexed from 1, same as in the engine."""

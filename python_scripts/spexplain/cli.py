@@ -25,7 +25,7 @@ def print_usage(file=sys.stdout):
         ('explain:', '<nn_model_fn> <dataset_fn> [<exp_strategies_spec>]', 'Run the Explanation Computation Engine'),
         ('dump-psi:', '<nn_model_fn>', 'Print the SMT-LIB encoding of the NN'),
         ('interpret:', '[<explanation>...] <technique_spec> [<dataset>]', 'Run the Explanation Interpreter'),
-        ('list:', 'vars [<var>...] <dataset>', 'List the variables of the dataset'),
+        ('list:', 'vars [<var>...] <dataset> | classes <dataset>', 'List the variables or the classes of the dataset'),
     ], file=file)
     print("Use 'spexplain <action> --help' to print the usage of a particular action.", file=file)
     print('OPTIONS:', file=file)
