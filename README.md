@@ -121,16 +121,23 @@ Running `./spexplain` with no arguments yields a help message:
 
 ```
 USAGE: spexplain [--engine <path>] [<action>] <args> [<options>]
-ACTIONS: [explain] dump-psi interpret
-    explain:    <nn_model_fn> <dataset_fn> [<exp_strategies_spec>]  Run the Explanation Computation Engine
-    dump-psi:   <nn_model_fn>                                       Print the SMT-LIB encoding of the NN
-    interpret:  [<explanation>...] <technique_spec> [<dataset>]     Run the Explanation Interpreter
+ACTIONS: [explain] dump-psi interpret list
+    explain:    <nn_model_fn> <dataset_fn> [<exp_strategies_spec>]     Run the Explanation Computation Engine
+    dump-psi:   <nn_model_fn>                                          Print the SMT-LIB encoding of the NN
+    interpret:  [<explanation>...] <technique_spec> [<dataset>]        Run the Explanation Interpreter
+    list:       vars|samples [<sel>...] <dataset> | classes <dataset>  List the variables, the samples, or the classes of the dataset
+                layers <nn_model_fn>                                   List the layers of the model
 Use 'spexplain <action> --help' to print the usage of a particular action.
 ...
 ```
 
-The tool currently supports three actions:
-`explain` (default), `dump-psi`, and `interpret`.
+The tool currently supports four actions:
+`explain` (default), `dump-psi`, `interpret`, and `list`.
+
+The actions `interpret` and `list` treat the misused options as follows:
+an option that has no effect on the result (e.g., it would only add information) is ignored with a warning,
+whereas an option that conflicts with other options, that cannot be carried out,
+or that selects or limits what is processed or listed, is an error if it does not apply.
 
 The actions `explain` and `dump-psi` are implemented by the Explanation Computation Engine,
 the executable `engine` in the build directory (e.g., `./build/engine`),
@@ -237,6 +244,8 @@ An extraction technique can be followed by a visualization,
 which is triggered by the option `--visualize`;
 the default visualization is determined by the extraction technique
 (`pixel` for `norm`, otherwise `fspace`).
+The variables `x<i>` used by the techniques, together with the names of their features,
+as well as the samples and the classes of a dataset can be listed by the action `list` (see below).
 
 The action accepts the following arguments:
 * `<explanation>...`:
@@ -280,6 +289,7 @@ with an extraction technique followed by `--visualize`, the extraction technique
 With the visualizations `fspace` and `pixel`, the sample point is shown together with the explanations
 unless the option `--exclude-samples` is given (which conflicts with visualizing only the sample points).
 Options that are not used by the given techniques are ignored with a warning,
+whereas conflicting options are errors (see above),
 and `--visualize` without a visualization technique does not take the following argument if it is not one
 (e.g., `--visualize <dataset>`).
 As in the engine, the option `-q` (`--quiet`) does not print the information to the standard output
@@ -376,6 +386,71 @@ is equivalent to first extracting it into a file and then visualizing the file d
 (e.g., using `pixel`).
 
 The action requires the Python packages NumPy, SciPy, pyparsing, and Matplotlib.
+
+### `list`
+
+Lists the items of a dataset or of a model, one row per item, given by the target:
+* `vars [<var>...] <dataset>`:
+The variables `x<i>` of the dataset (indexed from 1, as in the parameter `vars` of the techniques and the strategies)
+with the names of their features from the header of the dataset (`-` if missing) and their domains,
+which are normalized to [0,1] unless the option `--domains <file>` gives them in the real units
+by a CSV file of the same format as `--visualization-domains` of `interpret`
+(e.g., `./data/domains/heart_attack/heart_attack.csv`), also with the names of the features.
+The variables can be selected by `x<i>` or `x<i>-x<j>` before the dataset,
+or by the option `--vars <var>[,<var>]...`:
+```
+$ ./spexplain list vars x3 x4 data/datasets/heart_attack/heart_attack_s100_scaled.csv
+    Var  Feature         Domain
+    x3   Chest pain      [0, 1]
+    x4   Blood pressure  [0, 1]
+```
+* `samples [<sel>...] <dataset>`:
+The samples of the dataset (indexed from 1) with the values of their variables and their expected classes,
+shown by their names from the header of the dataset followed by their numbers (e.g., `High risk (0)`),
+or by `Class <c>` by default.
+The samples are selected as by the option `-i` of `interpret`, before the dataset, separated by spaces or commas,
+and their number can be limited by the option `-n <int>`.
+The variables, that is, the columns, are selected by the option `--vars <var>[,<var>]...`;
+by default, at most the first 20 of them, followed by a column `...` if there are more (e.g., MNIST).
+The second row of the header shows the domains of the variables;
+with `--domains <file>`, the values and the domains are rescaled to the real units,
+which is reported on the standard error since the values are not those of the dataset.
+With the option `--model <nn_model_fn>`, the samples also show the classes computed by the classifier,
+and the misclassified samples are marked by `!`:
+```
+$ ./spexplain list samples 1-3 98 data/datasets/heart_attack/heart_attack_s100_scaled.csv --vars x1-x4 \
+    --model data/models/heart_attack/heart_attack_50x1.nnet --domains data/domains/heart_attack/heart_attack.csv
+spexplain: info: The values are rescaled to the domains of data/domains/heart_attack/heart_attack.csv, they are not the values of the dataset
+    Sample        x1      x2      x3         x4  Expected       Computed
+            [29, 77]  [0, 1]  [0, 3]  [94, 200]
+    1             57       1       0        150  High risk (0)  High risk (0)
+    2             59       1       3        170  High risk (0)  Low risk (1)   !
+    3             57       1       2        150  Low risk (1)   Low risk (1)
+    98            52       1       0        108  Low risk (1)   High risk (0)  !
+```
+* `classes <dataset>`:
+The classes of the dataset (indexed from 0) with their names from the header of the dataset (see `explain`),
+or `Class <c>` by default, as in the legend of `fspace`.
+The number of the classes is given by the classifier of the option `--model <nn_model_fn>`,
+otherwise by the names in the header of the dataset;
+otherwise, it is only estimated by the largest expected class of the dataset, which is reported on the standard error
+(e.g., a class that is missing in the dataset is not counted if it is the last one).
+* `layers <nn_model_fn>`:
+The layers of the model in the NNet format with their sizes and activations,
+and how the outputs determine the class:
+a single output is a binary classification (class 1 iff the output is at least 0),
+otherwise the class is the one of the maximal output.
+
+The values of the datasets are assumed to be normalized to [0,1] (even with `--domains`),
+so `vars` and `samples` print a warning if the values of the listed variables are outside their domains
+in any sample of the dataset, not only in the listed ones.
+
+If the standard output is a terminal, the output goes through a pager as in git:
+`$PAGER`, or `less` with `LESS=FRSX` unless `LESS` is set
+(it quits at once if the output fits on one screen, and it chops long lines instead of wrapping them);
+the option `--no-pager` prints the output directly.
+
+The action requires the Python package NumPy.
 
 ### Strategies and their parameters
 
