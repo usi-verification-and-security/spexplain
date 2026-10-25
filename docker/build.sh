@@ -2,11 +2,12 @@
 
 source $(dirname "$0")/lib
 
-if [[ -z $TARGET ]]; then
-    ARGS=()
-else
-    ARGS=(--build-arg "TARGET=$TARGET")
-fi
+ARGS=()
+[[ -n $TARGET ]] && ARGS+=(--build-arg "TARGET=$TARGET")
+# The branch or tag of the repository (if supported by the Dockerfile)
+[[ -n $SPEXPLAIN_GIT_TAG ]] && ARGS+=(--build-arg "SPEXPLAIN_GIT_TAG=$SPEXPLAIN_GIT_TAG")
+# E.g. linux/arm64
+[[ -n $PLATFORM ]] && ARGS+=(--platform "$PLATFORM")
 
 printf "Building Docker image %s located at %s ...\n" $IMAGE "$DIR"
 
