@@ -36,4 +36,29 @@ spexplain interpret pixel data/datasets/mnist/mnist_s100_scaled.csv -i 1 --outpu
 spexplain interpret $OUTPUT/phi.txt mathexpr data/datasets/toy.csv --output-visualization $OUTPUT/phi.pdf
 ```
 
-The option `--show` is not supported inside the container, since it requires a display.
+## Showing visualizations
+
+The option `--show` additionally shows the visualization in a window,
+which requires connecting the container to a display of the host
+(this is optional, the files in `$OUTPUT` are produced anyway).
+
+On Linux with X11, or with XWayland under Wayland, run the image with:
+`X11=1 OUTPUT=<dir> docker/run.sh docker/tacas27`  
+(it passes `DISPLAY`, mounts the X11 socket directory `/tmp/.X11-unix`,
+and an authorization cookie of the display created with `xauth`).
+Additional arguments of `docker run` can be passed with the variable `DOCKER_RUN_ARGS`.
+Possible issues:
+* The cookie is readable only by the host user and it is read by the user inside the container with UID 1000;
+  if the UID of the host user differs, or if `xauth` is not available,
+  allow the access to the display instead, e.g., with `xhost +local:`.
+* With SELinux (e.g., Fedora), the container is not allowed to connect to the display by default:
+  use `DOCKER_RUN_ARGS='--security-opt label=type:container_runtime_t'`.
+* Errors related to `MIT-SHM`: use `DOCKER_RUN_ARGS=--ipc=host`.
+* There must be an X server (e.g., XWayland must be enabled under Wayland).
+* With Docker Desktop on Linux (which runs the containers in a virtual machine),
+  the socket directory of the host is not visible to the containers.
+
+On macOS with Docker Desktop, the display is connected via TCP using [XQuartz](https://www.xquartz.org):
+install and start XQuartz, enable *Allow connections from network clients* in its settings (*Security*),
+restart it, allow the access with `xhost +localhost`, and then run the image with:
+`X11=1 OUTPUT=<dir> docker/run.sh docker/tacas27`.
