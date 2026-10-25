@@ -135,7 +135,7 @@ def main():
                       f'activations of {n_activations} models')
 
     with MAP_FILE.open('w', newline='') as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f, lineterminator='\n')
         writer.writerow(['benchmark', 'mode', 'index', 'original_index'])
         writer.writerows(map_rows)
     print(f'Map: {MAP_FILE}')
