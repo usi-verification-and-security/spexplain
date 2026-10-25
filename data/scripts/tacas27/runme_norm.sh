@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+## Fig. 7: the norm of the mnist explanations, from the results of the mode
+## USAGE: ./runme_norm.sh [<mode>]   (default: smoke)
+## The figures go to data/output/<mode>/
 
 SCRIPT=$(realpath "$0")
 TACAS_DIR=$(dirname "$SCRIPT")
@@ -8,24 +11,35 @@ export EXPLANATION_DIR="$DATA_DIR/explanations"
 
 export ROOT_DIR=$(dirname "$DATA_DIR")
 export SPEXPLAIN="$ROOT_DIR/spexplain"
+## spexplain interpret needs matplotlib and numpy
+PYTHON=${PYTHON:-$ROOT_DIR/venv/bin/python}
 
-export OUTPUT_DIR="$DATA_DIR/output"
+MODE=${1:-smoke}
+source "$TACAS_DIR/modes.sh"
+
+export OUTPUT_DIR="$DATA_DIR/output/$MODE"
 
 mkdir -p "$OUTPUT_DIR" >/dev/null || exit $?
 
 model_base=mnist
-dataset_base=s100_scaled_smoke
+dataset=$(mode_dataset $model_base)
+dataset_base=$(basename "$dataset" .csv)
+dataset_base=${dataset_base#${model_base}_}
 width=50
 
-dataset="$DATA_DIR/datasets/$model_base/${model_base}_${dataset_base}.csv"
+failed=0
 
-# for s in 1 7; do
-for s in 1; do
+## The samples of the original s100 dataset; mode_sample gives their index in the mode's dataset
+# for orig_s in 1 7; do
+for orig_s in 1; do
+    s=$(mode_sample $model_base $orig_s) || {
+        printf 'Skipping sample %s: not in %s\n' $orig_s "$dataset"
+        continue
+    }
     # for l in 1 4; do
     for l in 1; do
         variant_k=0
-        ##++ fix-all needs to be replaced by the "no-vars" configuration
-        for variant in guide-all fix-all verix-eps{5,100}; do
+        for variant in guide-all fix-all-no-vars verix-eps{5,100}; do
             variant_char=$(printf "\\$(printf '%03o' $((97+$variant_k)))\n")
             (( ++variant_k ))
 
@@ -42,10 +56,16 @@ for s in 1; do
                 continue
             }
 
-            fimg="$OUTPUT_DIR/fig-7_sample-${s}_${variant_char}-${variant}_${strategy%%_*}_layer-${l}.png"
+            fimg="$OUTPUT_DIR/fig-7_sample-${orig_s}_${variant_char}-${variant}_${strategy%%_*}_layer-${l}.png"
             printf 'Generating %s ...\n' "$fimg"
             ##++ this should probably by scheduled
-            "$SPEXPLAIN" interpret "$fexp" 'norm min, inv' "$dataset" --visualize 'pixel center' --samples $s --output-visualization "$fimg" >/dev/null
+            "$PYTHON" "$SPEXPLAIN" interpret "$fexp" 'norm min, inv' "$dataset" --visualize 'pixel center' --samples $s --output-visualization "$fimg" >/dev/null || (( ++failed ))
         done
     done
 done
+
+(( $failed )) && {
+    printf 'Failed: %d\n' $failed >&2
+    exit 1
+}
+exit 0
