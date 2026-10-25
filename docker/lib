@@ -11,6 +11,8 @@ function usage {
     printf "\tSPEXPLAIN_GIT_TAG\tthe branch or tag of the repository (build.sh)\n"
     printf "\tPLATFORM\tthe target platform, e.g. linux/arm64 (all)\n"
     printf "\tOUTPUT\ta host directory mounted at the output directory of the image, e.g. data/output (run.sh)\n"
+    printf "\tX11\tif set, connect to the X11 display of the host, e.g. for --show (run.sh)\n"
+    printf "\tDOCKER_RUN_ARGS\tadditional arguments of docker run (run.sh)\n"
 
     [[ -n $1 ]] && exit $1
 }
