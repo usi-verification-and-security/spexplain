@@ -18,6 +18,9 @@ from .interpret import warn
 # The maximal number of the variables of the samples listed by default
 MAX_DEFAULT_VARS = 20
 
+# The tolerance of the values of the dataset outside their domains
+DOMAIN_TOLERANCE = 1e-9
+
 # The items that can be listed, with their arguments and descriptions
 TARGETS = {
     'vars': ('[<var>...] <dataset>',
@@ -119,6 +122,23 @@ def domain_str(lower, upper):
     return f'[{lower:g}, {upper:g}]'
 
 
+def check_domains(dataset, var_indices):
+    """Warn if the values of the listed variables are outside their domains in any sample of the dataset."""
+    import numpy as np
+
+    # The domains of the values of the dataset, for now always normalized
+    #+ the domains given by the option --domains, once they are not only for the output
+    var_indices = list(var_indices)
+    values = dataset.samples[:, var_indices]
+    outside = (values < 0 - DOMAIN_TOLERANCE) | (values > 1 + DOMAIN_TOLERANCE)
+    columns = np.flatnonzero(outside.any(axis=0))
+    if len(columns):
+        j = columns[0]
+        k = np.flatnonzero(outside[:, j])[0]
+        warn(f'The values of {len(columns)} of the listed variables are outside their domains '
+             f'(e.g. x{var_indices[j] + 1}: {values[k, j]:g} in sample {k + 1})')
+
+
 def list_vars(opts):
     from .dataset import Dataset
     from .interpret import formula
@@ -131,6 +151,7 @@ def list_vars(opts):
     dataset = Dataset(dataset_file)
     n_vars = dataset.n_features()
     indices = formula.parse_vars(selectors, n_vars, 'list vars') if selectors else range(n_vars)
+    check_domains(dataset, indices)
 
     names = dataset.feature_names
     domains = None
@@ -195,6 +216,7 @@ def list_samples(opts):
     if trimmed:
         info(f'Only the first {MAX_DEFAULT_VARS} of the {n_vars} variables are listed, select them by --vars')
     etc = ['...'] if trimmed else []
+    check_domains(dataset, var_indices)
 
     domains = None
     if opts.domains is not None:
