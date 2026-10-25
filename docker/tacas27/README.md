@@ -10,13 +10,7 @@ including the Explanation Interpreter (`spexplain interpret`).
 From the root of the repository:
 
 * Build the image: `docker/build.sh docker/tacas27`  
-  (the variable `SPEXPLAIN_GIT_TAG` selects the branch or tag of the repository, default: `tacas27-artifact`;
-  the variable `PLATFORM` selects the target platform, e.g., `linux/arm64`;
-  the Git revisions of the dependencies OpenSMT and Marabou are pinned to concrete commits,
-  which can be changed with `--build-arg OPENSMT_GIT_TAG=...` and `--build-arg MARABOU_GIT_TAG=...`
-  using `docker build` directly;
-  the engine for ONNX networks is built from the frozen revision (a tag) `--build-arg ONNX_ENGINE_GIT_TAG=...`
-  (default: `onnx-engine-v1`), which requires `make onnx` in the repository, and is skipped if empty)
+  (the build can be adjusted, see [Build options](#build-options))
 * Run the image: `OUTPUT=<dir> docker/run.sh docker/tacas27`  
   (the host directory `<dir>` is mounted at `~/spexplain/data/output` inside the container,
   which is also in the variable `OUTPUT`)
@@ -62,3 +56,15 @@ On macOS with Docker Desktop, the display is connected via TCP using [XQuartz](h
 install and start XQuartz, enable *Allow connections from network clients* in its settings (*Security*),
 restart it, allow the access with `xhost +localhost`, and then run the image with:
 `X11=1 OUTPUT=<dir> docker/run.sh docker/tacas27`.
+
+## Build options
+
+The build of the image can be adjusted by setting these variables,
+e.g., `SPEXPLAIN_GIT_TAG=<branch> docker/build.sh docker/tacas27`:
+* `SPEXPLAIN_GIT_TAG`: the branch or tag of the repository (default: `tacas27-artifact`)
+* `OPENSMT_GIT_TAG`, `MARABOU_GIT_TAG`: the Git revisions (branches, tags or commits)
+  of the dependencies OpenSMT and Marabou (default: pinned to concrete commits)
+* `ONNX_ENGINE_GIT_TAG`: the tag of the repository from which the engine for ONNX networks is built
+  (default: `onnx-engine-v1`; requires `make onnx` in the repository; an empty value skips it)
+* `PLATFORM`: the target platform, e.g., `linux/arm64`
+* `DOCKER_BUILD_ARGS`: additional arguments of `docker build`, e.g., `--no-cache`
