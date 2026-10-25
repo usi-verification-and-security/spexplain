@@ -26,9 +26,9 @@ width=50
 
 ## The variants shown together in one figure
 VARIANTS=(
-    naive
-    guide-all
     fix-all-no-vars
+    guide-all
+    naive
 )
 strategy=itp_aweak_bstrong
 
@@ -76,9 +76,9 @@ for l in 1 4; do
         done
         (( ${#fexps[@]} )) || continue
 
-        fimg="$OUTPUT_DIR/fig-6-_${model_base}_${width}x${l}_sample-${orig_s}_${strategy%%_*}_${pick_char}-vars-${var1}-${var2}.png"
+        fimg="$OUTPUT_DIR/fig-6_${model_base}_${width}x${l}_${pick_char}-sample-${orig_s}_${strategy%%_*}_vars-${var1}-${var2}.png"
         printf 'Generating %s ...\n' "$fimg"
-        "$PYTHON" "$SPEXPLAIN" interpret "${fexps[@]}" "slice vars $var1 $var2" "$dataset" --model "$model" --visualize fspace --visualization-domains "$domains" --samples $s --output-visualization "$fimg" -q || (( ++failed ))
+        "$PYTHON" "$SPEXPLAIN" interpret "${fexps[@]}" "slice vars $var1 $var2" "$dataset" --model "$model" --visualize fspace --samples $s --output-visualization "$fimg" -q || (( ++failed ))
     done
 done
 
