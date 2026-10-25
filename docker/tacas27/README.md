@@ -18,6 +18,8 @@ From the root of the repository:
 Inside the container, the tool is located at `~/spexplain`
 and the script `spexplain` is available in `PATH`.
 To get started, follow the [tutorial](../../tutorial), which is designed for this image.
+The experiments of the paper are reproduced by `./reproduce.sh` (see `./reproduce.sh -h`),
+which writes its figures into `data/output`, i.e., into the mounted directory `<dir>`.
 
 ## Visualizations
 
