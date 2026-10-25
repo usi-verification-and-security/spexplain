@@ -288,10 +288,10 @@ function print_estimate {
         }
         for (i = 1; i <= slots; i++) if (load[i] > wall) wall = load[i]
         printf "%-18s %6d %13d\n\n", "total", n_jobs, n_expl
-        printf "Worst case (every explanation times out):\n"
-        printf "  CPU time:     %s\n", dur(total)
-        printf "  longest job:  %s\n", dur(longest)
-        printf "  wall time:    %s\n\n", dur(wall)
+#        printf "Worst case (every explanation times out):\n"
+#        printf "  CPU time:     %s\n", dur(total)
+#        printf "  longest job:  %s\n", dur(longest)
+#        printf "  wall time:    %s\n\n", dur(wall)
     }' "$JOBS_TMP"
 }
 
