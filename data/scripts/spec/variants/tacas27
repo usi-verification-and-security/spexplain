@@ -1,0 +1,7 @@
+VARIANT_NAMES=(
+    naive
+    guide-all
+    fix-all
+    hybrid
+    fix-all-no-vars
+)

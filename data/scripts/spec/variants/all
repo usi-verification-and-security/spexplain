@@ -3,6 +3,7 @@ VARIANT_NAMES=(
     guide-all
     fix-all
     hybrid
+    fix-all-no-vars
 )
 
 VARIANT_OPTIONS=(
@@ -10,4 +11,5 @@ VARIANT_OPTIONS=(
     '--guide-default-sample-neuron-activations all --fix-default-sample-neuron-activations none --encoding-relu-lower-bounds false'
     '--guide-default-sample-neuron-activations none --fix-default-sample-neuron-activations all --encoding-relu-lower-bounds false'
     "--guide-default-sample-neuron-activations all --fix-default-sample-neuron-activations none --encoding-relu-lower-bounds false --input-fix-sample-neuron-activations=\"$INPUT_FIX_SAMPLE_NEURON_ACTIVATIONS\""
+    '--guide-default-sample-neuron-activations none --fix-default-sample-neuron-activations all --encoding-relu-lower-bounds false --allow-neuron-vars-in-explanations false'
 )

@@ -1,13 +1,13 @@
-# `runme.sh` — all TACAS'27 benchmarks in one run
+````# `runme.sh` — all TACAS'27 benchmarks in one run
 
 ```
 ./runme.sh <action> <mode> [--resume] [-n] [-h]
 ```
 
-Actions: `run`, `collect-stats` (more to come: `plot-performance`, `run-verix-plus`).
+Actions: `run`, `collect-stats`, `plot-performance`, `interpret` (more to come: `run-verix-plus`).
 Modes: `smoke`, `quick`, `short`, `full`. Both are required.
 
-`runme.sh` runs the `plain_itp` experiments with the `neuron_activations` variants on the
+`runme.sh` runs the `plain_itp` experiments with the `tacas27` variants on the
 benchmarks heart_attack, obesity, loan (tabular) and mnist, cifar, gtsrb (images), for the 50x
 and 200x networks, on the dataset `<name>_s100_scaled.csv` (100 samples each).
 
@@ -27,12 +27,13 @@ and 200x networks, on the dataset `<name>_s100_scaled.csv` (100 samples each).
 - `--resume` skips the jobs that already finished in the previous run of the same mode, e.g.
   after hitting the 24h Slurm limit.
 
-Variants: `naive`, `guide-all` (prefer-all), `fix-all`, `hybrid`.
+Variants (`data/scripts/spec/variants/tacas27`): `naive`, `guide-all` (prefer-all), `fix-all`, `hybrid`,
+`fix-all-no-vars` (fix-all without neuron variables in the explanations).
 Experiments: `itp_astronger_bstrong`, `itp_astrong_bstrong`, `itp_afactor_0.5_bstrong`,
 `itp_aweak_bstrong`, `itp_aweaker_bstrong`.
 
-Models: the script runs all `<name>_<width>x*.nnet` files. The numbers below are for the
-**final model set**, where only these depths `d` (number of hidden layers) are kept, for both 50x and 200x:
+Models: only these `<name>_<width>x<depth>.nnet` files, for both widths 50x and 200x
+(`TABULAR_DEPTHS` and `IMAGE_DEPTHS` in `modes.sh`; a missing one stops the script):
 
 | benchmark | depths d | 50x | 200x |
 |---|---|---|---|
@@ -40,30 +41,26 @@ Models: the script runs all `<name>_<width>x*.nnet` files. The numbers below are
 | mnist, cifar, gtsrb (images) | 1, 2, 3, 4, 6, 8, 10, 12, 14 | 9 each | 9 each |
 | **total** | | **45** | **45** |
 
-Until the other model files are removed, restrict a run to the final set with
-
-```bash
-FILTER='^((heart_attack|obesity|loan)/(50|200)x(1|2|3|4|6|8)|(mnist|cifar|gtsrb)/(50|200)x(1|2|3|4|6|8|10|12|14))/' ./runme.sh run <mode> ...
-```
-
 ## The four modes
 
 | | `smoke` | `quick` | `short` | `full` |
 |---|---|---|---|---|
 | benchmarks | all but cifar, gtsrb | all | all | all |
 | widths | 50x | 50x, 200x | 50x, 200x | 50x, 200x |
-| variants | guide-all, fix-all, hybrid | all 4, minus the exclusions below | all 4, minus the exclusions below | all 4 |
+| variants | naive (heart_attack 50x1–50x4 only), guide-all, fix-all, hybrid, fix-all-no-vars | all 5, minus the exclusions below | all 5, minus the exclusions below | all 5, minus the fix-all-no-vars exclusions |
 | experiments | itp_aweak_bstrong | 50x: all 5; 200x: itp_aweak_bstrong | 50x: all 5; 200x: itp_aweak_bstrong | all 5 |
 | dataset | `<name>_s100_scaled_smoke.csv` | `<name>_s100_scaled_quick.csv` | `<name>_s100_scaled_short.csv` | `<name>_s100_scaled.csv` |
 | samples | the important ones (1–6) | 8 (same as short) | 8 (same as quick) | all 100 |
 | timeout per explanation | 1m tabular, 5m mnist | 200s tabular, MN 300s, CIF 400s, GTS 600s | HA/OB/LO 5m, MN/CIF 10m, GTS 14m | HA/OB/LO 5m, MN/CIF 10m, GTS 14m |
 | on a failed job | stop | continue | continue | continue |
 | results in | `s100_scaled_smoke/<variant>/` | `s100_scaled_quick/<variant>/` | `s100_scaled_short/<variant>/` | `s100_scaled/<variant>/` |
-| **jobs** | **81** | **947** | **947** | **1,800** |
-| **explanations** | **189** | **7,576** | **7,576** | **180,000** |
+| **jobs** | **97** | **1,007** | **1,007** | **1,860** |
+| **explanations** | **280** | **8,056** | **8,056** | **186,000** |
 
-`smoke`, `short` and `quick` leave out the deep models where a variant mostly times out
-(for `smoke` this changes nothing yet: it runs no `naive` and no 200x jobs):
+`fix-all-no-vars` runs in all modes, but only for the 50x1–50x4 models of heart_attack, loan and mnist.
+`smoke` runs `naive` only for the 50x1–50x4 models of heart_attack.
+`smoke`, `short` and `quick` also leave out the deep models where a variant mostly times out
+(for `smoke` these change nothing beyond that limit, as it runs no 200x jobs):
 
 | variant | benchmarks | left out |
 |---|---|---|
@@ -110,10 +107,10 @@ Jobs per benchmark and width:
 
 | benchmark | smoke | quick, short | full |
 |---|---|---|---|
-| heart_attack 50x | 18 | 115 | 120 |
+| heart_attack 50x | 26 | 135 | 140 |
 | obesity 50x | 18 | 115 | 120 |
-| loan 50x | 18 | 115 | 120 |
-| mnist 50x | 27 | 155 | 180 |
+| loan 50x | 22 | 135 | 140 |
+| mnist 50x | 31 | 175 | 200 |
 | cifar 50x | – | 150 | 180 |
 | gtsrb 50x | – | 150 | 180 |
 | heart_attack 200x | – | 24 | 120 |
@@ -127,7 +124,7 @@ Jobs per benchmark and width:
 
 All numbers assume a machine with **16 CPUs** and the default `CPU_PERCENTAGE=80`, i.e.
 **13 jobs at once**, and the final model set. For another machine, run e.g.
-`CPUS=<n> ./runme.sh run short -n` (with the `FILTER` above until the models are removed).
+`CPUS=<n> ./runme.sh run short -n`.
 
 **Max** = every explanation hits its timeout. This is a hard upper bound, apart from the
 small model-loading overhead per job. The wall time simulates the shared queue (the
@@ -142,16 +139,16 @@ which is the most likely bad case. Calibrate it with the joblog of the smoke run
 
 | | `smoke` | `quick` | `short` | `full` |
 |---|---|---|---|---|
-| worst-case CPU time | 4h 57m | 692h | 1,077h | 26,400h |
-| longest single job (max) | 6m | 1h 20m | 1h 52m | 23h 20m |
-| **max wall time** | **23m** | **53h 20m (~2.2 days)** | **82h 56m (~3.5 days)** | **2,036h 40m (~85 days)** |
-| naive-bound wall time | – (no naive) | 7h 20m | 11h 44m | 513h 20m (~21 days) |
-| **expected** | **~5–10m** | **~4–8h** | **~6–12h** | **~3 weeks** |
+| worst-case CPU time | 8h 48m | 724h | 1,130h | 27,067h |
+| longest single job (max) | 10m | 1h 20m | 1h 52m | 23h 20m |
+| **max wall time** | **41m** | **55h 46m (~2.3 days)** | **87h 28m (~3.6 days)** | **2,086h 40m (~87 days)** |
+| naive-bound wall time | ≤ 41m | 7h 20m | 11h 44m | 513h 20m (~21 days) |
+| **expected** | **~15–25m** | **~4–8h** | **~6–12h** | **~3 weeks** |
 
 Notes:
-- `smoke` skips cifar and gtsrb and has no `naive` jobs; its 81 jobs explain 1–6 samples each
-  (heart_attack 6, loan 2, mnist and obesity 1). Even if every explanation times out, it
-  finishes in 23m.
+- `smoke` skips cifar and gtsrb and runs `naive` only for heart_attack 50x1–50x4; its 97 jobs
+  explain 1–6 samples each (heart_attack 6, loan 2, mnist 2, obesity 1). Even if every
+  explanation times out, it finishes in 41m. The `naive` jobs likely time out from 50x3 on.
 - `short` and `quick`: with 13 slots the queue is always full, so their wall time is about
   the CPU time divided by 13. The exclusions remove the deep `naive` jobs, so the remaining
   `naive` jobs (149, up to 146h CPU time in short) are no longer most of the worst case:
@@ -217,6 +214,24 @@ WRAPPER=~/srun_commands/sbatch.sh ./runme.sh run full --resume
 FILTER='^mnist/200x[0-9]+/hybrid/' ./runme.sh run full
 ```
 
+## Explanations for interpretation
+
+At the end of `run`, in every mode, after the GNU parallel queue has finished, `runme.sh` also
+runs `commands_fix-all_no_neuron_vars.sh`. It computes explanations without inner-neuron
+variables (`--allow-neuron-vars-in-explanations false`), suitable for visualization:
+
+- loan and obesity, 50x1–50x4, variants `naive` (Direct), `guide-all` and `fix-all`;
+- `itp_astrong_bstrong`, `itp_afactor_0.5_bstrong`, `itp_aweak_bstrong`;
+- always on the `<name>_s100_scaled_quick.csv` datasets (8 samples), whatever the mode is,
+  with a 10 min limit per explanation;
+- the 72 runs go one after another (not through the queue), into
+  `data/explanations_for_interpretation/<name>/50x<d>/s100_scaled_quick/<variant>/`,
+  overwriting earlier results.
+
+`-n` does not run it. If it fails, `run` reports it and exits with 1. The overall running time
+printed by `run` includes it. It can also be run on its own:
+`./commands_fix-all_no_neuron_vars.sh` (needs bash >= 4).
+
 ## Collecting the stats
 
 ```bash
@@ -244,14 +259,74 @@ per benchmark, with both widths, to `./stats/<mode>/<name>.txt`, e.g. `./stats/s
 `collect_stats.sh` can also be used directly on a mode's results, without `<max_samples>`, e.g.
 `./collect_stats.sh explanations/heart_attack/50x1/s100_scaled_short/hybrid/ plain_itp`.
 
+## Plotting
+
+```bash
+./runme.sh plot-performance <mode> [-n]
+```
+
+`plot-performance` runs `plot_fc_stats.py` on the stats of `collect-stats` (run that first)
+and writes the PAR-2 plots to `./stats/<mode>/plots/`: `PAR-2_all_tasks_<width>.pdf` (all six
+benchmarks) and `PAR-2_image_only_<width>.pdf`, for the widths 50 and 200. The parsed tables
+are written next to the stats as `./stats/<mode>/<name>.csv`.
+
+- It uses the Python of `venv/` in the repository, created with
+  `python3 -m venv venv && venv/bin/pip install -r requirements.txt`; `PYTHON` overrides it.
+- The timeout lines, the points of missing results (drawn at PAR-2 = 2 × timeout) and the
+  y-limits use the timeout per sample of the stats, so they fit every mode.
+- Benchmarks without stats keep their place in the grid but stay empty, and widths without
+  results are skipped (smoke: only the 50x plots, without cifar and gtsrb).
+- With LaTeX installed, text is rendered with it; without, with Matplotlib's mathtext.
+- What to plot (plotted depths, the itp algorithms of 200x, colors, fonts) is set at the top of
+  `plot_fc_stats.py` and in `ploting_utils.py`.
+
+## Interpretation figures
+
+```bash
+./runme.sh interpret <mode> [-n]
+```
+
+`interpret` runs `runme_norm.sh <mode>`, `runme_diam.sh <mode>` and `runme_methodes.sh <mode>`,
+in this order, on the mode's explanations. `run` also runs all three at the end, in every mode, after the GNU parallel queue
+(not with `-n`). The figures go to `data/output/<mode>/`.
+
+- `runme_norm.sh` (Fig. 7): `interpret ... 'norm min, inv' --visualize 'pixel center'` of mnist
+  50x1, sample 1, with the variants `guide-all`, `fix-all-no-vars`, `verix/eps5` and `verix/eps100`.
+- `runme_diam.sh` (Fig. 11): `interpret ... 'diam vars <x> <y>'` of the 50x1 `guide-all`
+  `itp_aweak_bstrong` explanations, as an image and as `mathexpr` (PDF): heart_attack sample 21
+  (s20 in the paper) and loan sample 90 (s89 in the paper), four pairs of variables each.
+- `runme_methodes.sh` (Fig. 6): `interpret ... 'slice vars <x> <y>' --visualize fspace` of the
+  `naive`, `guide-all` and `fix-all-no-vars` `itp_aweak_bstrong` explanations together, for
+  50x1 and 50x4: heart_attack samples 98 and 63 (s97, s62 in the paper) and loan samples 8 and
+  70 (s7, s69 in the paper). A missing variant is left out of the figure; smoke has no loan
+  `naive`, so its loan figures show only `guide-all` and `fix-all-no-vars`.
+- The samples are the indices in the original s100 dataset. `mode_sample` (in `modes.sh`)
+  turns them into the indices in the mode's dataset via `data/datasets/mode_sample_maps.csv`.
+  Sample 90 of loan is not in the smoke dataset, so smoke has no loan figures.
+- A missing explanations file or sample is skipped with a message (e.g. verix until
+  `run-verix-plus` exists). A failed `spexplain interpret` makes the script, and then `interpret`
+  or `run`, exit with 1.
+- The explanations must have been computed on the current mode dataset. After
+  `make_mode_datasets.py` changes it, run the mode again, or `interpret` fails with
+  "The number of explanations ... does not match the size of the dataset".
+- They use the Python of `venv/` in the repository (`PYTHON` overrides it), as `spexplain
+  interpret` needs matplotlib.
+- The scripts can also be run on their own: `./runme_norm.sh <mode>`, `./runme_diam.sh <mode>`,
+  `./runme_methodes.sh <mode>` (default mode: smoke).
+
 ## Files
 
 - `runme.sh`: the actions, the job list and the GNU parallel queue.
 - `modes.sh`: what each mode runs: benchmarks, widths, variants, experiments, exclusions,
   datasets and timeouts.
 - `make_mode_datasets.py`: the mode datasets, the sample maps and their neuron activations.
+- `plot_fc_stats.py`, `ploting_utils.py`: the plots of `plot-performance`.
+- `runme_norm.sh`, `runme_diam.sh`, `runme_methodes.sh`: the interpretation figures of `interpret`, also run at
+  the end of `run`.
+- `commands_fix-all_no_neuron_vars.sh`: the explanations for interpretation, run at the end of `run`.
 
 
 ## Run Times on My Laptop
 - CPU: Apple M1 Pro, 10 cores (8 performance, 2 efficiency)
 - Smoke: 27 minutes, 30 seconds
+````

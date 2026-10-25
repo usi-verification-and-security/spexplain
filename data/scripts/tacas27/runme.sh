@@ -10,10 +10,18 @@
 ##   run            run the experiments of the mode
 ##   collect-stats  collect the stats of the mode's finished experiments with collect_stats.sh,
 ##                  one file per benchmark (50x and 200x): <STATS_DIR>/<mode>/<name>.txt
+##   plot-performance
+##                  plot the PAR-2 per model of the collected stats with plot_fc_stats.py:
+##                  <STATS_DIR>/<mode>/plots/*.pdf (run collect-stats first)
+##   interpret      make the interpretation figures from the mode's explanations with
+##                  runme_norm.sh (Fig. 7, mnist), runme_diam.sh (Fig. 11, heart_attack and loan)
+##                  and runme_methodes.sh (Fig. 6, heart_attack and loan):
+##                  data/output/<mode>/*; run also does this at the end
 ##
 ## Modes (see ./modes.sh):
 ##   smoke     dataset <name>_s100_scaled_smoke.csv (the important samples);
-##             50x only, without cifar and gtsrb, guide-all/fix-all/hybrid, itp_aweak_bstrong,
+##             50x only, without cifar and gtsrb, naive (heart_attack 50x1-50x4 only)/guide-all/fix-all/hybrid/fix-all-no-vars,
+##             itp_aweak_bstrong,
 ##             timeout per explanation 1m (tabular) or 5m (mnist)
 ##   quick     as short, with timeouts per explanation 200s (tabular), 300s (mnist),
 ##             400s (cifar) and 600s (gtsrb)
@@ -21,8 +29,10 @@
 ##             50x: everything, 200x: itp_aweak_bstrong only
 ##   full      dataset <name>_s100_scaled.csv (100 samples); everything
 ## smoke, quick and short leave out the deep models where naive or guide-all mostly times out.
+## fix-all-no-vars runs only for the 50x1-50x4 models of heart_attack, loan and mnist, in all modes.
 ## The results go to data/explanations/<name>/<width>x<depth>/<dataset>/<variant>/,
-## e.g. s100_scaled_short. The smaller datasets, the maps of their samples to the original ones
+## e.g. s100_scaled_short. In every mode, run also runs commands_fix-all_no_neuron_vars.sh at the end
+## (explanations for interpretation, into data/explanations_for_interpretation/). The smaller datasets, the maps of their samples to the original ones
 ## (data/datasets/mode_sample_maps.csv) and their neuron activations are made by make_mode_datasets.py.
 ##
 ## Options:
@@ -34,10 +44,12 @@
 ##   CPU_PERCENTAGE    percentage of CPUs to use (default: 80)
 ##   CPUS              CPUs to take the percentage of (default: SLURM_CPUS_PER_TASK or all CPU threads)
 ##   EXPERIMENTS_SPEC  experiments collection of 'everything' (default: plain_itp)
-##   VARIANTS_SPEC     variants collection of 'everything' (default: neuron_activations)
+##   VARIANTS_SPEC     variants collection of 'everything' (default: tacas27)
 ##   FILTER            regex over '<name>/<width>x<idx>/<variant>/<experiment>' job identifiers
 ##   LOG_DIR           directory for the job list and the joblog (default: data/logs/runme/<mode>)
-##   STATS_DIR         collect-stats: directory for the stats files (default: ./stats)
+##   STATS_DIR         collect-stats, plot-performance: directory of the stats files (default: ./stats)
+##   PYTHON            plot-performance: Python with matplotlib and pandas
+##                     (default: venv/bin/python of the repository, see requirements.txt)
 ##   DRY_RUN=1         same as -n
 ##   WRAPPER           if set, submit this script through it (e.g. sbatch.sh) instead of running it
 
@@ -63,7 +75,7 @@ function usage {
 
 source "$TACAS_DIR/modes.sh"
 
-ACTIONS=(run collect-stats)
+ACTIONS=(run collect-stats plot-performance interpret)
 
 ACTION=
 MODE=
@@ -114,7 +126,7 @@ done
 export CPU_PERCENTAGE=${CPU_PERCENTAGE:-80}
 
 export EXPERIMENTS_SPEC=${EXPERIMENTS_SPEC:-plain_itp}
-export VARIANTS_SPEC=${VARIANTS_SPEC:-neuron_activations}
+export VARIANTS_SPEC=${VARIANTS_SPEC:-tacas27}
 
 source "$SCRIPTS_DIR/lib/run"
 
@@ -147,9 +159,6 @@ function dataset_dir {
 ## <samples> <order: benchmark.width.depth.variant>
 ## The longest jobs go first, so that they do not prolong the end of the run.
 function make_jobs {
-    ## Expand a model glob without matches to nothing rather than to the pattern
-    shopt -s nullglob
-
     local width i name timeout_per dataset n_samples worst_secs
     ## not 'strategies': find_strategies_for_experiment writes through a reference to this name,
     ## and has a local variable of that name itself
@@ -174,16 +183,14 @@ function make_jobs {
             n_samples=$(( $(awk 'END { print NR }' "$dataset") - 1 ))
             worst_secs=$(( $n_samples * $(to_secs $timeout_per) ))
 
-            local models=("$DATA_DIR/models/$name/${name}_${width}x"*".nnet")
-            (( ${#models[@]} )) || {
-                printf "No models found for %s %sx, skipping.\n" $name $width >&2
-                continue
-            }
+            for depth in $(model_depths $name); do
+                model_id=${width}x$depth
+                model="$DATA_DIR/models/$name/${name}_$model_id.nnet"
 
-            for model in "${models[@]}"; do
-                model_id=$(basename "$model" .nnet)
-                model_id=${model_id#${name}_}
-                depth=${model_id#*x}
+                [[ -r $model ]] || {
+                    printf "Cannot read the model: %s\n" "$model" >&2
+                    exit 1
+                }
 
                 for vidx in ${!MODE_VARIANTS[@]}; do
                     variant=${MODE_VARIANTS[$vidx]}
@@ -373,11 +380,24 @@ function action_run {
     cut -f2-8 "$log_dir/jobs.txt" | parallel "${parallel_opts[@]}" run_job {1} {2} {3} {4} {5} {6} {7}
     local status=$?
 
+    run_interpretation || (( status++ ))
+
+#    ## >>> explanations for interpretation (added) >>>
+#    ## In every mode, also compute the explanations without inner-neuron variables for the interpretation
+#    ## (loan, obesity, 50x1-4, naive/guide-all/fix-all, on the _quick datasets, whatever the mode is)
+#    ## into data/explanations_for_interpretation/; see commands_fix-all_no_neuron_vars.sh
+#    printf "\nRunning: explanations for interpretation (%s)\n" "$TACAS_DIR/commands_fix-all_no_neuron_vars.sh"
+#    "$BASH" "$TACAS_DIR/commands_fix-all_no_neuron_vars.sh" || {
+#        printf "explanations for interpretation failed!\n" >&2
+#        (( status++ ))
+#    }
+#    ## <<< explanations for interpretation (added) <<<
+
     ## SECONDS counts from the start of the script
     local elapsed=$(printf "%dh %02dm %02ds" $(( $SECONDS/3600 )) $(( $SECONDS%3600/60 )) $(( $SECONDS%60 )))
 
     (( $status )) && {
-        printf "\nFailed jobs: %d (see the non-zero Exitval in %s)\n" $status "$joblog" >&2
+        printf "\nFailed: %d (jobs: see the non-zero Exitval in %s; or the interpretation)\n" $status "$joblog" >&2
         printf "Overall running time: %s\n" "$elapsed" >&2
         exit 1
     }
@@ -507,6 +527,76 @@ function action_collect_stats {
 }
 
 ########################################################################
+## plot-performance
+
+## Plots the stats of collect-stats with plot_fc_stats.py
+function action_plot_performance {
+    local stats_dir=${STATS_DIR:-$PWD/stats}/$MODE
+    local python=${PYTHON:-$(dirname "$DATA_DIR")/venv/bin/python}
+    local plot_cmd=("$python" "$TACAS_DIR/plot_fc_stats.py" "$stats_dir")
+
+    printf "Stats:  %s\nPlots:  %s\n\n" "$stats_dir" "$stats_dir/plots"
+
+    local stats_files=("$stats_dir"/*.txt)
+    [[ -e ${stats_files[0]} ]] || {
+        printf "No stats files in %s; run first: %s collect-stats %s\n" "$stats_dir" "$0" $MODE >&2
+        exit 1
+    }
+
+    "$python" -c 'import matplotlib, pandas' 2>/dev/null || {
+        printf "%s lacks matplotlib or pandas; create the venv (python3 -m venv venv && venv/bin/pip install -r requirements.txt)\nin the repository or set PYTHON to a Python that has them.\n" "$python" >&2
+        exit 1
+    }
+
+    [[ $DRY_RUN == 1 ]] && {
+        printf "DRY RUN - would run:\n  %s\n" "${plot_cmd[*]}"
+        exit 0
+    }
+
+    "${plot_cmd[@]}" || {
+        printf "\nPlotting failed.\n" >&2
+        exit 1
+    }
+
+    printf "\nPlots:\n"
+    ls -1 "$stats_dir"/plots/*.pdf | sed 's/^/  /'
+    exit 0
+}
+
+########################################################################
+## interpret
+
+INTERPRET_SCRIPTS=(runme_norm.sh runme_diam.sh runme_methodes.sh)
+
+## Runs the interpretation scripts on the mode's explanations; returns 1 if any failed
+function run_interpretation {
+    local script
+    local failed=0
+
+    printf "\nInterpretation: %s\n" "$DATA_DIR/output/$MODE"
+    for script in "${INTERPRET_SCRIPTS[@]}"; do
+        printf "\nRunning: %s %s\n" "$script" $MODE
+        "$BASH" "$TACAS_DIR/$script" $MODE || {
+            printf "%s failed!\n" "$script" >&2
+            failed=1
+        }
+    done
+
+    return $failed
+}
+
+function action_interpret {
+    [[ $DRY_RUN == 1 ]] && {
+        printf "DRY RUN - would run:\n"
+        printf "  %s $MODE\n" "${INTERPRET_SCRIPTS[@]/#/$TACAS_DIR/}"
+        exit 0
+    }
+
+    run_interpretation || exit 1
+    exit 0
+}
+
+########################################################################
 
 case $ACTION in
 run)
@@ -514,5 +604,11 @@ run)
     ;;
 collect-stats)
     action_collect_stats
+    ;;
+plot-performance)
+    action_plot_performance
+    ;;
+interpret)
+    action_interpret
     ;;
 esac

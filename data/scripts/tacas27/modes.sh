@@ -6,8 +6,21 @@ MODES=(smoke quick short full)
 
 NAMES=(heart_attack obesity loan mnist cifar gtsrb)
 
-## Network widths, i.e. the <width>x prefix of the model files
+## The models <name>_<width>x<depth>.nnet: the widths, i.e. the neurons per hidden layer,
+## and the depths, i.e. the hidden layers, the same for both widths
 WIDTHS=(50 200)
+TABULAR_DEPTHS=(1 2 3 4 6 8)
+IMAGE_DEPTHS=(1 2 3 4 6 8 10 12 14)
+
+## <name> -> the depths of its models
+function model_depths {
+    local name=$1
+
+    case $name in
+    heart_attack|obesity|loan) printf "%s" "${TABULAR_DEPTHS[*]}" ;;
+    mnist|cifar|gtsrb)         printf "%s" "${IMAGE_DEPTHS[*]}" ;;
+    esac
+}
 
 ## Timeouts per explanation, in the order of NAMES
 TIMEOUT_PERS=(      5m   5m   5m   10m  10m  14m)
@@ -59,7 +72,7 @@ function set_mode_for_width {
     case $MODE in
     smoke)
         (( $width == 50 )) || return 1
-        MODE_VARIANTS=(guide-all fix-all hybrid)
+        MODE_VARIANTS=(naive guide-all fix-all hybrid fix-all-no-vars)
         MODE_EXPERIMENTS=(itp_aweak_bstrong)
         ;;
     short|quick)
@@ -73,14 +86,26 @@ function set_mode_for_width {
     return 0
 }
 
-## Jobs left out of smoke, quick and short: the deep models where the variant mostly times out
-## Returns 0 if the job is excluded
+## Jobs left out of the modes; returns 0 if the job is excluded
 function is_excluded {
     local name=$1
     local width=$2
     local depth=$3
     local variant=$4
 
+    ## In all modes: fix-all-no-vars only for the 50x1-50x4 models of heart_attack, loan and mnist
+    [[ $variant == fix-all-no-vars ]] && {
+        [[ $name =~ ^(heart_attack|loan|mnist)$ ]] && (( $width == 50 && $depth <= 4 )) && return 1
+        return 0
+    }
+
+    ## In smoke: naive only for the 50x1-50x4 models of heart_attack
+    [[ $MODE == smoke && $variant == naive ]] && {
+        [[ $name == heart_attack ]] && (( $depth <= 4 )) && return 1
+        return 0
+    }
+
+    ## In smoke, quick and short: the deep models where the variant mostly times out
     [[ $MODE == full ]] && return 1
 
     case $variant in
@@ -107,4 +132,16 @@ function is_excluded {
     esac
 
     return 1
+}
+
+## <name> <original sample> -> its index in the dataset of the mode (both 1-based),
+## from data/datasets/mode_sample_maps.csv; returns 1 if the dataset lacks the sample
+function mode_sample {
+    local name=$1
+    local orig=$2
+
+    awk -F, -v name=$name -v mode=$MODE -v orig=$orig '
+        $1 == name && $2 == mode && $4 == orig { print $3; found = 1; exit }
+        END { exit !found }
+    ' "$DATA_DIR/datasets/mode_sample_maps.csv"
 }
