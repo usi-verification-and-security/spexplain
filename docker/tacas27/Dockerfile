@@ -61,6 +61,17 @@ RUN \
         dvipng && \
     rm -rf /var/lib/apt/lists/*
 
+# Only for --show with a display connected (see docker/run.sh, X11=1):
+# python3-tk (interactive backend of matplotlib) for pixel and fspace,
+# xdg-utils and mupdf (PDF viewer) for mathexpr
+RUN \
+    apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+        python3-tk \
+        xdg-utils \
+        mupdf && \
+    rm -rf /var/lib/apt/lists/*
+
 ENV PROJECT=spexplain
 ENV USER=tacas27
 ENV HOME=/home/$USER
@@ -70,6 +81,8 @@ USER $USER
 # Matplotlib cache
 ENV MPLCONFIGDIR=$HOME/.cache/matplotlib
 WORKDIR $HOME
+# xdg-open opens PDFs in mupdf, there is no desktop environment
+RUN xdg-mime default mupdf.desktop application/pdf
 
 # The branch or tag of the repository (not a commit)
 ARG SPEXPLAIN_GIT_TAG=tacas27-artifact
