@@ -36,8 +36,6 @@ LOAN_VARS=(
     'x1 x5'
 )
 
-failed=0
-
 for model_base in heart_attack loan; do
     l=1
     dataset=$(mode_dataset $model_base)
@@ -82,13 +80,13 @@ for model_base in heart_attack loan; do
         fimg_mathexpr="${fimg%.png}.pdf"
         fimg_mathexpr="${fimg_mathexpr/fig-11_/fig-11_mathexpr_}"
         printf 'Generating %s ...\n' "$fimg"
-        "$PYTHON" "$SPEXPLAIN" interpret "$fexp" "diam vars $vars" "$dataset" --model "$model" --visualize --visualization-domains "$domains" --samples $s --output-visualization "$fimg" -q || (( ++failed ))
+        "$PYTHON" "$SPEXPLAIN" interpret "$fexp" "diam vars $vars" "$dataset" --model "$model" --visualize --visualization-domains "$domains" --samples $s --output-visualization "$fimg" -q &
         printf 'Generating %s ...\n' "$fimg_mathexpr"
-        "$PYTHON" "$SPEXPLAIN" interpret "$fexp" "diam vars $vars" "$dataset" --visualize mathexpr --visualization-domains "$domains" --samples $s --output-visualization "$fimg_mathexpr" -q || (( ++failed ))
+        "$PYTHON" "$SPEXPLAIN" interpret "$fexp" "diam vars $vars" "$dataset" --visualize mathexpr --visualization-domains "$domains" --samples $s --output-visualization "$fimg_mathexpr" -q &
     done
 done
 
-(( $failed )) && {
+wait || {
     printf 'Failed: %d\n' $failed >&2
     exit 1
 }

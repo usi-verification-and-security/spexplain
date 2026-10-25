@@ -80,6 +80,11 @@ function usage {
     [[ -n $1 ]] && exit $1
 }
 
+[[ -z $PYTHON ]] && {
+    command -v python3 >/dev/null && PYTHON=python3
+}
+export PYTHON
+
 source "$TACAS_DIR/modes.sh"
 
 ACTIONS=(run collect-stats plot-performance interpret)
@@ -397,8 +402,6 @@ function action_run {
 
     cut -f2-8 "$log_dir/jobs.txt" | parallel "${parallel_opts[@]}" run_job {1} {2} {3} {4} {5} {6} {7}
     local status=$?
-
-    run_interpretation || (( status++ ))
 
 #    ## >>> explanations for interpretation (added) >>>
 #    ## In every mode, also compute the explanations without inner-neuron variables for the interpretation

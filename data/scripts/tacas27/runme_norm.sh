@@ -27,17 +27,13 @@ dataset_base=$(basename "$dataset" .csv)
 dataset_base=${dataset_base#${model_base}_}
 width=50
 
-failed=0
-
 ## The samples of the original s100 dataset; mode_sample gives their index in the mode's dataset
-# for orig_s in 1 7; do
-for orig_s in 1; do
+for orig_s in 1 7; do
     s=$(mode_sample $model_base $orig_s) || {
         printf 'Skipping sample %s: not in %s\n' $orig_s "$dataset"
         continue
     }
-    # for l in 1 4; do
-    for l in 1; do
+    for l in 1 4; do
         variant_k=0
         for variant in guide-all fix-all-no-vars verix-eps{5,100}; do
             variant_char=$(printf "\\$(printf '%03o' $((97+$variant_k)))\n")
@@ -58,13 +54,14 @@ for orig_s in 1; do
 
             fimg="$OUTPUT_DIR/fig-7_sample-${orig_s}_${variant_char}-${variant}_${strategy%%_*}_layer-${l}.png"
             printf 'Generating %s ...\n' "$fimg"
-            ##++ this should probably by scheduled
-            "$PYTHON" "$SPEXPLAIN" interpret "$fexp" 'norm min, inv' "$dataset" --visualize 'pixel center' --samples $s --output-visualization "$fimg" >/dev/null || (( ++failed ))
+            "$PYTHON" "$SPEXPLAIN" interpret "$fexp" 'norm min, inv' "$dataset" --visualize 'pixel center' --samples $s --output-visualization "$fimg" -q &
         done
+
+        [[ $MODE == smoke ]] && break
     done
 done
 
-(( $failed )) && {
+wait || {
     printf 'Failed: %d\n' $failed >&2
     exit 1
 }
