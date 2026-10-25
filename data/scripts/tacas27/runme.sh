@@ -19,8 +19,11 @@
 ##                  data/output/<mode>/*; run also does this at the end
 ##
 ## Modes (see ./modes.sh):
+##   In every mode, run also runs the unsat cores of interpolants 'itp aweak, bstrong; ucore min'
+##   (ucore_min_itp_aweak_bstrong) of heart_attack 50x1, naive and fix-all, as jobs of the queue,
+##   with the timeout per explanation 20m
 ##   smoke     dataset <name>_s100_scaled_smoke.csv (the important samples);
-##             50x only, without cifar and gtsrb, naive (heart_attack 50x1-50x4 only)/guide-all/fix-all/hybrid/fix-all-no-vars,
+##             50x1-50x6 only, without cifar and gtsrb, naive (heart_attack 50x1-50x4 only)/guide-all/fix-all/hybrid/fix-all-no-vars,
 ##             itp_aweak_bstrong,
 ##             timeout per explanation 1m (tabular) or 5m (mnist)
 ##   quick     as short, with timeouts per explanation 200s (tabular), 300s (mnist),
@@ -57,6 +60,10 @@
     printf "Bash >= 4 is required, got %s. Run it e.g. with /opt/homebrew/bin/bash.\n" "$BASH_VERSION" >&2
     exit 1
 }
+
+## GNU parallel runs the jobs with its own choice of shell (e.g. $SHELL, the old /bin/bash of macOS),
+## and they use $BASH, so make it run them with this bash
+export PARALLEL_SHELL=$BASH
 
 SCRIPT=$(realpath "$0")
 TACAS_DIR=$(dirname "$SCRIPT")
@@ -162,7 +169,7 @@ function make_jobs {
     local width i name timeout_per dataset n_samples worst_secs
     ## not 'strategies': find_strategies_for_experiment writes through a reference to this name,
     ## and has a local variable of that name itself
-    local model model_id depth vidx variant experiment job_id job_strategies
+    local model model_id depth vidx variant experiment job_id job_strategies job_timeout_per job_worst_secs
     for width in ${WIDTHS[@]}; do
         set_mode_for_width $width || continue
 
@@ -196,14 +203,21 @@ function make_jobs {
                     variant=${MODE_VARIANTS[$vidx]}
                     is_excluded $name $width $depth $variant && continue
 
-                    for experiment in "${MODE_EXPERIMENTS[@]}"; do
+                    for experiment in "${MODE_EXPERIMENTS[@]}" $(ucore_experiments $name $width $depth $variant); do
                         job_id="$name/$model_id/$variant/$experiment"
                         [[ -n $FILTER && ! $job_id =~ $FILTER ]] && continue
 
                         find_strategies_for_experiment $experiment job_strategies
 
+                        job_timeout_per=$timeout_per
+                        job_worst_secs=$worst_secs
+                        is_ucore_experiment $experiment && {
+                            job_timeout_per=$(mode_ucore_timeout_per)
+                            job_worst_secs=$(( $n_samples * $(to_secs $job_timeout_per) ))
+                        }
+
                         printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%02d.%04d.%03d.%02d\n" \
-                            $worst_secs "$job_id" $timeout_per "$model" "$dataset" \
+                            $job_worst_secs "$job_id" $job_timeout_per "$model" "$dataset" \
                             $variant $experiment "$job_strategies" $n_samples \
                             $i $width $depth $vidx
                     done
@@ -316,7 +330,11 @@ function run_job {
 
     printf "Running: %s\n" "$job_id"
 
-    VARIANT=$variant TIMEOUT_PER=$timeout_per \
+    ## The unsat cores of interpolants (see UCORE_EXPERIMENTS in modes.sh) need OpenSMT
+    local options=$OPTIONS
+    [[ $experiment == ucore_* ]] && options+=" -V opensmt"
+
+    VARIANT=$variant TIMEOUT_PER=$timeout_per OPTIONS=$options \
         "$BASH" "$SCRIPTS_DIR/run1.sh" "$model" "$dataset" "$strategies" $experiment
 
     case $? in
@@ -418,11 +436,23 @@ function collect_one {
     local variant=$3
     local experiments=($4)
 
+    ## The unsat cores of interpolants last: the table keeps the header of the first experiment,
+    ## with its timeout per sample, which plot_fc_stats.py uses for the benchmark
+    local e others=() ucores=()
+    for e in "${experiments[@]}"; do
+        if [[ $e == ucore_* ]]; then ucores+=($e); else others+=($e); fi
+    done
+    experiments=("${others[@]}" "${ucores[@]}")
+
     local err_file=$(mktemp)
     local table= rows= notes=
     local n_ok=0 n_unfinished=0 n_failed=0
-    local experiment out
+    local experiment out spec
     for experiment in "${experiments[@]}"; do
+        ## The unsat cores of interpolants are not in EXPERIMENTS_SPEC (see UCORE_EXPERIMENTS in modes.sh)
+        spec=$EXPERIMENTS_SPEC
+        [[ $experiment == ucore_* ]] && spec=$UCORE_EXPERIMENTS_SPEC
+
         ## The time file is written at the end of the experiment, so it is empty while running
         grep -q '^real' "$variant_dir/$experiment.time.txt" 2>/dev/null || {
             notes+="Not finished: $variant/$experiment"$'\n'
@@ -432,7 +462,7 @@ function collect_one {
 
         ## collect_stats.sh resolves the paths relative to data/
         if out=$(cd "$DATA_DIR" && "$BASH" "$SCRIPTS_DIR/collect_stats.sh" \
-                "$variant_dir/" "$EXPERIMENTS_SPEC" "^$variant/${experiment//./\\.}\$" 2>"$err_file"); then
+                "$variant_dir/" "$spec" "^$variant/${experiment//./\\.}\$" 2>"$err_file"); then
             ## The first experiment keeps the header lines of the table, the others add only their row
             if [[ -z $table ]]; then
                 table="$out"$'\n'

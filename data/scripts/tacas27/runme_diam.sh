@@ -72,7 +72,7 @@ for model_base in heart_attack loan; do
 
     vars_k=0
     for vars in "${VARS[@]}"; do
-        vars_char=$(printf "\\$(printf '%03 o' $((97+$vars_k)))\n")
+        vars_char=$(printf "\\$(printf '%03o' $((97+$vars_k)))\n")
         (( ++vars_k ))
 
         var1=${vars% *}

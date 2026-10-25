@@ -30,7 +30,8 @@ and 200x networks, on the dataset `<name>_s100_scaled.csv` (100 samples each).
 Variants (`data/scripts/spec/variants/tacas27`): `naive`, `guide-all` (prefer-all), `fix-all`, `hybrid`,
 `fix-all-no-vars` (fix-all without neuron variables in the explanations).
 Experiments: `itp_astronger_bstrong`, `itp_astrong_bstrong`, `itp_afactor_0.5_bstrong`,
-`itp_aweak_bstrong`, `itp_aweaker_bstrong`.
+`itp_aweak_bstrong`, `itp_aweaker_bstrong`. In every mode also `ucore_min_itp_aweak_bstrong`, only for
+heart_attack 50x1 `naive` and `fix-all` (see "Unsat cores of interpolants" below).
 
 Models: only these `<name>_<width>x<depth>.nnet` files, for both widths 50x and 200x
 (`TABULAR_DEPTHS` and `IMAGE_DEPTHS` in `modes.sh`; a missing one stops the script):
@@ -46,7 +47,7 @@ Models: only these `<name>_<width>x<depth>.nnet` files, for both widths 50x and 
 | | `smoke` | `quick` | `short` | `full` |
 |---|---|---|---|---|
 | benchmarks | all but cifar, gtsrb | all | all | all |
-| widths | 50x | 50x, 200x | 50x, 200x | 50x, 200x |
+| widths | 50x, up to 50x6 | 50x, 200x | 50x, 200x | 50x, 200x |
 | variants | naive (heart_attack 50x1–50x4 only), guide-all, fix-all, hybrid, fix-all-no-vars | all 5, minus the exclusions below | all 5, minus the exclusions below | all 5, minus the fix-all-no-vars exclusions |
 | experiments | itp_aweak_bstrong | 50x: all 5; 200x: itp_aweak_bstrong | 50x: all 5; 200x: itp_aweak_bstrong | all 5 |
 | dataset | `<name>_s100_scaled_smoke.csv` | `<name>_s100_scaled_quick.csv` | `<name>_s100_scaled_short.csv` | `<name>_s100_scaled.csv` |
@@ -54,11 +55,11 @@ Models: only these `<name>_<width>x<depth>.nnet` files, for both widths 50x and 
 | timeout per explanation | 1m tabular, 5m mnist | 200s tabular, MN 300s, CIF 400s, GTS 600s | HA/OB/LO 5m, MN/CIF 10m, GTS 14m | HA/OB/LO 5m, MN/CIF 10m, GTS 14m |
 | on a failed job | stop | continue | continue | continue |
 | results in | `s100_scaled_smoke/<variant>/` | `s100_scaled_quick/<variant>/` | `s100_scaled_short/<variant>/` | `s100_scaled/<variant>/` |
-| **jobs** | **97** | **1,007** | **1,007** | **1,860** |
-| **explanations** | **280** | **8,056** | **8,056** | **186,000** |
+| **jobs** | **78** | **1,009** | **1,009** | **1,862** |
+| **explanations** | **222** | **8,072** | **8,072** | **186,200** |
 
 `fix-all-no-vars` runs in all modes, but only for the 50x1–50x4 models of heart_attack, loan and mnist.
-`smoke` runs `naive` only for the 50x1–50x4 models of heart_attack.
+`smoke` runs only the models up to 50x6, and `naive` only for the 50x1–50x4 models of heart_attack.
 `smoke`, `short` and `quick` also leave out the deep models where a variant mostly times out
 (for `smoke` these change nothing beyond that limit, as it runs no 200x jobs):
 
@@ -107,10 +108,10 @@ Jobs per benchmark and width:
 
 | benchmark | smoke | quick, short | full |
 |---|---|---|---|
-| heart_attack 50x | 26 | 135 | 140 |
-| obesity 50x | 18 | 115 | 120 |
-| loan 50x | 22 | 135 | 140 |
-| mnist 50x | 31 | 175 | 200 |
+| heart_attack 50x | 25 | 137 | 142 |
+| obesity 50x | 15 | 115 | 120 |
+| loan 50x | 19 | 135 | 140 |
+| mnist 50x | 19 | 175 | 200 |
 | cifar 50x | – | 150 | 180 |
 | gtsrb 50x | – | 150 | 180 |
 | heart_attack 200x | – | 24 | 120 |
@@ -139,16 +140,16 @@ which is the most likely bad case. Calibrate it with the joblog of the smoke run
 
 | | `smoke` | `quick` | `short` | `full` |
 |---|---|---|---|---|
-| worst-case CPU time | 8h 48m | 724h | 1,130h | 27,067h |
-| longest single job (max) | 10m | 1h 20m | 1h 52m | 23h 20m |
-| **max wall time** | **41m** | **55h 46m (~2.3 days)** | **87h 28m (~3.6 days)** | **2,086h 40m (~87 days)** |
-| naive-bound wall time | ≤ 41m | 7h 20m | 11h 44m | 513h 20m (~21 days) |
-| **expected** | **~15–25m** | **~4–8h** | **~6–12h** | **~3 weeks** |
+| worst-case CPU time | 8h 46m | 729h | 1,136h | 27,133h |
+| longest single job (max) | 2h (ucore naive) | 2h 40m (ucore naive) | 2h 40m (ucore naive) | 33h 20m (ucore naive) |
+| **max wall time** | **2h** | **56h 13m (~2.3 days)** | **87h 36m (~3.6 days)** | **2,090h (~87 days)** |
+| naive-bound wall time | ≤ 2h | 7h 20m | 11h 44m | 513h 20m (~21 days) |
+| **expected** | **~10–15m, up to 2h (the ucore naive job)** | **~4–8h** | **~6–12h** | **~3 weeks** |
 
 Notes:
-- `smoke` skips cifar and gtsrb and runs `naive` only for heart_attack 50x1–50x4; its 97 jobs
-  explain 1–6 samples each (heart_attack 6, loan 2, mnist 2, obesity 1). Even if every
-  explanation times out, it finishes in 41m. The `naive` jobs likely time out from 50x3 on.
+- `smoke` skips cifar and gtsrb, runs only the models up to 50x6 and `naive` only for
+  heart_attack 50x1–50x4; its 78 jobs explain 1–6 samples each (heart_attack 6, loan 2,
+  mnist 1, obesity 1). Even if every explanation times out, it finishes in 2h, all of it the `ucore` `naive` job (6 × 20m); without the ucore jobs, 23m. The `naive` jobs likely time out from 50x3 on.
 - `short` and `quick`: with 13 slots the queue is always full, so their wall time is about
   the CPU time divided by 13. The exclusions remove the deep `naive` jobs, so the remaining
   `naive` jobs (149, up to 146h CPU time in short) are no longer most of the worst case:
@@ -231,6 +232,28 @@ variables (`--allow-neuron-vars-in-explanations false`), suitable for visualizat
 `-n` does not run it. If it fails, `run` reports it and exits with 1. The overall running time
 printed by `run` includes it. It can also be run on its own:
 `./commands_fix-all_no_neuron_vars.sh` (needs bash >= 4).
+
+## Unsat cores of interpolants
+
+In every mode, `run` also has the jobs `heart_attack/50x1/{naive,fix-all}/ucore_min_itp_aweak_bstrong`:
+interpolants reduced by minimal unsat cores, strategy `itp aweak, bstrong; ucore min` (the
+interpolant is computed in the same run, then reduced), i.e. ITP+ucore min of the ucore table.
+
+- They are ordinary jobs of the queue: one `spexplain` process per variant, the samples
+  explained sequentially, on the mode's dataset; `-n`, `--resume` and `FILTER` apply to them
+  (e.g. `FILTER=ucore` runs only them).
+- They run with OpenSMT: `run_job` adds `-V opensmt` (to `OPTIONS` of `run1.sh`).
+- Timeout per explanation: 20m in every mode (as in the ucore table).
+- The results go next to the others, `.../heart_attack/50x1/<dataset>/<variant>/ucore_min_itp_aweak_bstrong.*`;
+  in `full` they overwrite those of the ucore table.
+- In every mode, the `naive` job is the longest of all (smoke 6 × 20m = 2h, quick and short
+  8 × 20m = 2h 40m). In `full`: up to 100 × 20m = 33h 20m, more than the
+  24h Slurm limit (in the earlier run, 46 of 100 samples hit the limit: ~16–20h). On resume,
+  a killed job starts from scratch.
+- What and where: `UCORE_EXPERIMENTS`, `ucore_experiments` and `mode_ucore_timeout_per` in `modes.sh`.
+- `collect-stats` collects them with the `ucore_itp` experiments collection (`UCORE_EXPERIMENTS_SPEC`),
+  as the last rows of the heart_attack 50x1 tables, so the header keeps the timeout of the
+  itp experiments. `plot-performance` leaves them out of the plots (they are only in the CSV).
 
 ## Collecting the stats
 

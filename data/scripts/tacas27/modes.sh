@@ -99,6 +99,9 @@ function is_excluded {
         return 0
     }
 
+    ## In smoke: only the models up to 50x6
+    [[ $MODE == smoke ]] && (( $depth > 6 )) && return 0
+
     ## In smoke: naive only for the 50x1-50x4 models of heart_attack
     [[ $MODE == smoke && $variant == naive ]] && {
         [[ $name == heart_attack ]] && (( $depth <= 4 )) && return 1
@@ -132,6 +135,36 @@ function is_excluded {
     esac
 
     return 1
+}
+
+## Unsat cores of interpolants, in all modes, besides the experiments of the mode:
+## 'itp aweak, bstrong; ucore min' (the interpolant is computed in the same run, then reduced)
+## of heart_attack 50x1, naive and fix-all. They run with OpenSMT (-V opensmt).
+UCORE_EXPERIMENTS=(ucore_min_itp_aweak_bstrong)
+## The experiments collection that contains them, for collect_stats.sh
+export UCORE_EXPERIMENTS_SPEC=ucore_itp
+
+## <name> <width> <depth> <variant> -> the ucore experiments of the job's model and variant
+function ucore_experiments {
+    local name=$1
+    local width=$2
+    local depth=$3
+    local variant=$4
+
+    [[ $name == heart_attack && $variant =~ ^(naive|fix-all)$ ]] && (( $width == 50 && $depth == 1 )) && {
+        printf "%s" "${UCORE_EXPERIMENTS[*]}"
+    }
+    return 0
+}
+
+## Returns 0 if the experiment is one of UCORE_EXPERIMENTS
+function is_ucore_experiment {
+    [[ " ${UCORE_EXPERIMENTS[*]} " == *" $1 "* ]]
+}
+
+## The timeout per explanation of the ucore experiments, in all modes (as in the ucore table)
+function mode_ucore_timeout_per {
+    printf "%s" 20m
 }
 
 ## <name> <original sample> -> its index in the dataset of the mode (both 1-based),
