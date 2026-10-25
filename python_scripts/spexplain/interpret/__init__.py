@@ -215,7 +215,12 @@ def make_parser():
 
 
 def main(args):
-    opts = make_parser().parse_intermixed_args(split_visualize_value(args))
+    parser = make_parser()
+    # As the other actions
+    if not args:
+        parser.print_help()
+        return 0
+    opts = parser.parse_intermixed_args(split_visualize_value(args))
     # The information to the standard output, unless quiet; the warnings and the errors are printed regardless
     info = print if opts.verbosity >= 0 else (lambda *args, **kwargs: None)
     # Without the value
