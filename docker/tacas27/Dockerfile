@@ -106,9 +106,12 @@ RUN \
             ONNX_ONLY_CMAKE_FLAGS=-DFETCHCONTENT_SOURCE_DIR_OPENSMT=$HOME/$PROJECT/build/_deps/opensmt-src; \
     fi
 
-# The outputs (e.g. visualizations, also of the reproducibility script) to be inspected on the host,
+# The outputs (e.g. visualizations, also of reproduce.sh) to be inspected on the host,
 # intended as the mount point of a host directory (see docker/run.sh)
 ENV OUTPUT=$HOME/$PROJECT/data/output
 RUN mkdir -p $OUTPUT
+
+# The reproducibility script of TACAS'27 in the root of the repository (ignored by git)
+RUN ln -s data/scripts/tacas27/runme.sh reproduce.sh && echo /reproduce.sh >>.git/info/exclude
 
 ENV PATH=$HOME/$PROJECT:$PATH
