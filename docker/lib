@@ -7,6 +7,10 @@ function usage {
     printf "EXAMPLES:\n"
     printf "\t%s cav25\n" "$script"
     printf "\t%s cav25 fedora:latest\n" "$script"
+    printf "ENVIRONMENT VARIABLES:\n"
+    printf "\tSPEXPLAIN_GIT_TAG\tthe branch or tag of the repository (build.sh)\n"
+    printf "\tPLATFORM\tthe target platform, e.g. linux/arm64 (all)\n"
+    printf "\tOUTPUT\ta host directory mounted at the output directory of the image, e.g. data/output (run.sh)\n"
 
     [[ -n $1 ]] && exit $1
 }
@@ -32,5 +36,7 @@ TAG=latest
 }
 
 REPO+=-$DIRBASE
+
+[[ -n $PLATFORM ]] && TAG+=-${PLATFORM##*/}
 
 IMAGE=$REPO:$TAG
