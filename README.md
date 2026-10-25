@@ -15,6 +15,8 @@ input feature space.
 The tool leverages [OpenSMT2](https://github.com/usi-verification-and-security/opensmt) solver compatible
 with a range of flexible Craig interpolation algorithms and unsatisfiable core generation.
 
+To try the tool hands-on, from computing explanations to interpreting them, follow the [tutorial](tutorial).
+
 ## Download
 
 Download from the [GitHub](https://github.com/usi-verification-and-security/spexplain) repository.
@@ -43,9 +45,36 @@ Note that the submodules will download several GBs of data.
 ## Building from source
 
 To build the system from the source code repository, you need a C++20
-compliant compiler and the following libraries and headers installed:
+compliant compiler and the following tools, libraries and headers installed:
 
+ - CMake, GNU Make, git (fetches OpenSMT2), bison, flex
  - gmp
+ - for `make marabou` additionally wget and the Python 3 headers
+   (Marabou downloads and builds its own versions of Boost, OpenBLAS and protobuf)
+
+Running the tool by `./spexplain` (see [Running the tool](#running-the-tool)) requires Python 3 and,
+depending on the action:
+
+ - `interpret` and `list`: the Python packages numpy, scipy, matplotlib and pyparsing
+ - `interpret` with the visualization `mathexpr` written as PDF: `pdflatex` with the LaTeX packages
+   `standalone` and `varwidth`; showing the PDF (`--show`) uses `xdg-open`
+ - `explain` with `--fix-default-sample-neuron-activations adversarial`: the Python packages pandas and torch
+
+For example, on Debian 13, all of them are installed by
+```
+sudo apt-get install build-essential cmake make git bison flex libgmp-dev wget python3 python3-dev \
+    python3-numpy python3-scipy python3-matplotlib python3-pyparsing python3-pandas python3-torch \
+    texlive-latex-base texlive-latex-extra xdg-utils
+```
+If the Python packages are not available from your system, install them with `pip`,
+e.g. into a virtual environment:
+```
+python3 -m venv .venv
+. .venv/bin/activate
+pip install numpy scipy matplotlib pyparsing pandas torch
+```
+
+The [Docker image](docker/tacas27) contains all of the above, with SpEXplAIn already built.
 
 SpEXplAIn uses CMake as a build system generator.
 We use a wrapper `Makefile` (i.e. GNU Make build system) that allows straightforward building of SpEXplAIn.
@@ -113,6 +142,8 @@ make marabou
 ```
 
 ## Running the tool
+
+For a guided introduction by examples, see the [tutorial](tutorial).
 
 The tool is run as `./spexplain <action>` from the root of the repository.
 The script `./spexplain` is the user interface that integrates the particular components of the tool;
