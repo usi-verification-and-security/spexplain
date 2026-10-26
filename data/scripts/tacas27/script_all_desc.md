@@ -309,8 +309,8 @@ are written next to the stats as `./stats/<mode>/<name>.csv`.
 ./runme.sh interpret <mode> [-n]
 ```
 
-`interpret` runs `runme_norm.sh <mode>`, `runme_diam.sh <mode>` and `runme_methodes.sh <mode>`,
-in this order, on the mode's explanations. `run` also runs all three at the end, in every mode, after the GNU parallel queue
+`interpret` runs `runme_norm.sh <mode>`, `runme_diam.sh <mode>`, `runme_methodes.sh <mode>` and
+`runme_ucore.sh <mode>`, in this order, on the mode's explanations. `run` also runs all four at the end, in every mode, after the GNU parallel queue
 (not with `-n`). The figures go to `data/output/<mode>/`.
 
 - `runme_norm.sh` (Fig. 7): `interpret ... 'norm min, inv' --visualize 'pixel center'` of mnist
@@ -323,6 +323,11 @@ in this order, on the mode's explanations. `run` also runs all three at the end,
   50x1 and 50x4: heart_attack samples 98 and 63 (s97, s62 in the paper) and loan samples 8 and
   70 (s7, s69 in the paper). A missing variant is left out of the figure; smoke has no loan
   `naive`, so its loan figures show only `guide-all` and `fix-all-no-vars`.
+- `runme_ucore.sh` (Fig. 10): `interpret ... 'slice vars <x> <y>' --visualize fspace` of the
+  heart_attack 50x1 `ucore_min_itp_aweak_bstrong` and `itp_aweak_bstrong` explanations together
+  (the ucore min region underneath), one figure per variant, `naive` and `fix-all`: samples 84
+  (s83 in the paper, vars x8 x11) and 55 (s54 in the paper, vars x5 x7). Both explanations exist
+  only after `run` of the mode (the ucore jobs); a missing one is left out of the figure.
 - The samples are the indices in the original s100 dataset. `mode_sample` (in `modes.sh`)
   turns them into the indices in the mode's dataset via `data/datasets/mode_sample_maps.csv`.
   Sample 90 of loan is not in the smoke dataset, so smoke has no loan figures.
@@ -344,7 +349,7 @@ in this order, on the mode's explanations. `run` also runs all three at the end,
   datasets and timeouts.
 - `make_mode_datasets.py`: the mode datasets, the sample maps and their neuron activations.
 - `plot_fc_stats.py`, `ploting_utils.py`: the plots of `plot-performance`.
-- `runme_norm.sh`, `runme_diam.sh`, `runme_methodes.sh`: the interpretation figures of `interpret`, also run at
+- `runme_norm.sh`, `runme_diam.sh`, `runme_methodes.sh`, `runme_ucore.sh`: the interpretation figures of `interpret`, also run at
   the end of `run`.
 - `commands_fix-all_no_neuron_vars.sh`: the explanations for interpretation, run at the end of `run`.
 

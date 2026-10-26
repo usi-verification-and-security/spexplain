@@ -15,7 +15,8 @@
 ##                  <STATS_DIR>/<mode>/plots/*.pdf (run collect-stats first)
 ##   interpret      make the interpretation figures from the mode's explanations with
 ##                  runme_norm.sh (Fig. 7, mnist), runme_diam.sh (Fig. 11, heart_attack and loan)
-##                  and runme_methodes.sh (Fig. 6, heart_attack and loan):
+##                  runme_methodes.sh (Fig. 6, heart_attack and loan)
+##                  and runme_ucore.sh (Fig. 10, heart_attack):
 ##                  data/output/<mode>/*; run also does this at the end
 ##
 ## Modes (see ./modes.sh):
@@ -599,7 +600,7 @@ function action_plot_performance {
 ########################################################################
 ## interpret
 
-INTERPRET_SCRIPTS=(runme_norm.sh runme_diam.sh runme_methodes.sh)
+INTERPRET_SCRIPTS=(runme_norm.sh runme_diam.sh runme_methodes.sh runme_ucore.sh)
 
 ## Runs the interpretation scripts on the mode's explanations; returns 1 if any failed
 function run_interpretation {
