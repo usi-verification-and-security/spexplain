@@ -20,19 +20,21 @@
 ##                  data/output/<mode>/*; run also does this at the end
 ##
 ## Modes (see ./modes.sh):
-##   In every mode, run also runs the unsat cores of interpolants 'itp aweak, bstrong; ucore min'
+##   In every mode but smoke, run also runs the unsat cores of interpolants 'itp aweak, bstrong; ucore min'
 ##   (ucore_min_itp_aweak_bstrong) of heart_attack 50x1, naive and fix-all, as jobs of the queue,
 ##   with the timeout per explanation 20m
 ##   smoke     dataset <name>_s100_scaled_smoke.csv (the important samples);
-##             50x1-50x6 only, without cifar and gtsrb, naive (heart_attack 50x1-50x4 only)/guide-all/fix-all/hybrid/fix-all-no-vars,
+##             50x1-50x6 only, without cifar and gtsrb, guide-all/fix-all/hybrid/fix-all-no-vars,
 ##             itp_aweak_bstrong,
 ##             timeout per explanation 1m (tabular) or 5m (mnist)
+##   smokeLong a smoke test for us, will be removed later: smoke plus naive (heart_attack
+##             50x1-50x4 only) and the unsat cores; the smoke dataset and results folder
 ##   quick     as short, with timeouts per explanation 200s (tabular), 300s (mnist),
 ##             400s (cifar) and 600s (gtsrb)
 ##   short     dataset <name>_s100_scaled_short.csv (8 samples, the same as quick);
 ##             50x: everything, 200x: itp_aweak_bstrong only
 ##   full      dataset <name>_s100_scaled.csv (100 samples); everything
-## smoke, quick and short leave out the deep models where naive or guide-all mostly times out.
+## smoke(Long), quick and short leave out the deep models where naive or guide-all mostly times out.
 ## fix-all-no-vars runs only for the 50x1-50x4 models of heart_attack, loan and mnist, in all modes.
 ## The results go to data/explanations/<name>/<width>x<depth>/<dataset>/<variant>/,
 ## e.g. s100_scaled_short. In every mode, run also runs commands_fix-all_no_neuron_vars.sh at the end
@@ -393,7 +395,7 @@ function action_run {
     cp "$JOBS_TMP" "$log_dir/jobs.txt"
 
     ## The smoke test is to find problems, so stop at the first one
-    if [[ $MODE == smoke ]]; then
+    if is_smoke_mode; then
         parallel_opts+=(--halt soon,fail=1)
     else
         parallel_opts+=(--halt never)

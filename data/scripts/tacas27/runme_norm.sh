@@ -57,7 +57,7 @@ for orig_s in 1 7; do
             "$PYTHON" "$SPEXPLAIN" interpret "$fexp" 'norm min, inv' "$dataset" --visualize 'pixel center' --samples $s --output-visualization "$fimg" -q &
         done
 
-        [[ $MODE == smoke ]] && break
+        is_smoke_mode && break
     done
 done
 

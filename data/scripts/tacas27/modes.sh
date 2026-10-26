@@ -2,7 +2,25 @@
 ## runs, on which dataset and with which timeouts. Sourced by runme.sh, which sets MODE,
 ## DATA_DIR, ALL_VARIANTS and ALL_EXPERIMENTS.
 
-MODES=(smoke quick short full)
+MODES=(smoke smokeLong quick short full)
+
+## smokeLong: a smoke test for us, will be removed later. It is the smoke mode plus naive for the
+## heart_attack 50x1-50x4 models and the unsat-core jobs, on the smoke dataset (and so into the
+## same results folder s100_scaled_smoke/), with the smoke timeouts.
+
+## The mode whose dataset, sample map and timeouts the mode uses
+function dataset_mode {
+    if [[ $MODE == smokeLong ]]; then
+        printf "%s" smoke
+    else
+        printf "%s" $MODE
+    fi
+}
+
+## Returns 0 for the smoke modes
+function is_smoke_mode {
+    [[ $MODE == smoke || $MODE == smokeLong ]]
+}
 
 NAMES=(heart_attack obesity loan mnist cifar gtsrb)
 
@@ -36,7 +54,7 @@ function mode_dataset {
     if [[ $MODE == full ]]; then
         printf "%s" "$DATA_DIR/datasets/$name/${name}_s100_scaled.csv"
     else
-        printf "%s" "$DATA_DIR/datasets/$name/${name}_s100_scaled_$MODE.csv"
+        printf "%s" "$DATA_DIR/datasets/$name/${name}_s100_scaled_$(dataset_mode).csv"
     fi
 }
 
@@ -44,7 +62,7 @@ function mode_dataset {
 function mode_timeout_per {
     local i=$1
 
-    case $MODE in
+    case $(dataset_mode) in
     smoke) printf "%s" ${SMOKE_TIMEOUT_PERS[$i]} ;;
     quick) printf "%s" ${QUICK_TIMEOUT_PERS[$i]} ;;
     *)     printf "%s" ${TIMEOUT_PERS[$i]} ;;
@@ -56,7 +74,7 @@ function mode_includes_benchmark {
     local name=$1
 
     ## The smoke test skips the two slowest benchmarks
-    [[ $MODE == smoke && $name =~ ^(cifar|gtsrb)$ ]] && return 1
+    is_smoke_mode && [[ $name =~ ^(cifar|gtsrb)$ ]] && return 1
 
     return 0
 }
@@ -71,6 +89,11 @@ function set_mode_for_width {
 
     case $MODE in
     smoke)
+        (( $width == 50 )) || return 1
+        MODE_VARIANTS=(guide-all fix-all hybrid fix-all-no-vars)
+        MODE_EXPERIMENTS=(itp_aweak_bstrong)
+        ;;
+    smokeLong)
         (( $width == 50 )) || return 1
         MODE_VARIANTS=(naive guide-all fix-all hybrid fix-all-no-vars)
         MODE_EXPERIMENTS=(itp_aweak_bstrong)
@@ -99,11 +122,11 @@ function is_excluded {
         return 0
     }
 
-    ## In smoke: only the models up to 50x6
-    [[ $MODE == smoke ]] && (( $depth > 6 )) && return 0
+    ## In smoke and smokeLong: only the models up to 50x6
+    is_smoke_mode && (( $depth > 6 )) && return 0
 
-    ## In smoke: naive only for the 50x1-50x4 models of heart_attack
-    [[ $MODE == smoke && $variant == naive ]] && {
+    ## In smokeLong: naive only for the 50x1-50x4 models of heart_attack (smoke runs no naive)
+    [[ $MODE == smokeLong && $variant == naive ]] && {
         [[ $name == heart_attack ]] && (( $depth <= 4 )) && return 1
         return 0
     }
@@ -137,7 +160,7 @@ function is_excluded {
     return 1
 }
 
-## Unsat cores of interpolants, in all modes, besides the experiments of the mode:
+## Unsat cores of interpolants, in all modes but smoke, besides the experiments of the mode:
 ## 'itp aweak, bstrong; ucore min' (the interpolant is computed in the same run, then reduced)
 ## of heart_attack 50x1, naive and fix-all. They run with OpenSMT (-V opensmt).
 UCORE_EXPERIMENTS=(ucore_min_itp_aweak_bstrong)
@@ -150,6 +173,8 @@ function ucore_experiments {
     local width=$2
     local depth=$3
     local variant=$4
+
+    [[ $MODE == smoke ]] && return 0
 
     [[ $name == heart_attack && $variant =~ ^(naive|fix-all)$ ]] && (( $width == 50 && $depth == 1 )) && {
         printf "%s" "${UCORE_EXPERIMENTS[*]}"
@@ -173,7 +198,7 @@ function mode_sample {
     local name=$1
     local orig=$2
 
-    awk -F, -v name=$name -v mode=$MODE -v orig=$orig '
+    awk -F, -v name=$name -v mode=$(dataset_mode) -v orig=$orig '
         $1 == name && $2 == mode && $4 == orig { print $3; found = 1; exit }
         END { exit !found }
     ' "$DATA_DIR/datasets/mode_sample_maps.csv"
