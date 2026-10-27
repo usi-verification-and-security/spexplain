@@ -56,7 +56,7 @@ Models: only these `<name>_<width>x<depth>.nnet` files, for both widths 50x and 
 | on a failed job | stop | continue | continue | continue |
 | results in | `s100_scaled_smoke/<variant>/` | `s100_scaled_quick/<variant>/` | `s100_scaled_short/<variant>/` | `s100_scaled/<variant>/` |
 | **jobs** (FC + CNN) | **96** (72 + 24) | **1,153** (1,009 + 144) | **1,153** (1,009 + 144) | **2,006** (1,862 + 144) |
-| **explanations** (FC + CNN) | **210** (186 + 24) | **9,224** (8,072 + 1,152) | **9,224** (8,072 + 1,152) | **200,600** (186,200 + 14,400) |
+| **explanations** (FC + CNN) | **210** (186 + 24) | **9,224** (8,072 + 1,152) | **23,060** (20,180 + 2,880) | **200,600** (186,200 + 14,400) |
 
 `fix-all-no-vars` runs in all modes, but only for the 50x1–50x4 models of heart_attack, loan and mnist.
 `smoke` runs only the models up to 50x6, no `naive` and no unsat-core jobs.
