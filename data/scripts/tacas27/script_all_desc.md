@@ -386,6 +386,7 @@ family, `fig-9_CNN_performance-plots_PAR-2_<family>.pdf` (e.g. `narrow-avg-pool`
 
 - `runme_norm.sh` (Fig. 7): `interpret ... 'norm min, inv' --visualize 'pixel center'` of mnist
   50x1, sample 1, with the variants `guide-all`, `fix-all-no-vars`, `verix/eps5` and `verix/eps100`.
+  Smoke computes only `'norm min'`, without `inv`.
 - `runme_diam.sh` (Fig. 11): `interpret ... 'diam vars <x> <y>'` of the 50x1 `guide-all`
   `itp_aweak_bstrong` explanations, as an image and as `mathexpr` (PDF): heart_attack sample 21
   (s20 in the paper) and loan sample 90 (s89 in the paper), four pairs of variables each.

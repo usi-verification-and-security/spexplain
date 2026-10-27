@@ -27,6 +27,10 @@ dataset_base=$(basename "$dataset" .csv)
 dataset_base=${dataset_base#${model_base}_}
 width=50
 
+## The query of the figure; smoke computes it without 'inv'
+query='norm min, inv'
+is_smoke_mode && query='norm min'
+
 ## The samples of the original s100 dataset; mode_sample gives their index in the mode's dataset
 for orig_s in 1 7; do
     s=$(mode_sample $model_base $orig_s) || {
@@ -54,7 +58,7 @@ for orig_s in 1 7; do
 
             fimg="$OUTPUT_DIR/fig-7_sample-${orig_s}_${variant_char}-${variant}_${strategy%%_*}_layer-${l}.png"
             printf 'Generating %s ...\n' "$fimg"
-            "$PYTHON" "$SPEXPLAIN" interpret "$fexp" 'norm min, inv' "$dataset" --visualize 'pixel center' --samples $s --output-visualization "$fimg" -q &
+            "$PYTHON" "$SPEXPLAIN" interpret "$fexp" "$query" "$dataset" --visualize 'pixel center' --samples $s --output-visualization "$fimg" -q &
         done
 
         is_smoke_mode && break
