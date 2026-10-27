@@ -3,7 +3,7 @@
 ## as in the original experiments; the counterpart of run1.sh for VeriX-plus (see runme.sh run-verix-plus).
 ## USAGE: ./verix1.sh <model.nnet> <dataset.csv> <epsilon> <experiment>
 ## E.g.:  TIMEOUT_PER=10m ./verix1.sh data/models/mnist/mnist_50x1.nnet data/datasets/mnist/mnist_s100_scaled.csv 1 eps100
-## The model is converted to <model>.onnx unless it exists.
+## The networks for VeriX-plus are made from the .nnet, into the directory <experiment>/models/.
 ## The explanations go to data/explanations/<name>/<model>/<dataset>/verix/<experiment>.phi.txt,
 ## and the results of VeriX-plus of each sample to the directory <experiment>/ next to it.
 ## Returns 0 even if some explanations timed out (they are '<null>'), 1 if some failed.
@@ -49,20 +49,9 @@ gtsrb|cifar) CHANNELS=3 ;;
 *)           CHANNELS=1 ;;
 esac
 
-ONNX="${MODEL%.nnet}.onnx"
-[[ -e $ONNX ]] || {
-    ## Other jobs may convert the same model at the same time
-    onnx_tmp="${ONNX%.onnx}.$$.onnx"
-    "$VERIX_PYTHON" "$VERIX_SCRIPTS_DIR/nnet_to_onnx.py" "$MODEL" "$onnx_tmp" >/dev/null && mv -f "$onnx_tmp" "$ONNX" || {
-        printf "Conversion of %s to ONNX failed.\n" "$MODEL" >&2
-        rm -f "$onnx_tmp"
-        exit 1
-    }
-}
-
 RESULTS_DIR="$OUTPUT_DIR/$EXPERIMENT"
 mkdir -p "$RESULTS_DIR" || exit $?
-## The models for VeriX-plus are made by verix1.py, anew in each job
+## The models for VeriX-plus are made from the .nnet by verix1.py, anew in each job
 rm -rf "$RESULTS_DIR/models"
 
 ## The first line is the header

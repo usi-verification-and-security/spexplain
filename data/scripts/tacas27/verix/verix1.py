@@ -8,7 +8,7 @@ Usage
   python verix1.py <name> <model.nnet> <dataset.csv> <index> <epsilon> <results dir>
 
 <name> is the benchmark (see BENCHMARKS) and <index> the sample of the dataset (from 0).
-The model is read from <model>.onnx (see nnet_to_onnx.py) and <model>.nnet.
+The model is read from <model>.nnet (see make_model).
 The results go to <results dir>/<index>/: sat.txt and unsat.txt of VeriX, or robust.txt
 if the network is robust already with all features perturbed (see to_phi.py).
 The indices of VeriX are of the pixels, each with all its channels, or of the features of tabular data.
@@ -118,10 +118,12 @@ def make_model(model, model_dir, shape):
     of its traversal order), and it recognizes fully connected networks by 'fc' in the name of the model.
     Both are made from the .nnet (some .pth differ from it, e.g. mnist_200x9), with the inputs in the order
     of VeriX (see interleaved_order) and of the shape of its samples (see input_shape),
-    as the models of the original experiments (e.g. mnist_50x1_marabou-fc)."""
+    as the models of the original experiments (e.g. mnist_50x1_marabou-fc).
+    The ONNX network is converted from the .nnet (see nnet_to_onnx.py), not read from an existing .onnx,
+    which may be another conversion (e.g. those of loan)."""
     import onnx
     from onnx import numpy_helper
-    from nnet_to_onnx import parse_nnet
+    from nnet_to_onnx import build_onnx_model, parse_nnet
 
     base = os.path.splitext(model)[0]
     model_path = os.path.join(model_dir, os.path.basename(base) + '-fc')
@@ -146,7 +148,7 @@ def make_model(model, model_dir, shape):
     if not os.path.exists(model_path + '.pt'):
         os.makedirs(model_dir, exist_ok=True)
 
-        onnx_model = onnx.load(base + '.onnx')
+        onnx_model = build_onnx_model(net)
         graph = onnx_model.graph
         # The weights of the first layer are transposed (see nnet_to_onnx.py)
         w0 = next(t for t in graph.initializer if t.name == 'W_0')
@@ -220,10 +222,13 @@ def main():
             epsilon=epsilon,
         )
 
+        # The plot of the explanation needs an image (unless mnist, with three channels), so it would fail on
+        # the tabular samples before writing the explanation; it does not affect the explanation
         verix.compute_explanation(
             procedure=PROCEDURE,
             use_confidence_ranking=True,
             epsilon=epsilon,
+            plot_explanation=(verix_dataset != 'tabular'),
         )
 
     verix_time = time.time() - verix_tick

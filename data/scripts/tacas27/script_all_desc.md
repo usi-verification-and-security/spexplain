@@ -439,15 +439,17 @@ per explanation, and with the perturbations epsilon 1, 0.05 and 0.005.
   are reproduced up to a few features per explanation, with similar run times: the original setup could not be
   recovered in all details.
 - All benchmarks (`VERIX_NAMES` in `modes.sh`), only the fully connected models (not the CNN models).
-  The tabular samples are shaped `(<features>, 1, 1)`.
+  The tabular samples are shaped `(<features>, 1, 1)`; their explanations are not plotted by VeriX-plus,
+  whose plot needs images.
   The images of gtsrb and cifar have three channels: VeriX-plus takes the channels of a pixel together, whereas
   the datasets and the networks have them channel after channel, so `verix1.py` reorders the inputs of the
   networks that VeriX-plus reads, and its pixels are mapped back to the features.
 - The jobs are model × epsilon, e.g. `mnist/50x1/verix/eps100`, in the same kind of GNU parallel queue
   as `run` (also `-n`, `--resume` and `FILTER`). Their job list and joblog are in
   `data/logs/runme/<mode>/verix/`.
-- One job is `verix/verix1.sh`: it converts the `.nnet` to `.onnx` (unless it exists) with
-  `verix/nnet_to_onnx.py`, runs `verix/verix1.py` on each sample with the timeout per explanation,
+- One job is `verix/verix1.sh`: it runs `verix/verix1.py` on each sample with the timeout per explanation,
+  which makes the networks for VeriX-plus from the `.nnet` (with `verix/nnet_to_onnx.py`, not from an
+  existing `.onnx`, which may be another conversion) into `eps<P>/models/`,
   and writes the explanations with `verix/to_phi.py` to
   `data/explanations/<name>/<width>x<depth>/<dataset>/verix/eps{100,5,0.5}.phi.txt`, where
   `runme_norm.sh` and `runme_methodes.sh` read them. The results of VeriX-plus of each sample (`sat.txt`,
