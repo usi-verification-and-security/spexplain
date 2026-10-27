@@ -1,3 +1,6 @@
+import re
+
+import numpy as np
 import pandas as pd
 
 def rename_method_algorithm(method, algorithm):
@@ -91,7 +94,6 @@ def rename_itp(df):
 plot_colors = {'Naive': 'blue', 'Direct': 'blue', 'Fix-all': 'red', 'Guide-all': 'green', 'Hybrid': 'orange', rename_single_methods('VeriX Incomplete Random'): 'red', rename_single_methods( 'VeriX Complete Sensitivity'): 'red'}
 
 def rename_task_name(task):
-    print(task)
     task = task.lower()
     task = task.replace(' ', '_')
     task_mapping = {
@@ -137,7 +139,7 @@ def shown_depths(task):
     return _depths_by_task[task]
 
 
-# Timeout per sample [s] of each task (plot_fc_stats.py replaces them with those of the stats)
+# Timeout per sample [s] of each task (use_stats_timeouts replaces them with those of the stats)
 timeouts = {'heart_attack': 300, 'obesity': 300, 'loan': 300, 'mnist': 600, 'cifar': 600, 'gtsrb': 840}
 
 
@@ -190,3 +192,75 @@ label_fs = 20
 title_fs = 20
 tick_fs = 14
 legend_fs = 14
+
+
+def read_stats(stats_file, task):
+    # Parses the stats file of one task (of `runme.sh collect-stats`, all model widths) into a DataFrame with the
+    # columns of the CSV tables of plot_fc_stats.py, and the set of the timeouts per sample [s] it states
+    # Initialize a list to store table rows
+    rows = []
+
+    # Regular expression to match table rows
+    # NOTE: new column "size [MB]" was added to the table; in the current output it appears after '#terms' and before '#checks'.
+    # The regex captures the experiment name plus 10 numeric/text fields in the order shown in the table.
+    table_row_pattern = re.compile(
+        r'^\s*(\S.*?)\s+\|\s+([\d.X%]+)\s+\|\s+([\d.X%]+)\s+\|\s+([\d.X%]+)\s+\|\s+([\d.X]+)\s+\|\s+([\d.X]+)\s+\|\s+([\d.X]+)\s+\|\s+([\d.X%]+)\s+\|\s+([\d.X]+)\s+\|\s+([\d.X]+)')
+
+    # The timeout per sample of the mode, as written by collect_stats.sh
+    timeout_pattern = re.compile(r'^Timeout per sample \[s\]: *([0-9.]+)')
+    task_timeouts = set()
+
+    # Read the file and process it
+    with open(stats_file, 'r') as file:
+        current_experiment = None
+        header_pattern = re.compile(rf'^{re.escape(task)}\s+\d+x\d+\s+\S+')
+        for line in file:
+            line = line.strip()
+            if timeout_pattern.match(line):
+                task_timeouts.add(float(timeout_pattern.match(line).group(1)))
+            elif header_pattern.match(line):  # Experiment name, e.g. 'loan 50x4 fix-all'
+                current_experiment = line
+                parts = current_experiment.split()
+                width, model_size = parts[1].split('x')  # e.g. 50x4 -> width 50, 4 hidden layers
+                method = parts[-1]  # Extract the last word
+            elif current_experiment and table_row_pattern.match(line):  # Match table rows
+                match = table_row_pattern.match(line)
+                # Extract row data
+                row = [current_experiment, width, model_size, method] + list(match.groups())
+                # Check if `%completed` is not `X`
+                # Note: with the added 'Width' and 'Size [MB]' columns the index of '%Completed' is now 11.
+                if row[11] != 'X':  # `%completed` column (index 11 in the row)
+                    # Replace `X` with NaN for other columns
+                    row = [np.nan if value == 'X' else value for value in row]
+                    rows.append(row)
+
+    # Create a DataFrame from the rows
+    # The captured order (after Experiment/Width/Model/Method) is:
+    # Experiment Name, %Features, %Fixed, %Dimension, #Terms, Size [MB], #Checks, %Completed, Time [s], PAR-2
+    columns = ['Experiment', 'Width', 'Model Size', 'Method', 'Experiment Name', '%Features', '%Fixed', '%Dimension',
+               '#Terms', 'Size [MB]', '#Checks', '%Completed', 'Time [s]', 'PAR-2']
+    df = pd.DataFrame(rows, columns=columns)
+    # Some stats files contain the same experiment blocks more than once
+    df = df.drop_duplicates(subset=['Width', 'Model Size', 'Method', 'Experiment Name'], keep='first')
+
+    percent_columns = ['%Features', '%Fixed', '%Dimension', '%Completed']
+    for col in percent_columns:
+        if col in df.columns:
+            df[col] = df[col].str.replace('%', '', regex=False).astype(float)
+
+    # Convert other numeric columns to appropriate types (include new 'Size [MB]')
+    numeric_columns = ['#Terms', '#Checks', 'Size [MB]', 'Time [s]', 'PAR-2']
+    for col in numeric_columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    return df, task_timeouts
+
+
+def use_stats_timeouts(task, task_timeouts):
+    # The timeouts of the modes differ (see modes.sh), so use those of the stats (of read_stats) instead of the
+    # defaults in timeouts; draw_timeout_lines and the y-limits of the plotting scripts read the same dictionary
+    if task_timeouts:
+        if len(task_timeouts) > 1:
+            print(f'WARNING: {task} has several timeouts per sample: {sorted(task_timeouts)}; using the largest one')
+        timeouts[task] = max(task_timeouts)

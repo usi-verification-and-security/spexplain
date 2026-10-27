@@ -576,6 +576,13 @@ function action_plot_performance {
     local python=${PYTHON:-$(dirname "$DATA_DIR")/venv/bin/python}
     local output_dir=$DATA_DIR/output/$MODE
     local plot_cmd=("$python" "$TACAS_DIR/plot_fc_stats.py" "$stats_dir" "$output_dir")
+    ## Disabled until the VeriX+ results are available: the comparison of our results with VeriX+,
+    ## plot_compare_with_verix_plus.py. It reads our stats like plot_fc_stats.py (also their timeouts),
+    ## and the VeriX+ CSVs from the output directory: performance-plots_<name>_verix.csv (50x models) and
+    ## performance-plots_<name>200_verix.csv (200x), with the columns Algorithm,epsilon,layers,PAR2.
+    ## It writes output_dir/performance-plots_PAR-2_ours_vs_verix_plus_<layout>_<width>.pdf.
+    ## To enable it, put the VeriX+ CSVs there and uncomment this line and the two below that use verix_cmd.
+    # local verix_cmd=("$python" "$TACAS_DIR/plot_compare_with_verix_plus.py" "$stats_dir" "$output_dir")
 
     printf "Stats:  %s\nPlots:  %s\n\n" "$stats_dir" "$output_dir"
 
@@ -592,6 +599,7 @@ function action_plot_performance {
 
     [[ $DRY_RUN == 1 ]] && {
         printf "DRY RUN - would run:\n  %s\n" "${plot_cmd[*]}"
+        # printf "  %s\n" "${verix_cmd[*]}"
         exit 0
     }
 
@@ -599,6 +607,7 @@ function action_plot_performance {
         printf "\nPlotting failed.\n" >&2
         exit 1
     }
+    # "${verix_cmd[@]}" || { printf "\nPlotting the comparison with VeriX+ failed.\n" >&2; exit 1; }
 
     printf "\nPlots:\n"
     ls -1 "$output_dir"/performance-plots_*.pdf | sed 's/^/  /'

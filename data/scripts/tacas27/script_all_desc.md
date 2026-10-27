@@ -332,6 +332,12 @@ go to the same folder as `performance-plots_<name>.csv`. The stats themselves st
 - With LaTeX installed, text is rendered with it; without, with Matplotlib's mathtext.
 - What to plot (plotted depths, the itp algorithms of 200x, colors, fonts) is set at the top of
   `plot_fc_stats.py` and in `ploting_utils.py`.
+- Not run yet (commented out in `runme.sh`, until the VeriX+ results are available):
+  `plot_compare_with_verix_plus.py <stats_dir> [<output_dir>]` compares our results with VeriX+.
+  It reads our stats as `plot_fc_stats.py` does (the same `read_stats` of `ploting_utils.py`, also
+  the timeouts), and the VeriX+ CSVs from `data/output/<mode>/`: `performance-plots_<name>_verix.csv`
+  (50x) and `performance-plots_<name>200_verix.csv` (200x), columns `Algorithm,epsilon,layers,PAR2`.
+  It writes `performance-plots_PAR-2_ours_vs_verix_plus_<layout>_<width>.pdf` next to them.
 
 ## Interpretation figures
 
@@ -379,6 +385,7 @@ go to the same folder as `performance-plots_<name>.csv`. The stats themselves st
   datasets and timeouts.
 - `make_mode_datasets.py`: the mode datasets, the sample maps and their neuron activations.
 - `plot_fc_stats.py`, `ploting_utils.py`: the plots of `plot-performance`.
+- `plot_compare_with_verix_plus.py`: the comparison with VeriX+ (not run yet by `plot-performance`).
 - `runme_norm.sh`, `runme_diam.sh`, `runme_methodes.sh`, `runme_ucore.sh`: the interpretation figures of `interpret`, also run at
   the end of `run`.
 - `commands_fix-all_no_neuron_vars.sh`: the explanations for interpretation, run at the end of `run`.
