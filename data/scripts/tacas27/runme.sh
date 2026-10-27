@@ -31,9 +31,9 @@
 ##             timeout per explanation 1m (tabular) or 5m (mnist)
 ##   smokeLong a smoke test for us, will be removed later: smoke plus naive (heart_attack
 ##             50x1-50x4 only) and the unsat cores; the smoke dataset and results folder
-##   quick     as short, with timeouts per explanation 200s (tabular), 300s (mnist),
-##             400s (cifar) and 600s (gtsrb)
-##   short     dataset <name>_s100_scaled_short.csv (8 samples, the same as quick);
+##   quick     as short, but dataset <name>_s100_scaled_quick.csv (8 samples, the first 8 of short)
+##             and timeouts per explanation 200s (tabular), 300s (mnist), 400s (cifar) and 600s (gtsrb)
+##   short     dataset <name>_s100_scaled_short.csv (20 samples: those of quick, then 12 more);
 ##             50x: everything, 200x: itp_aweak_bstrong only
 ##   full      dataset <name>_s100_scaled.csv (100 samples); everything
 ## smoke(Long), quick and short leave out the deep models where naive or guide-all mostly times out.

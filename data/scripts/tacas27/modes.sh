@@ -47,7 +47,7 @@ QUICK_TIMEOUT_PERS=(200s 200s 200s 300s 400s 600s)
 
 ## <name> -> the dataset of the mode
 ## smoke, quick and short use the smaller datasets made by make_mode_datasets.py
-## (quick and short contain the same samples), full uses the original one
+## (short contains the samples of quick first, then more), full uses the original one
 function mode_dataset {
     local name=$1
 

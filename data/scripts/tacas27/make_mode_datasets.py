@@ -3,6 +3,8 @@
 
 For every benchmark and mode, writes data/datasets/<name>/<name>_s100_scaled_<mode>.csv with
 the important samples of the benchmark plus random ones (fixed seed), in their original order.
+The short dataset is the quick one with more random samples appended after them (SHORT_EXTRA_SEED),
+so its first samples are those of quick, in the same order.
 The full mode uses <name>_s100_scaled.csv itself.
 
 All maps from the sample indices of the mode datasets to the original indices (both 1-based)
@@ -28,6 +30,9 @@ ACTIVATIONS_DIR = DATA_DIR / 'neuron_activations'
 MAP_FILE = DATASETS_DIR / 'mode_sample_maps.csv'
 
 SEED = 2027
+## A separate generator for the samples that short adds to quick, so that the other
+## datasets stay the same as before short was enlarged
+SHORT_EXTRA_SEED = 2028
 
 BENCHMARKS = ['heart_attack', 'obesity', 'loan', 'mnist', 'cifar', 'gtsrb']
 
@@ -44,7 +49,8 @@ IMPORTANT_SMOKE = {
     'mnist': [1],
 }
 
-SHORT_SIZE = 8
+QUICK_SIZE = 8
+SHORT_SIZE = 20
 ## Benchmarks without important samples still get this many random samples in smoke
 SMOKE_MIN_SIZE = 1
 ## The smoke test skips these benchmarks
@@ -56,10 +62,10 @@ def read_dataset(name):
     return lines[0], lines[1:]
 
 
-def pick(important, size, n_samples, rng):
-    """The important samples plus random others up to <size>, sorted."""
+def pick(important, size, n_samples, rng, exclude=()):
+    """The important samples plus random others (not in <exclude>) up to <size>, sorted."""
     assert all(1 <= idx <= n_samples for idx in important), important
-    others = [idx for idx in range(1, n_samples + 1) if idx not in important]
+    others = [idx for idx in range(1, n_samples + 1) if idx not in important and idx not in exclude]
     n_random = max(0, size - len(important))
     return sorted(important + rng.sample(others, n_random))
 
@@ -103,17 +109,19 @@ def write_mode_activations(name, mode, selection):
 
 def main():
     rng = random.Random(SEED)
+    extra_rng = random.Random(SHORT_EXTRA_SEED)
     map_rows = []
 
     for name in BENCHMARKS:
         header, samples = read_dataset(name)
         n_samples = len(samples)
 
-        short = pick(IMPORTANT.get(name, []), SHORT_SIZE, n_samples, rng)
+        quick = pick(IMPORTANT.get(name, []), QUICK_SIZE, n_samples, rng)
+        ## the samples of quick first, in the same order, then the extra ones, sorted
+        short = quick + pick([], SHORT_SIZE - len(quick), n_samples, extra_rng, exclude=quick)
         selections = {
             'short': short,
-            ## same samples as short, so that the two modes differ only in the timeouts
-            'quick': short,
+            'quick': quick,
             'full': list(range(1, n_samples + 1)),
         }
         if name not in SMOKE_SKIPPED:

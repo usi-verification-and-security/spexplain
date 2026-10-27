@@ -51,12 +51,12 @@ Models: only these `<name>_<width>x<depth>.nnet` files, for both widths 50x and 
 | variants | guide-all, fix-all, hybrid, fix-all-no-vars | all 5, minus the exclusions below | all 5, minus the exclusions below | all 5, minus the fix-all-no-vars exclusions |
 | experiments | itp_aweak_bstrong | 50x: all 5; 200x: itp_aweak_bstrong | 50x: all 5; 200x: itp_aweak_bstrong | all 5 |
 | dataset | `<name>_s100_scaled_smoke.csv` | `<name>_s100_scaled_quick.csv` | `<name>_s100_scaled_short.csv` | `<name>_s100_scaled.csv` |
-| samples | the important ones (1–6) | 8 (same as short) | 8 (same as quick) | all 100 |
+| samples | the important ones (1–6) | 8 (the first 8 of short) | 20 (those of quick, then 12 more) | all 100 |
 | timeout per explanation | 1m tabular, 5m mnist | 200s tabular, MN 300s, CIF 400s, GTS 600s | HA/OB/LO 5m, MN/CIF 10m, GTS 14m | HA/OB/LO 5m, MN/CIF 10m, GTS 14m |
 | on a failed job | stop | continue | continue | continue |
 | results in | `s100_scaled_smoke/<variant>/` | `s100_scaled_quick/<variant>/` | `s100_scaled_short/<variant>/` | `s100_scaled/<variant>/` |
 | **jobs** | **72** | **1,009** | **1,009** | **1,862** |
-| **explanations** | **186** | **8,072** | **8,072** | **186,200** |
+| **explanations** | **186** | **8,072** | **20,180** | **186,200** |
 
 `fix-all-no-vars` runs in all modes, but only for the 50x1–50x4 models of heart_attack, loan and mnist.
 `smoke` runs only the models up to 50x6, no `naive` and no unsat-core jobs.
@@ -79,7 +79,8 @@ In `modes.sh`, `dataset_mode` maps it to `smoke` and `is_smoke_mode` covers both
 | naive | cifar, gtsrb | 50x4 and deeper, 200x3 and deeper |
 | guide-all (prefer-all) | cifar, gtsrb | 200x4 and deeper |
 
-`quick` differs from `short` only in the lower timeouts: same samples, separate results folders.
+`quick` differs from `short` in the lower timeouts and in its samples: the first 8 of short
+(the same jobs, separate results folders).
 
 ## Mode datasets
 
@@ -87,18 +88,22 @@ In `modes.sh`, `dataset_mode` maps it to `smoke` and `is_smoke_mode` covers both
 `data/datasets/<name>/<name>_s100_scaled.csv` (full uses that one directly). Sample numbers
 are 1-based, as in the datasets and in spexplain's `sample [i/N]` output.
 
-| benchmark | smoke | quick = short (8) |
-|---|---|---|
-| heart_attack | 21, 55, 63, 84, 90, 98 | 14, 21, 55, 62, 63, 84, 90, 98 |
-| obesity | 77 | 2, 11, 24, 42, 45, 52, 81, 84 |
-| loan | 8, 70 | 8, 11, 24, 37, 38, 70, 81, 90 |
-| mnist | 1 | 1, 7, 11, 35, 41, 46, 84, 87 |
-| cifar | – (skipped) | 21, 30, 33, 55, 65, 84, 94, 97 |
-| gtsrb | – (skipped) | 21, 29, 44, 45, 49, 51, 59, 60 |
+| benchmark | smoke | quick (8) = first 8 of short | short: the 12 appended (samples 9–20) |
+|---|---|---|---|
+| heart_attack | 21, 55, 63, 84, 90, 98 | 14, 21, 55, 62, 63, 84, 90, 98 | 2, 4, 23, 25, 27, 36, 42, 48, 49, 50, 92, 99 |
+| obesity | 77 | 2, 11, 24, 42, 45, 52, 81, 84 | 1, 3, 9, 29, 43, 51, 73, 74, 77, 79, 87, 88 |
+| loan | 8, 70 | 8, 11, 24, 37, 38, 70, 81, 90 | 14, 19, 33, 43, 59, 65, 66, 71, 82, 87, 93, 95 |
+| mnist | 1 | 1, 7, 11, 35, 41, 46, 84, 87 | 24, 26, 28, 33, 50, 51, 55, 59, 67, 78, 79, 90 |
+| cifar | – (skipped) | 21, 30, 33, 55, 65, 84, 94, 97 | 3, 31, 34, 39, 41, 49, 51, 67, 68, 73, 95, 99 |
+| gtsrb | – (skipped) | 21, 29, 44, 45, 49, 51, 59, 60 | 8, 13, 25, 31, 68, 71, 75, 78, 83, 84, 89, 93 |
+
+The short dataset starts with the 8 samples of quick, in the same order (so samples 1–8 of the
+short results are those of quick), followed by 12 more random ones, sorted. They are drawn with a
+separate seed (`SHORT_EXTRA_SEED`), so smoke and quick are the same as before short was enlarged.
 
 - **Important samples**, in every mode dataset: heart_attack 98, 63, 84, 55, 21, 90;
   loan 8, 70; mnist 1 and 7 (smoke: only 1). The other samples are random, with a fixed seed
-  (`SEED` in the script), so re-running the script gives the same datasets.
+  (`SEED` and `SHORT_EXTRA_SEED` in the script), so re-running the script gives the same datasets.
 - **Map** from the samples of the mode datasets to the original ones:
   `data/datasets/mode_sample_maps.csv`, columns `benchmark,mode,index,original_index`
   (full is included as the identity). Use it to relate e.g. sample 3 of the short results
@@ -149,11 +154,11 @@ which is the most likely bad case. Calibrate it with the joblog of the smoke run
 
 | | `smoke` | `quick` | `short` | `full` |
 |---|---|---|---|---|
-| worst-case CPU time | 4h 22m | 729h | 1,136h | 27,133h |
-| longest single job (max) | 6m | 2h 40m (ucore naive) | 2h 40m (ucore naive) | 33h 20m (ucore naive) |
-| **max wall time** | **~20m** | **56h 13m (~2.3 days)** | **87h 36m (~3.6 days)** | **2,090h (~87 days)** |
-| naive-bound wall time | – (no naive) | 7h 20m | 11h 44m | 513h 20m (~21 days) |
-| **expected** | **~10–15m** | **~4–8h** | **~6–12h** | **~3 weeks** |
+| worst-case CPU time | 4h 22m | 729h | 2,839h | 27,133h |
+| longest single job (max) | 6m | 2h 40m (ucore naive) | 6h 40m (ucore naive) | 33h 20m (ucore naive) |
+| **max wall time** | **~20m** | **56h 13m (~2.3 days)** | **219h (~9.1 days)** | **2,090h (~87 days)** |
+| naive-bound wall time | – (no naive) | 7h 20m | 29h 20m | 513h 20m (~21 days) |
+| **expected** | **~10–15m** | **~4–8h** | **~15–30h** | **~3 weeks** |
 
 Notes:
 - `smoke` skips cifar and gtsrb, runs only the models up to 50x6, no `naive` and no ucore
@@ -163,8 +168,10 @@ Notes:
   `naive` job (6 × 20m). The `naive` jobs likely time out from 50x3 on.
 - `short` and `quick`: with 13 slots the queue is always full, so their wall time is about
   the CPU time divided by 13. The exclusions remove the deep `naive` jobs, so the remaining
-  `naive` jobs (149, up to 146h CPU time in short) are no longer most of the worst case:
-  that is now the other variants on the large image models (798 jobs, up to 931h in short).
+  `naive` jobs (149, up to 365h CPU time in short) are no longer most of the worst case:
+  that is now the other variants on the large image models (798 jobs, up to 2,328h in short).
+  Every job of short explains 20 samples instead of the 8 of quick, so with the same timeouts
+  all its times would be 2.5× those of quick.
   Whether those time out is unknown until the smoke run.
 - `full` is not practical on 16 CPUs: even the naive-bound case takes about 3 weeks.
   It needs a cluster node (e.g. 128 jobs at once: naive-bound ~2.5 days) or the
@@ -175,7 +182,8 @@ Notes:
 
 ### Effect of the exclusions, 8 samples and the quick timeouts
 
-Compared with the earlier `short` (first 10 samples, no exclusions), same 16 CPUs:
+Compared with the earlier `short` (first 10 samples, no exclusions), same 16 CPUs.
+"short now" here is `short` with 8 samples, before it was enlarged to 20 (multiply its times by 2.5):
 
 | | short before (10 samples) | short now | quick |
 |---|---|---|---|
@@ -201,8 +209,8 @@ explanation is the same; only the idle cores at the end of each call are gone.
 |---|---|---|---|
 | `quick`, worst case | 55h 45m | 53h 20m | ~4% |
 | `quick`, only naive times out | 12h 36m | 7h 20m | ~42% |
-| `short`, worst case | 86h 48m | 82h 56m | ~4% |
-| `short`, only naive times out | 19h 36m | 11h 44m | ~40% |
+| `short` (8 samples), worst case | 86h 48m | 82h 56m | ~4% |
+| `short` (8 samples), only naive times out | 19h 36m | 11h 44m | ~40% |
 | `full`, worst case | 2,086h 40m | 2,036h 40m | ~2% |
 | `full`, only naive times out | 603h 20m | 513h 20m | ~15% |
 
