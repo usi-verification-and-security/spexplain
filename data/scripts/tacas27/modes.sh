@@ -210,6 +210,14 @@ function mode_ucore_timeout_per {
     printf "%s" 20m
 }
 
+## VeriX-plus (runme.sh run-verix-plus) runs on the same models, datasets and timeouts as the engine,
+## the variant 'verix' (as in is_excluded), for the benchmarks that it supports (see verix/verix1.py): all
+VERIX_NAMES=("${NAMES[@]}")
+## The experiments, i.e. data/explanations/<name>/<model>/<dataset>/verix/<experiment>.phi.txt,
+## and their perturbations epsilon, as in the original experiments
+VERIX_EXPERIMENTS=(eps100 eps5 eps0.5)
+VERIX_EPSILONS=(1 0.05 0.005)
+
 ## <name> <original sample> -> its index in the dataset of the mode (both 1-based),
 ## from data/datasets/mode_sample_maps.csv; returns 1 if the dataset lacks the sample
 function mode_sample {

@@ -3,9 +3,9 @@
 #   <stats_dir>   directory with our <task>.txt stats files (of `runme.sh collect-stats`), e.g. stats/short;
 #                 read as in plot_fc_stats.py, also their timeouts per sample (timeout lines and y-limits)
 #   <output_dir>  the output directory of plot_fc_stats.py (default: <stats_dir>), e.g. data/output/short:
-#                 it holds the VeriX+ CSVs performance-plots_<task><suffix>_verix.csv
-#                 (<suffix> is '' for the 50x models and '200' for the 200x ones), and gets the PDF plots
-#                 performance-plots_PAR-2_ours_vs_verix_plus_<layout>_<family>.pdf
+#                 it holds the VeriX+ CSVs fig-8_comparison-plots_<task><suffix>_verix.csv (of `runme.sh
+#                 plot-performance`; <suffix> is '' for the 50x models and '200' for the 200x ones), and gets the
+#                 PDF plots fig-8_comparison-plots_PAR-2_ours_vs_verix_plus_<layout>_<family>.pdf
 import os
 import shutil
 import sys
@@ -66,9 +66,10 @@ ours_methods = [rename_single_methods('naive'), 'Guide-all', 'Fix-all', 'Hybrid'
 ours_itp = ['weak']  # any of 'weaker', 'weak', 'mid', 'strong', 'stronger'
 # Only the model depths in shown_depths(task) (ploting_utils.py) are plotted
 
-# VeriX+: CSV columns are Algorithm, epsilon, layers, PAR2. Only the CS algorithm is shown (IR is dropped), so
-# the legend does not name it. Drawn dashed, one color per epsilon (verix_line_style in ploting_utils.py).
-verix_algorithm = 'CS'
+# VeriX+: CSV columns are Algorithm, epsilon, layers (the model depth, from 1), PAR2 (as write_verix_csvs of
+# runme.sh). Only the IR algorithm is shown, i.e. the random traversal order, as run-verix-plus (the original
+# experiments); the legend does not name it. Drawn dashed, one color per epsilon (verix_line_style in ploting_utils.py).
+verix_algorithm = 'IR'
 verix_name = 'VeriX+'
 epsilon_order = ['100%', '5%', '0.5%']
 epsilon_keys = {'100%': 'e=1', '5%': 'e=0.05', '0.5%': 'e=0.005'}

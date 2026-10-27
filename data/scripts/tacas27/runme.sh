@@ -15,13 +15,22 @@
 ##   plot-performance
 ##                  plot the PAR-2 per model of the collected stats with plot_fc_stats.py
 ##                  and, of the CNN models, plot_cnn_stats.py:
-##                  data/output/<mode>/performance-plots_*.pdf, with the tables as
-##                  data/output/<mode>/performance-plots_<name>[_cnn].csv (run collect-stats first)
+##                  data/output/<mode>/fig-*.pdf, with the tables as
+##                  data/output/<mode>/fig-5-performance-plots_<name>.csv and
+##                  data/output/<mode>/fig-9_CNN_performance-plots_<name>_cnn.csv (run collect-stats first);
+##                  with the results of run-verix-plus of the mode, also their run times as
+##                  data/output/<mode>/fig-8_comparison-plots_<name>[200]_verix.csv and the comparison
+##                  with plot_compare_with_verix_plus.py
 ##   interpret      make the interpretation figures from the mode's explanations with
 ##                  runme_norm.sh (Fig. 7, mnist), runme_diam.sh (Fig. 11, heart_attack and loan)
 ##                  runme_methodes.sh (Fig. 6, heart_attack and loan)
 ##                  and runme_ucore.sh (Fig. 10, heart_attack):
 ##                  data/output/<mode>/*; run also does this at the end
+##   run-verix-plus run VeriX-plus on the mode's models and datasets (VERIX_NAMES in modes.sh: all),
+##                  with the mode's timeouts and the perturbations epsilon 1, 0.05 and 0.005,
+##                  as jobs of the same kind of queue as run (see verix/verix1.sh), configured as the original
+##                  experiments: the random traversal, Marabou without Gurobi (as in the image docker/tacas27):
+##                  data/explanations/<name>/<width>x<depth>/<dataset>/verix/eps{100,5,0.5}.phi.txt
 ##
 ## Modes (see ./modes.sh):
 ##   In every mode but smoke, run also runs the unsat cores of interpolants 'itp aweak, bstrong; ucore min'
@@ -67,6 +76,9 @@
 ##   PYTHON            plot-performance: Python with matplotlib and pandas
 ##                     (default: venv/bin/python of the repository, see requirements.txt)
 ##   DRY_RUN=1         same as -n
+##   VERIX_DIR         run-verix-plus: VeriX-plus (default: ~/VeriX-plus)
+##   VERIX_ORDER       run-verix-plus: the traversal order of VeriX-plus (default: random,
+##                     as in the original experiments; e.g. bounds)
 ##   WRAPPER           if set, submit this script through it (e.g. sbatch.sh) instead of running it
 
 (( ${BASH_VERSINFO[0]} >= 4 )) || {
@@ -100,7 +112,7 @@ export PYTHON
 
 source "$TACAS_DIR/modes.sh"
 
-ACTIONS=(run collect-stats plot-performance interpret)
+ACTIONS=(run collect-stats plot-performance interpret run-verix-plus)
 
 ACTION=
 MODE=
@@ -179,9 +191,17 @@ function dataset_dir {
     printf "%s" "${dataset#${name}_}"
 }
 
+## Prints a job of make_jobs: <worst-case secs> <job id> <timeout per> <model> <dataset> <variant>
+## <experiment> <strategies> <samples> <benchmark idx> <width> <depth> <variant idx>
+function print_job {
+    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%02d.%04d.%03d.%02d\n" "$@"
+}
+
 ## Writes the jobs of the mode to JOBS_TMP, one per line, tab-separated:
 ## <worst-case secs> <job id> <timeout per> <model> <dataset> <variant> <experiment> <strategies>
 ## <samples> <order: benchmark.width.depth.variant>
+## For run-verix-plus, the variant is verix, the experiments are VERIX_EXPERIMENTS
+## and the strategies are their epsilons.
 ## The longest jobs go first, so that they do not prolong the end of the run.
 function make_jobs {
     local width i name timeout_per dataset n_samples worst_secs
@@ -194,6 +214,7 @@ function make_jobs {
         for i in ${!NAMES[@]}; do
             name=${NAMES[$i]}
             mode_includes_benchmark $name || continue
+            [[ $ACTION == run-verix-plus && " ${VERIX_NAMES[*]} " != *" $name "* ]] && continue
 
             timeout_per=$(mode_timeout_per $i)
             dataset=$(mode_dataset $name)
@@ -217,6 +238,21 @@ function make_jobs {
                     exit 1
                 }
 
+                [[ $ACTION == run-verix-plus ]] && {
+                    is_excluded $name $width $depth verix && continue
+
+                    for vidx in ${!VERIX_EXPERIMENTS[@]}; do
+                        experiment=${VERIX_EXPERIMENTS[$vidx]}
+                        job_id="$name/$model_id/verix/$experiment"
+                        [[ -n $FILTER && ! $job_id =~ $FILTER ]] && continue
+
+                        print_job $worst_secs "$job_id" $timeout_per "$model" "$dataset" \
+                            verix $experiment ${VERIX_EPSILONS[$vidx]} $n_samples \
+                            $i $width $depth $vidx
+                    done
+                    continue
+                }
+
                 for vidx in ${!MODE_VARIANTS[@]}; do
                     variant=${MODE_VARIANTS[$vidx]}
                     is_excluded $name $width $depth $variant && continue
@@ -234,8 +270,7 @@ function make_jobs {
                             job_worst_secs=$(( $n_samples * $(to_secs $job_timeout_per) ))
                         }
 
-                        printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%02d.%04d.%03d.%02d\n" \
-                            $job_worst_secs "$job_id" $job_timeout_per "$model" "$dataset" \
+                        print_job $job_worst_secs "$job_id" $job_timeout_per "$model" "$dataset" \
                             $variant $experiment "$job_strategies" $n_samples \
                             $i $width $depth $vidx
                     done
@@ -244,7 +279,8 @@ function make_jobs {
         done
     done >"$JOBS_TMP.unsorted"
 
-    make_cnn_jobs >>"$JOBS_TMP.unsorted"
+    ## VeriX-plus runs only on the fully connected models
+    [[ $ACTION == run-verix-plus ]] || make_cnn_jobs >>"$JOBS_TMP.unsorted"
 
     sort -s -t$'\t' -k1,1nr "$JOBS_TMP.unsorted" >"$JOBS_TMP"
 }
@@ -332,8 +368,15 @@ SLOTS=$(( ($CPUS*$CPU_PERCENTAGE + 50)/100 ))
 
 printf "Action:      %s\n" "$ACTION"
 printf "Mode:        %s\n" "$MODE"
-printf "Experiments: %s\n" "$EXPERIMENTS_SPEC"
-printf "Variants:    %s\n" "$VARIANTS_SPEC"
+if [[ $ACTION == run-verix-plus ]]; then
+    printf "Benchmarks:  %s\n" "${VERIX_NAMES[*]}"
+    printf "Epsilons:    %s\n" "${VERIX_EPSILONS[*]}"
+    ## The default as in verix/verix1.py
+    printf "Order:       %s\n" "${VERIX_ORDER:-random}"
+else
+    printf "Experiments: %s\n" "$EXPERIMENTS_SPEC"
+    printf "Variants:    %s\n" "$VARIANTS_SPEC"
+fi
 [[ -n $FILTER ]] && printf "Filter:      %s\n" "$FILTER"
 printf "\n"
 
@@ -422,7 +465,7 @@ function check_onnx_engine {
     return 1
 }
 
-## One job of the run action
+## One job of the run action, or of run-verix-plus (the variant verix, the strategies are the epsilon)
 function run_job {
     local job_id="$1"
     local timeout_per=$2
@@ -434,18 +477,23 @@ function run_job {
 
     printf "Running: %s\n" "$job_id"
 
-    ## The unsat cores of interpolants (see UCORE_EXPERIMENTS in modes.sh) need OpenSMT
-    local options=$OPTIONS
-    [[ $experiment == ucore_* ]] && options+=" -V opensmt"
-
-    if [[ $model == *.onnx ]]; then
-        ## The frozen engine for ONNX networks, with ../cnn/spec/variants
-        VARIANT=$variant TIMEOUT_PER=$timeout_per OPTIONS=$options \
-            INPUT_MIN=$CNN_INPUT_MIN INPUT_MAX=$CNN_INPUT_MAX \
-            "$BASH" "$SCRIPTS_DIR/cnn/run1.sh" "$model" "$dataset" "$strategies" $experiment
+    if [[ $variant == verix ]]; then
+        TIMEOUT_PER=$timeout_per \
+            "$BASH" "$SCRIPTS_DIR/tacas27/verix/verix1.sh" "$model" "$dataset" $strategies $experiment
     else
-        VARIANT=$variant TIMEOUT_PER=$timeout_per OPTIONS=$options \
-            "$BASH" "$SCRIPTS_DIR/run1.sh" "$model" "$dataset" "$strategies" $experiment
+        ## The unsat cores of interpolants (see UCORE_EXPERIMENTS in modes.sh) need OpenSMT
+        local options=$OPTIONS
+        [[ $experiment == ucore_* ]] && options+=" -V opensmt"
+
+        if [[ $model == *.onnx ]]; then
+            ## The frozen engine for ONNX networks, with ../cnn/spec/variants
+            VARIANT=$variant TIMEOUT_PER=$timeout_per OPTIONS=$options \
+                INPUT_MIN=$CNN_INPUT_MIN INPUT_MAX=$CNN_INPUT_MAX \
+                "$BASH" "$SCRIPTS_DIR/cnn/run1.sh" "$model" "$dataset" "$strategies" $experiment
+        else
+            VARIANT=$variant TIMEOUT_PER=$timeout_per OPTIONS=$options \
+                "$BASH" "$SCRIPTS_DIR/run1.sh" "$model" "$dataset" "$strategies" $experiment
+        fi
     fi
 
     case $? in
@@ -465,13 +513,19 @@ function run_job {
 }
 export -f run_job
 
-## Runs all jobs in one GNU parallel queue
 function action_run {
     printf "Parallel:    %d jobs at once (%s%% of %d CPUs)\n\n" $SLOTS $CPU_PERCENTAGE $CPUS
 
     print_estimate
     check_activations || exit 1
     check_onnx_engine || exit 1
+
+    run_jobs "${LOG_DIR:-$DATA_DIR/logs/runme/$MODE}"
+}
+
+## Runs all jobs in one GNU parallel queue, with the job list and the joblog in <log dir>
+function run_jobs {
+    local log_dir="$1"
 
     [[ $DRY_RUN == 1 ]] && {
         printf "DRY RUN - the longest jobs, in the order they would start:\n"
@@ -480,7 +534,6 @@ function action_run {
         exit 0
     }
 
-    local log_dir=${LOG_DIR:-$DATA_DIR/logs/runme/$MODE}
     local joblog="$log_dir/joblog.txt"
     mkdir -p "$log_dir" || exit 1
 
@@ -679,18 +732,68 @@ function action_collect_stats {
 ## plot-performance
 
 ## Plots the stats of collect-stats with plot_fc_stats.py and plot_cnn_stats.py
+## Writes the CSVs of the run times of run-verix-plus of the mode into <output dir>, as produce_csv.py
+## of the original experiments: fig-8_comparison-plots_<name>_verix.csv (50x models) and
+## fig-8_comparison-plots_<name>200_verix.csv (200x), with the columns Algorithm,epsilon,layers,PAR2:
+## the average PAR-2 of the samples per epsilon (e.g. 5%) and model depth (layers, from 1).
+## The time of a sample is its time.txt of verix/verix1.py; a sample without it (a timeout or a failure),
+## or with at least the timeout per explanation of the mode, counts as twice the timeout.
+## The algorithm is IR, i.e. the random traversal order, as run-verix-plus.
+## The models without the results of run-verix-plus are left out. Prints the written CSVs (only them with -n).
+function write_verix_csvs {
+    local output_dir="$1"
+    local width i name timeout_secs dataset n_samples depth vidx experiment results_dir csv rows s par2
+    for width in ${WIDTHS[@]}; do
+        set_mode_for_width $width || continue
+
+        for i in ${!NAMES[@]}; do
+            name=${NAMES[$i]}
+            mode_includes_benchmark $name || continue
+            [[ " ${VERIX_NAMES[*]} " == *" $name "* ]] || continue
+
+            timeout_secs=$(to_secs $(mode_timeout_per $i))
+            dataset=$(mode_dataset $name)
+            [[ -r $dataset ]] || continue
+            ## The first line is the header
+            n_samples=$(( $(awk 'END { print NR }' "$dataset") - 1 ))
+
+            rows=()
+            for vidx in ${!VERIX_EXPERIMENTS[@]}; do
+                experiment=${VERIX_EXPERIMENTS[$vidx]}
+                for depth in $(model_depths $name); do
+                    is_excluded $name $width $depth verix && continue
+
+                    results_dir="$DATA_DIR/explanations/$name/${width}x$depth/$(dataset_dir $name "$dataset")/verix/$experiment"
+                    [[ -d $results_dir ]] || continue
+
+                    par2=$(for (( s=0; s < $n_samples; ++s )); do
+                        if [[ -r $results_dir/$s/time.txt ]]; then cat "$results_dir/$s/time.txt"; else echo -; fi
+                    done | awk -v t=$timeout_secs '{ sum += ($1 == "-" || $1 >= t) ? 2*t : $1 } END { printf "%.2f", sum/NR }')
+                    ## e.g. eps5 -> 5%
+                    rows+=("IR,${experiment#eps}%,$depth,$par2")
+                done
+            done
+            (( ${#rows[@]} )) || continue
+
+            ## The prefix as output_prefix of plot_compare_with_verix_plus.py
+            csv="$output_dir/fig-8_comparison-plots_${name}$( (( $width == 50 )) || printf %s $width )_verix.csv"
+            printf "%s\n" "$csv"
+            [[ $DRY_RUN == 1 ]] && continue
+
+            mkdir -p "$output_dir" || exit 1
+            {
+                printf "Algorithm,epsilon,layers,PAR2\n"
+                printf "%s\n" "${rows[@]}"
+            } >"$csv" || exit 1
+        done
+    done
+}
+
 function action_plot_performance {
     local stats_dir=${STATS_DIR:-$PWD/stats}/$MODE
     local python=${PYTHON:-$(dirname "$DATA_DIR")/venv/bin/python}
     local output_dir=$DATA_DIR/output/$MODE
     local plot_scripts=(plot_fc_stats.py plot_cnn_stats.py)
-    ## Disabled until the VeriX+ results are available: the comparison of our results with VeriX+,
-    ## plot_compare_with_verix_plus.py. It reads our stats like plot_fc_stats.py (also their timeouts),
-    ## and the VeriX+ CSVs from the output directory: performance-plots_<name>_verix.csv (50x models) and
-    ## performance-plots_<name>200_verix.csv (200x), with the columns Algorithm,epsilon,layers,PAR2.
-    ## It writes output_dir/performance-plots_PAR-2_ours_vs_verix_plus_<layout>_<width>.pdf.
-    ## To enable it, put the VeriX+ CSVs there and uncomment this line:
-    # plot_scripts+=(plot_compare_with_verix_plus.py)
 
     printf "Stats:  %s\nPlots:  %s\n\n" "$stats_dir" "$output_dir"
 
@@ -704,6 +807,19 @@ function action_plot_performance {
         printf "%s lacks matplotlib or pandas; create the venv (python3 -m venv venv && venv/bin/pip install -r requirements.txt)\nin the repository or set PYTHON to a Python that has them.\n" "$python" >&2
         exit 1
     }
+
+    ## The comparison of our results with VeriX-plus, plot_compare_with_verix_plus.py, if there are the results
+    ## of run-verix-plus of the mode: it reads our stats like plot_fc_stats.py (also their timeouts),
+    ## and the CSVs of VeriX-plus of write_verix_csvs from the output directory.
+    ## It writes output_dir/fig-8_comparison-plots_PAR-2_ours_vs_verix_plus_<layout>_<width>.pdf.
+    local verix_csvs
+    verix_csvs=$(write_verix_csvs "$output_dir") || exit 1
+    if [[ -n $verix_csvs ]]; then
+        printf "VeriX-plus run times%s:\n%s\n\n" "$( [[ $DRY_RUN == 1 ]] && printf " (would write)" )" "$(sed 's/^/  /' <<<"$verix_csvs")"
+        plot_scripts+=(plot_compare_with_verix_plus.py)
+    else
+        printf "No results of run-verix-plus of the mode, no comparison with VeriX-plus.\n\n"
+    fi
 
     local script
     [[ $DRY_RUN == 1 ]] && {
@@ -722,7 +838,7 @@ function action_plot_performance {
     done
 
     printf "\nPlots:\n"
-    ls -1 "$output_dir"/performance-plots_*.pdf | sed 's/^/  /'
+    ls -1 "$output_dir"/fig-{5,8,9}[-_]*.pdf 2>/dev/null | sed 's/^/  /'
     exit 0
 }
 
@@ -760,6 +876,46 @@ function action_interpret {
 }
 
 ########################################################################
+## run-verix-plus
+
+## Returns 1 unless VeriX-plus can run as in the original experiments: installed, with Marabou without Gurobi
+function check_verix {
+    local verix_dir=${VERIX_DIR:-$HOME/VeriX-plus}
+    local python=${VERIX_PYTHON:-$verix_dir/venv/bin/python}
+
+    [[ -r $verix_dir/VeriX.py && -x $python ]] || {
+        printf "VeriX-plus not found in %s (with %s), see the image docker/tacas27.\n" "$verix_dir" "$python" >&2
+        return 1
+    }
+
+    ## With Gurobi, Marabou would solve the queries, which the original experiments did not
+    local marabou_core=("$verix_dir"/Marabou/maraboupy/MarabouCore*.so)
+    [[ -r ${marabou_core[0]} ]] || {
+        printf "Marabou of VeriX-plus not found: %s\n" "${marabou_core[0]}" >&2
+        return 1
+    }
+    ldd "${marabou_core[0]}" 2>/dev/null | grep -q libgurobi && {
+        printf "Marabou of VeriX-plus is built with Gurobi, unlike in the original experiments: %s\n" "${marabou_core[0]}" >&2
+        return 1
+    }
+
+    return 0
+}
+
+function action_run_verix_plus {
+    printf "Parallel:    %d jobs at once\n\n" $SLOTS
+
+    print_estimate
+
+    check_verix || {
+        [[ $DRY_RUN == 1 ]] || exit 1
+        printf "VeriX-plus cannot run, see above.\n\n" >&2
+    }
+
+    run_jobs "${LOG_DIR:-$DATA_DIR/logs/runme/$MODE}/verix"
+}
+
+########################################################################
 
 case $ACTION in
 run)
@@ -773,5 +929,8 @@ plot-performance)
     ;;
 interpret)
     action_interpret
+    ;;
+run-verix-plus)
+    action_run_verix_plus
     ;;
 esac
