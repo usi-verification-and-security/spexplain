@@ -21,7 +21,7 @@ stats_dir = os.path.abspath(sys.argv[1])
 output_dir = os.path.abspath(sys.argv[2]) if len(sys.argv) == 3 else stats_dir
 os.makedirs(output_dir, exist_ok=True)
 # Prefix of the names of the CSV and PDF files
-output_prefix = 'performance-plots_'
+output_prefix = 'fig-5-performance-plots_'
 
 # Full LaTeX rendering needs a LaTeX installation; without one, Matplotlib's mathtext is used
 use_tex = shutil.which('latex') is not None
@@ -41,7 +41,7 @@ tasks = image_tasks + tabular_tasks
 # Figure layouts to produce: name -> (tasks, grid shape, figure size); image tasks fill the top row
 layouts = {
     'all_tasks': (image_tasks + tabular_tasks, (2, 3), (15.1, 12.5)),
-    'image_only': (image_tasks, (1, 3), (15.1, 4.8)),
+    # 'image_only': (image_tasks, (1, 3), (15.1, 4.8)),
 }
 widths = ['50', '200']
 

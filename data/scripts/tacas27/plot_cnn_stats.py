@@ -22,7 +22,7 @@ stats_dir = os.path.abspath(sys.argv[1])
 output_dir = os.path.abspath(sys.argv[2]) if len(sys.argv) == 3 else stats_dir
 os.makedirs(output_dir, exist_ok=True)
 # Prefix of the names of the CSV and PDF files
-output_prefix = 'performance-plots_'
+output_prefix = 'fig-9_CNN_performance-plots_'
 
 # Full LaTeX rendering needs a LaTeX installation; without one, Matplotlib's mathtext is used
 use_tex = shutil.which('latex') is not None
@@ -55,8 +55,8 @@ model_groups = {
     'avg-pool': ['AB'],
     # 'narrow-avg-pool': ['NA'],
     'narrow-avg-pool': ['NAB'],
-    'no-pool': ['S'],
-    'narrow-no-pool': ['NS'],
+    'stride2': ['S'],
+    'narrow-stride2': ['NS'],
     # 'max-pool': ['NP', 'P'],
 }
 
@@ -170,7 +170,7 @@ for group_name, prefixes in model_groups.items():
     fig.suptitle(cnn_family_title(prefixes[0]) if len(prefixes) == 1 else group_name, fontsize=title_fs + 2)
 
     plt.tight_layout()
-    plot_name = os.path.join(output_dir, f'{output_prefix}{plot_case}_cnn_relus_{group_name}.pdf')
+    plot_name = os.path.join(output_dir, f'{output_prefix}{plot_case}_{group_name}.pdf')
     plt.savefig(plot_name, format='pdf', bbox_inches='tight')
     print(f"Saved runtime comparison plot to {plot_name}")
 

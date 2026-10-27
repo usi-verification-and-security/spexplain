@@ -25,7 +25,7 @@ output_dir = os.path.abspath(sys.argv[2]) if len(sys.argv) == 3 else ours_dir
 verix_dir = output_dir
 os.makedirs(output_dir, exist_ok=True)
 # Prefix of the names of the CSV and PDF files, as in plot_fc_stats.py
-output_prefix = 'performance-plots_'
+output_prefix = 'fig-8_comparison-plots_'
 
 # Full LaTeX rendering needs a LaTeX installation; without one, Matplotlib's mathtext is used
 use_tex = shutil.which('latex') is not None
@@ -109,8 +109,10 @@ def read_verix(task, suffix):
     return data.sort_values(by=['_eps_rank', 'layers'])
 
 
+# Only the all_tasks layout is plotted, for every model family
+shown_layouts = ['all_tasks']
 for (layout, (tasks, n_rows)), (family, (width, suffix)) in (
-        (l, f) for l in layouts.items() for f in families.items()):
+        ((l, layouts[l]), f) for l in shown_layouts for f in families.items()):
     ncols = int(np.ceil(len(tasks) / n_rows))
     fig, axes = plt.subplots(n_rows, ncols, figsize=(6 * ncols, 6 * n_rows), squeeze=False)
     axes = axes.flatten()
