@@ -160,6 +160,10 @@ function is_excluded {
     return 1
 }
 
+## collect-stats: only these jobs (regex over the job ids <name>/<width>x<depth>/<variant>/<experiment>):
+## naive, guide-all, fix-all and hybrid, the itp experiments only (no fix-all-no-vars, no unsat cores)
+STATS_FILTER=${STATS_FILTER:-'^[^/]+/[^/]+/(naive|guide-all|fix-all|hybrid)/itp_'}
+
 ## Unsat cores of interpolants, in all modes but smoke, besides the experiments of the mode:
 ## 'itp aweak, bstrong; ucore min' (the interpolant is computed in the same run, then reduced)
 ## of heart_attack 50x1, naive and fix-all. They run with OpenSMT (-V opensmt).

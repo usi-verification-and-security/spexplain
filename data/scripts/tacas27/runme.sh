@@ -9,7 +9,8 @@
 ## Actions:
 ##   run            run the experiments of the mode
 ##   collect-stats  collect the stats of the mode's finished experiments with collect_stats.sh,
-##                  one file per benchmark (50x and 200x): <STATS_DIR>/<mode>/<name>.txt
+##                  one file per benchmark (50x and 200x): <STATS_DIR>/<mode>/<name>.txt;
+##                  only naive/guide-all/fix-all/hybrid and the itp experiments (see STATS_FILTER)
 ##   plot-performance
 ##                  plot the PAR-2 per model of the collected stats with plot_fc_stats.py:
 ##                  <STATS_DIR>/<mode>/plots/*.pdf (run collect-stats first)
@@ -54,6 +55,8 @@
 ##   FILTER            regex over '<name>/<width>x<idx>/<variant>/<experiment>' job identifiers
 ##   LOG_DIR           directory for the job list and the joblog (default: data/logs/runme/<mode>)
 ##   STATS_DIR         collect-stats, plot-performance: directory of the stats files (default: ./stats)
+##   STATS_FILTER      collect-stats: regex over the job identifiers of the jobs to collect
+##                     (default in modes.sh: naive/guide-all/fix-all/hybrid, itp_* experiments)
 ##   PYTHON            plot-performance: Python with matplotlib and pandas
 ##                     (default: venv/bin/python of the repository, see requirements.txt)
 ##   DRY_RUN=1         same as -n
@@ -501,6 +504,7 @@ function action_collect_stats {
     local -A experiments
     local keys=()
     while IFS=$'\t' read -r job_id dataset experiment; do
+        [[ $job_id =~ $STATS_FILTER ]] || continue
         IFS=/ read -r name model_id variant _ <<<"$job_id"
         key="$name/$model_id/$(dataset_dir $name "$dataset")/$variant"
         [[ -n ${experiments[$key]} ]] || keys+=("$key")
@@ -516,7 +520,7 @@ function action_collect_stats {
     done >"$tasks"
 
     local n_tasks=$(wc -l <"$tasks")
-    printf "Variant directories: %d\nStats:  %s\n\n" $n_tasks "$stats_dir"
+    printf "Stats filter: %s\nVariant directories: %d\nStats:  %s\n\n" "$STATS_FILTER" $n_tasks "$stats_dir"
 
     [[ $DRY_RUN == 1 ]] && {
         printf "DRY RUN - the first stats files and variant directories:\n"

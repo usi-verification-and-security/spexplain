@@ -262,7 +262,8 @@ interpolant is computed in the same run, then reduced), i.e. ITP+ucore min of th
   24h Slurm limit (in the earlier run, 46 of 100 samples hit the limit: ~16–20h). On resume,
   a killed job starts from scratch.
 - What and where: `UCORE_EXPERIMENTS`, `ucore_experiments` and `mode_ucore_timeout_per` in `modes.sh`.
-- `collect-stats` collects them with the `ucore_itp` experiments collection (`UCORE_EXPERIMENTS_SPEC`),
+- `collect-stats` does not collect them by default (`STATS_FILTER`). When included, e.g.
+  `STATS_FILTER=.`, it collects them with the `ucore_itp` experiments collection (`UCORE_EXPERIMENTS_SPEC`),
   as the last rows of the heart_attack 50x1 tables, so the header keeps the timeout of the
   itp experiments. `plot-performance` leaves them out of the plots (they are only in the CSV).
 
@@ -279,6 +280,14 @@ per benchmark, with both widths, to `./stats/<mode>/<name>.txt`, e.g. `./stats/s
 - It uses the same job list as `run`, so it only collects what the mode runs: the right
   results folder (`s100_scaled_<mode>/` or `s100_scaled/` for full), only the
   experiments of the mode, and none of the excluded jobs. `FILTER` works the same way.
+- Of those, it collects only `naive`, `guide-all`, `fix-all` and `hybrid`, and only the itp
+  experiments (`itp_*`), i.e. what the plots show. `STATS_FILTER` (a regex over the job ids,
+  default in `modes.sh`) changes this, e.g. `STATS_FILTER=.` collects everything.
+  `fix-all-no-vars` is left out because `collect_stats.sh` rejects it: its consistency check
+  compares the `#terms` of `.stats.txt` with the term size of `.phi.txt`, and with
+  `--allow-neuron-vars-in-explanations false` the written explanations have more terms than
+  the engine reports (e.g. 147.0 vs 230.5), so every such experiment fails with
+  "encountered inconsistency: stats.termSize !~ termSize(phi)".
 - Each table is preceded by a header line, e.g. `cifar 50x1 naive`, as in `collect_all_stats.sh`.
 - The variant directories are processed in parallel (same number of jobs as `run`).
 - Every experiment is collected on its own, so all finished experiments always appear, also
