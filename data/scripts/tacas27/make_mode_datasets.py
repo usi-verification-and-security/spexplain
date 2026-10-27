@@ -3,8 +3,8 @@
 
 For every benchmark and mode, writes data/datasets/<name>/<name>_s100_scaled_<mode>.csv with
 the important samples of the benchmark plus random ones (fixed seed), in their original order.
-The short dataset is the quick one with more random samples appended after them (SHORT_EXTRA_SEED),
-so its first samples are those of quick, in the same order.
+The long dataset is the short one with more random samples appended after them (LONG_EXTRA_SEED),
+so its first samples are those of short, in the same order.
 The full mode uses <name>_s100_scaled.csv itself.
 
 All maps from the sample indices of the mode datasets to the original indices (both 1-based)
@@ -34,9 +34,9 @@ MAP_FILE = DATASETS_DIR / 'mode_sample_maps.csv'
 CNN_MODEL_SET = 'cnn-bench'
 
 SEED = 2027
-## A separate generator for the samples that short adds to quick, so that the other
-## datasets stay the same as before short was enlarged
-SHORT_EXTRA_SEED = 2028
+## A separate generator for the samples that long adds to short, so that adding them
+## changes none of the other datasets
+LONG_EXTRA_SEED = 2028
 
 BENCHMARKS = ['heart_attack', 'obesity', 'loan', 'mnist', 'cifar', 'gtsrb']
 
@@ -53,8 +53,8 @@ IMPORTANT_SMOKE = {
     'mnist': [1],
 }
 
-QUICK_SIZE = 8
-SHORT_SIZE = 20
+SHORT_SIZE = 8
+LONG_SIZE = 20
 ## Benchmarks without important samples still get this many random samples in smoke
 SMOKE_MIN_SIZE = 1
 ## The smoke test skips these benchmarks
@@ -138,25 +138,25 @@ def write_mode_activations(name, mode, selection):
 
 def main():
     rng = random.Random(SEED)
-    extra_rng = random.Random(SHORT_EXTRA_SEED)
+    extra_rng = random.Random(LONG_EXTRA_SEED)
     map_rows = []
 
     for name in BENCHMARKS:
         header, samples = read_dataset(name)
         n_samples = len(samples)
 
-        quick = pick(IMPORTANT.get(name, []), QUICK_SIZE, n_samples, rng)
-        ## the samples of quick first, in the same order, then the extra ones, sorted
-        short = quick + pick([], SHORT_SIZE - len(quick), n_samples, extra_rng, exclude=quick)
+        short = pick(IMPORTANT.get(name, []), SHORT_SIZE, n_samples, rng)
+        ## the samples of short first, in the same order, then the extra ones, sorted
+        long = short + pick([], LONG_SIZE - len(short), n_samples, extra_rng, exclude=short)
         selections = {
+            'long': long,
             'short': short,
-            'quick': quick,
             'full': list(range(1, n_samples + 1)),
         }
         if name not in SMOKE_SKIPPED:
             selections['smoke'] = pick(IMPORTANT_SMOKE.get(name, []), SMOKE_MIN_SIZE, n_samples, rng)
 
-        for mode in ['smoke', 'quick', 'short', 'full']:
+        for mode in ['smoke', 'short', 'long', 'full']:
             if mode not in selections:
                 continue
             selection = selections[mode]

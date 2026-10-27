@@ -31,18 +31,16 @@
 ##             50x1-50x6 only, without cifar and gtsrb, guide-all/fix-all/hybrid/fix-all-no-vars,
 ##             itp_aweak_bstrong,
 ##             timeout per explanation 1m (tabular) or 5m (mnist)
-##   smokeLong a smoke test for us, will be removed later: smoke plus naive (heart_attack
-##             50x1-50x4 only) and the unsat cores; the smoke dataset and results folder
-##   quick     as short, but dataset <name>_s100_scaled_quick.csv (8 samples, the first 8 of short)
+##   short     as long, but dataset <name>_s100_scaled_short.csv (8 samples, the first 8 of long)
 ##             and timeouts per explanation 200s (tabular), 300s (mnist), 400s (cifar) and 600s (gtsrb)
-##   short     dataset <name>_s100_scaled_short.csv (20 samples: those of quick, then 12 more);
+##   long      dataset <name>_s100_scaled_long.csv (20 samples: those of short, then 12 more);
 ##             50x: everything, 200x: itp_aweak_bstrong only
 ##   full      dataset <name>_s100_scaled.csv (100 samples); everything
-## smoke(Long), quick and short leave out the deep models where naive or guide-all mostly times out.
+## smoke, short and long leave out the deep models where naive or guide-all mostly times out.
 ## fix-all-no-vars runs only for the 50x1-50x4 models of heart_attack, loan and mnist, in all modes.
 ## CNN (ONNX) models, as jobs of the same queue, in every mode (see CNN_* in ./modes.sh):
-##   mnist, cifar and gtsrb (smoke(Long): mnist only), models/<name>/cnn-bench/{NS,NAB}1-6.onnx
-##   (smoke(Long): up to NS4 and NAB4), naive/guide-all/fix-all/hybrid (smoke(Long): no naive),
+##   mnist, cifar and gtsrb (smoke: mnist only), models/<name>/cnn-bench/{NS,NAB}1-6.onnx
+##   (smoke: up to NS4 and NAB4), naive/guide-all/fix-all/hybrid (smoke: no naive),
 ##   itp_aweak_bstrong; the dataset and the timeouts of the mode, as for the .nnet models.
 ##   They run cnn/run1.sh with the engine of 'make onnx' (build-onnx/engine), and the results go to
 ##   data/explanations/<name>/cnn-bench/<id>/<dataset>/<variant>/.
@@ -514,7 +512,7 @@ function action_run {
 
 #    ## >>> explanations for interpretation (added) >>>
 #    ## In every mode, also compute the explanations without inner-neuron variables for the interpretation
-#    ## (loan, obesity, 50x1-4, naive/guide-all/fix-all, on the _quick datasets, whatever the mode is)
+#    ## (loan, obesity, 50x1-4, naive/guide-all/fix-all, on the _short datasets, whatever the mode is)
 #    ## into data/explanations_for_interpretation/; see commands_fix-all_no_neuron_vars.sh
 #    printf "\nRunning: explanations for interpretation (%s)\n" "$TACAS_DIR/commands_fix-all_no_neuron_vars.sh"
 #    "$BASH" "$TACAS_DIR/commands_fix-all_no_neuron_vars.sh" || {

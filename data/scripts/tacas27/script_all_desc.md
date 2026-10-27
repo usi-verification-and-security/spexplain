@@ -5,7 +5,7 @@
 ```
 
 Actions: `run`, `collect-stats`, `plot-performance`, `interpret` (more to come: `run-verix-plus`).
-Modes: `smoke`, `smokeLong`, `quick`, `short`, `full`. Both are required.
+Modes: `smoke`, `short`, `long`, `full`. Both are required.
 
 `runme.sh` runs the `plain_itp` experiments with the `tacas27` variants on the
 benchmarks heart_attack, obesity, loan (tabular) and mnist, cifar, gtsrb (images), for the 50x
@@ -20,7 +20,7 @@ and 200x networks, on the dataset `<name>_s100_scaled.csv` (100 samples each).
 - The longest jobs (by their worst case) start first, so they do not prolong the end of the run.
 - Every mode runs on **its own dataset** (see "Mode datasets" below). The results go to
   `data/explanations/<name>/<width>x<depth>/<dataset>/<variant>/`, where `<dataset>` is
-  `s100_scaled_smoke`, `s100_scaled_quick`, `s100_scaled_short` or `s100_scaled` (full), so
+  `s100_scaled_smoke`, `s100_scaled_short`, `s100_scaled_long` or `s100_scaled` (full), so
   the modes never overwrite each other's results.
 - The job list and GNU parallel's joblog are in `data/logs/runme/<mode>/`.
 - `-n` (or `DRY_RUN=1`) prints the job counts and the worst-case estimate without running anything.
@@ -44,32 +44,24 @@ Models: only these `<name>_<width>x<depth>.nnet` files, for both widths 50x and 
 
 ## The modes
 
-| | `smoke` | `quick` | `short` | `full` |
+| | `smoke` | `short` | `long` | `full` |
 |---|---|---|---|---|
 | benchmarks | all but cifar, gtsrb | all | all | all |
 | widths | 50x, up to 50x6 | 50x, 200x | 50x, 200x | 50x, 200x |
 | variants | guide-all, fix-all, hybrid, fix-all-no-vars | all 5, minus the exclusions below | all 5, minus the exclusions below | all 5, minus the fix-all-no-vars exclusions |
 | experiments | itp_aweak_bstrong | 50x: all 5; 200x: itp_aweak_bstrong | 50x: all 5; 200x: itp_aweak_bstrong | all 5 |
-| dataset | `<name>_s100_scaled_smoke.csv` | `<name>_s100_scaled_quick.csv` | `<name>_s100_scaled_short.csv` | `<name>_s100_scaled.csv` |
-| samples | the important ones (1–6) | 8 (the first 8 of short) | 20 (those of quick, then 12 more) | all 100 |
+| dataset | `<name>_s100_scaled_smoke.csv` | `<name>_s100_scaled_short.csv` | `<name>_s100_scaled_long.csv` | `<name>_s100_scaled.csv` |
+| samples | the important ones (1–6) | 8 (the first 8 of long) | 20 (those of short, then 12 more) | all 100 |
 | timeout per explanation | 1m tabular, 5m mnist | 200s tabular, MN 300s, CIF 400s, GTS 600s | HA/OB/LO 5m, MN/CIF 10m, GTS 14m | HA/OB/LO 5m, MN/CIF 10m, GTS 14m |
 | on a failed job | stop | continue | continue | continue |
-| results in | `s100_scaled_smoke/<variant>/` | `s100_scaled_quick/<variant>/` | `s100_scaled_short/<variant>/` | `s100_scaled/<variant>/` |
+| results in | `s100_scaled_smoke/<variant>/` | `s100_scaled_short/<variant>/` | `s100_scaled_long/<variant>/` | `s100_scaled/<variant>/` |
 | **jobs** (FC + CNN) | **96** (72 + 24) | **1,153** (1,009 + 144) | **1,153** (1,009 + 144) | **2,006** (1,862 + 144) |
 | **explanations** (FC + CNN) | **210** (186 + 24) | **9,224** (8,072 + 1,152) | **23,060** (20,180 + 2,880) | **200,600** (186,200 + 14,400) |
 
 `fix-all-no-vars` runs in all modes, but only for the 50x1–50x4 models of heart_attack, loan and mnist.
 `smoke` runs only the models up to 50x6, no `naive` and no unsat-core jobs.
 
-**`smokeLong`** is a smoke test for us and will be removed later. It is `smoke` plus `naive` for
-the heart_attack 50x1–50x4 models and the unsat-core jobs (see "Unsat cores of interpolants"):
-78 FC jobs and 222 explanations, plus the 24 CNN jobs of `smoke`. It uses the smoke dataset, sample map and timeouts, and so writes into
-the same results folder `s100_scaled_smoke/` (its jobs that `smoke` also has overwrite those
-results). Its job log, stats and figures go under its own name (`logs/runme/smokeLong/`,
-`stats/smokeLong/`, `output/smokeLong/`). Like `smoke`, it stops at the first failed job.
-In `modes.sh`, `dataset_mode` maps it to `smoke` and `is_smoke_mode` covers both.
-
-`smoke`, `short` and `quick` also leave out the deep models where a variant mostly times out
+`smoke`, `short` and `long` also leave out the deep models where a variant mostly times out
 (for `smoke` these change nothing beyond that limit, as it runs no 200x jobs):
 
 | variant | benchmarks | left out |
@@ -79,7 +71,7 @@ In `modes.sh`, `dataset_mode` maps it to `smoke` and `is_smoke_mode` covers both
 | naive | cifar, gtsrb | 50x4 and deeper, 200x3 and deeper |
 | guide-all (prefer-all) | cifar, gtsrb | 200x4 and deeper |
 
-`quick` differs from `short` in the lower timeouts and in its samples: the first 8 of short
+`short` differs from `long` in the lower timeouts and in its samples: the first 8 of long
 (the same jobs, separate results folders).
 
 ## CNN (ONNX) models
@@ -87,7 +79,7 @@ In `modes.sh`, `dataset_mode` maps it to `smoke` and `is_smoke_mode` covers both
 Every mode also runs the CNN-bench models of `data/scripts/cnn/tacas27/{MN,CIF,GTS}.sh`, as jobs of
 the same GNU parallel queue (`CNN_*`, `set_cnn_mode` and `is_cnn_excluded` in `modes.sh`):
 
-| | `smoke`, `smokeLong` | `quick`, `short`, `full` |
+| | `smoke` | `short`, `long`, `full` |
 |---|---|---|
 | benchmarks | mnist | mnist, cifar, gtsrb |
 | models (`data/models/<name>/cnn-bench/`) | NS1–NS4, NAB1–NAB4 | NS1–NS6, NAB1–NAB6 |
@@ -108,11 +100,11 @@ the same GNU parallel queue (`CNN_*`, `set_cnn_mode` and `is_cnn_excluded` in `m
 
 ## Mode datasets
 
-`make_mode_datasets.py` makes the datasets of smoke, quick and short from
+`make_mode_datasets.py` makes the datasets of smoke, short and long from
 `data/datasets/<name>/<name>_s100_scaled.csv` (full uses that one directly). Sample numbers
 are 1-based, as in the datasets and in spexplain's `sample [i/N]` output.
 
-| benchmark | smoke | quick (8) = first 8 of short | short: the 12 appended (samples 9–20) |
+| benchmark | smoke | short (8) = first 8 of long | long: the 12 appended (samples 9–20) |
 |---|---|---|---|
 | heart_attack | 21, 55, 63, 84, 90, 98 | 14, 21, 55, 62, 63, 84, 90, 98 | 2, 4, 23, 25, 27, 36, 42, 48, 49, 50, 92, 99 |
 | obesity | 77 | 2, 11, 24, 42, 45, 52, 81, 84 | 1, 3, 9, 29, 43, 51, 73, 74, 77, 79, 87, 88 |
@@ -121,16 +113,16 @@ are 1-based, as in the datasets and in spexplain's `sample [i/N]` output.
 | cifar | – (skipped) | 21, 30, 33, 55, 65, 84, 94, 97 | 3, 31, 34, 39, 41, 49, 51, 67, 68, 73, 95, 99 |
 | gtsrb | – (skipped) | 21, 29, 44, 45, 49, 51, 59, 60 | 8, 13, 25, 31, 68, 71, 75, 78, 83, 84, 89, 93 |
 
-The short dataset starts with the 8 samples of quick, in the same order (so samples 1–8 of the
-short results are those of quick), followed by 12 more random ones, sorted. They are drawn with a
-separate seed (`SHORT_EXTRA_SEED`), so smoke and quick are the same as before short was enlarged.
+The long dataset starts with the 8 samples of short, in the same order (so samples 1–8 of the
+long results are those of short), followed by 12 more random ones, sorted. They are drawn with a
+separate seed (`LONG_EXTRA_SEED`), so adding them changes neither the smoke nor the short dataset.
 
 - **Important samples**, in every mode dataset: heart_attack 98, 63, 84, 55, 21, 90;
   loan 8, 70; mnist 1 and 7 (smoke: only 1). The other samples are random, with a fixed seed
-  (`SEED` and `SHORT_EXTRA_SEED` in the script), so re-running the script gives the same datasets.
+  (`SEED` and `LONG_EXTRA_SEED` in the script), so re-running the script gives the same datasets.
 - **Map** from the samples of the mode datasets to the original ones:
   `data/datasets/mode_sample_maps.csv`, columns `benchmark,mode,index,original_index`
-  (full is included as the identity). Use it to relate e.g. sample 3 of the short results
+  (full is included as the identity). Use it to relate e.g. sample 3 of the long results
   of heart_attack to its original sample 55.
 - **Neuron activations**: the hybrid variant reads `data/neuron_activations/<name>/<model>.txt`,
   whose blocks are numbered by the samples of the dataset. With a smaller dataset, block 1
@@ -148,9 +140,9 @@ separate seed (`SHORT_EXTRA_SEED`), so smoke and quick are the same as before sh
 
 Jobs per benchmark and width:
 
-| benchmark | smoke | quick, short | full |
+| benchmark | smoke | short, long | full |
 |---|---|---|---|
-| heart_attack 50x | 19 (smokeLong: 25) | 137 | 142 |
+| heart_attack 50x | 19 | 137 | 142 |
 | obesity 50x | 15 | 115 | 120 |
 | loan 50x | 19 | 135 | 140 |
 | mnist 50x | 19 | 175 | 200 |
@@ -170,7 +162,7 @@ Jobs per benchmark and width:
 
 All numbers assume a machine with **16 CPUs** and the default `CPU_PERCENTAGE=80`, i.e.
 **13 jobs at once**, and the final model set, without the CNN jobs. For another machine, run e.g.
-`CPUS=<n> ./runme.sh run short -n`.
+`CPUS=<n> ./runme.sh run long -n`.
 
 **Max** = every explanation hits its timeout. This is a hard upper bound, apart from the
 small model-loading overhead per job. The wall time simulates the shared queue (the
@@ -183,7 +175,7 @@ per sample, while `naive` takes tens of seconds and often reaches the timeout al
 below assumes that every `naive` explanation times out and the other variants are fast,
 which is the most likely bad case. Calibrate it with the joblog of the smoke run.
 
-| | `smoke` | `quick` | `short` | `full` |
+| | `smoke` | `short` | `long` | `full` |
 |---|---|---|---|---|
 | worst-case CPU time | 4h 22m | 729h | 2,839h | 27,133h |
 | longest single job (max) | 6m | 2h 40m (ucore naive) | 6h 40m (ucore naive) | 33h 20m (ucore naive) |
@@ -195,14 +187,12 @@ Notes:
 - `smoke` skips cifar and gtsrb, runs only the models up to 50x6, no `naive` and no ucore
   jobs; its 72 jobs explain 1–6 samples each (heart_attack 6, loan 2, mnist 1, obesity 1).
   Even if every explanation times out, it finishes in about 20m (CPU time / 13 slots).
-- `smokeLong` (78 jobs): worst case 8h 46m CPU time and 2h wall time, all of it the `ucore`
-  `naive` job (6 × 20m). The `naive` jobs likely time out from 50x3 on.
-- `short` and `quick`: with 13 slots the queue is always full, so their wall time is about
+- `short` and `long`: with 13 slots the queue is always full, so their wall time is about
   the CPU time divided by 13. The exclusions remove the deep `naive` jobs, so the remaining
-  `naive` jobs (149, up to 365h CPU time in short) are no longer most of the worst case:
-  that is now the other variants on the large image models (798 jobs, up to 2,328h in short).
-  Every job of short explains 20 samples instead of the 8 of quick, so with the same timeouts
-  all its times would be 2.5× those of quick.
+  `naive` jobs (149, up to 365h CPU time in long) are no longer most of the worst case:
+  that is now the other variants on the large image models (798 jobs, up to 2,328h in long).
+  Every job of long explains 20 samples instead of the 8 of short, so with the same timeouts
+  all its times would be 2.5× those of short.
   Whether those time out is unknown until the smoke run.
 - `full` is not practical on 16 CPUs: even the naive-bound case takes about 3 weeks.
   It needs a cluster node (e.g. 128 jobs at once: naive-bound ~2.5 days) or the
@@ -211,12 +201,13 @@ Notes:
 - With 80%, 13 jobs run on 16 CPUs. If these are 8 physical cores with hyperthreading,
   some jobs share a core and run slower than one job per core, which also means more timeouts.
 
-### Effect of the exclusions, 8 samples and the quick timeouts
+### Effect of the exclusions, 8 samples and the short timeouts
 
-Compared with the earlier `short` (first 10 samples, no exclusions), same 16 CPUs.
-"short now" here is `short` with 8 samples, before it was enlarged to 20 (multiply its times by 2.5):
+Compared with the earlier `long` (then named `short`: the first 10 samples, no exclusions), same 16 CPUs.
+"long, 8 samples" here is `long` when it had the 8 samples of `short`, before it was enlarged to 20
+(multiply its times by 2.5):
 
-| | short before (10 samples) | short now | quick |
+| | long before (10 samples) | long, 8 samples | short |
 |---|---|---|---|
 | jobs | 1,080 | 947 | 947 |
 | explanations | 10,800 | 7,576 | 7,576 |
@@ -226,8 +217,8 @@ Compared with the earlier `short` (first 10 samples, no exclusions), same 16 CPU
 | expected | ~1–1.5 days | ~6–12h | ~4–8h |
 
 The exclusions remove the deep `naive` jobs, which did most of the work (`naive` CPU time
-in short: 396h → 146h). Eight samples instead of ten cut another 20% from everything,
-and the lower timeouts of `quick` cut about 35% more.
+in long: 396h → 146h). Eight samples instead of ten cut another 20% from everything,
+and the lower timeouts of `short` cut about 35% more.
 
 ### Shared queue vs. one call per benchmark and width
 
@@ -238,21 +229,21 @@ explanation is the same; only the idle cores at the end of each call are gone.
 
 | | one call per benchmark/width (before) | one shared queue (now) | saved |
 |---|---|---|---|
-| `quick`, worst case | 55h 45m | 53h 20m | ~4% |
-| `quick`, only naive times out | 12h 36m | 7h 20m | ~42% |
-| `short` (8 samples), worst case | 86h 48m | 82h 56m | ~4% |
-| `short` (8 samples), only naive times out | 19h 36m | 11h 44m | ~40% |
+| `short`, worst case | 55h 45m | 53h 20m | ~4% |
+| `short`, only naive times out | 12h 36m | 7h 20m | ~42% |
+| `long` (8 samples), worst case | 86h 48m | 82h 56m | ~4% |
+| `long` (8 samples), only naive times out | 19h 36m | 11h 44m | ~40% |
 | `full`, worst case | 2,086h 40m | 2,036h 40m | ~2% |
 | `full`, only naive times out | 603h 20m | 513h 20m | ~15% |
 
 The shared queue helps when there are more free slots than jobs at the end of a call, which
-is rare with 13 slots, except when only a few long `naive` jobs are left. On a 128-job cluster node, it saves 40–80% for `short`.
+is rare with 13 slots, except when only a few long `naive` jobs are left. On a 128-job cluster node, it saves 40–80% for `long`.
 
 ## Examples
 
 ```bash
 # check what would run on a 16-CPU machine
-CPUS=16 ./runme.sh run short -n
+CPUS=16 ./runme.sh run long -n
 
 # smoke test locally (needs bash >= 4, e.g. Homebrew's)
 /opt/homebrew/bin/bash ./runme.sh run smoke
@@ -273,10 +264,10 @@ variables (`--allow-neuron-vars-in-explanations false`), suitable for visualizat
 
 - loan and obesity, 50x1–50x4, variants `naive` (Direct), `guide-all` and `fix-all`;
 - `itp_astrong_bstrong`, `itp_afactor_0.5_bstrong`, `itp_aweak_bstrong`;
-- always on the `<name>_s100_scaled_quick.csv` datasets (8 samples), whatever the mode is,
+- always on the `<name>_s100_scaled_short.csv` datasets (8 samples), whatever the mode is,
   with a 10 min limit per explanation;
 - the 72 runs go one after another (not through the queue), into
-  `data/explanations_for_interpretation/<name>/50x<d>/s100_scaled_quick/<variant>/`,
+  `data/explanations_for_interpretation/<name>/50x<d>/s100_scaled_short/<variant>/`,
   overwriting earlier results.
 
 `-n` does not run it. If it fails, `run` reports it and exits with 1. The overall running time
@@ -296,8 +287,8 @@ interpolant is computed in the same run, then reduced), i.e. ITP+ucore min of th
 - Timeout per explanation: 20m in every mode that runs them (as in the ucore table).
 - The results go next to the others, `.../heart_attack/50x1/<dataset>/<variant>/ucore_min_itp_aweak_bstrong.*`;
   in `full` they overwrite those of the ucore table.
-- In every mode that runs them, the `naive` job is the longest of all (smokeLong 6 × 20m = 2h, quick and short
-  8 × 20m = 2h 40m). In `full`: up to 100 × 20m = 33h 20m, more than the
+- In every mode that runs them, the `naive` job is the longest of all (short 8 × 20m = 2h 40m,
+  long 20 × 20m = 6h 40m). In `full`: up to 100 × 20m = 33h 20m, more than the
   24h Slurm limit (in the earlier run, 46 of 100 samples hit the limit: ~16–20h). On resume,
   a killed job starts from scratch.
 - What and where: `UCORE_EXPERIMENTS`, `ucore_experiments` and `mode_ucore_timeout_per` in `modes.sh`.
@@ -313,7 +304,7 @@ interpolant is computed in the same run, then reduced), i.e. ITP+ucore min of th
 ```
 
 `collect-stats` runs `collect_stats.sh` on the results of the given mode and writes one file
-per benchmark, with both widths, to `./stats/<mode>/<name>.txt`, e.g. `./stats/short/cifar.txt`
+per benchmark, with both widths, to `./stats/<mode>/<name>.txt`, e.g. `./stats/long/cifar.txt`
 (`STATS_DIR` changes `./stats`). The CNN models go to their own file `./stats/<mode>/<name>_cnn.txt`,
 with headers like `mnist NAB1 hybrid`; `plot-performance` plots them with `plot_cnn_stats.py`.
 
@@ -340,7 +331,7 @@ with headers like `mnist NAB1 hybrid`; `plot-performance` plots them with `plot_
 - `-n` lists the stats files and variant directories without collecting anything.
 
 `collect_stats.sh` can also be used directly on a mode's results, without `<max_samples>`, e.g.
-`./collect_stats.sh explanations/heart_attack/50x1/s100_scaled_short/hybrid/ plain_itp`.
+`./collect_stats.sh explanations/heart_attack/50x1/s100_scaled_long/hybrid/ plain_itp`.
 
 ## Plotting
 
