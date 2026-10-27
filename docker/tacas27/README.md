@@ -21,6 +21,11 @@ To get started, follow the [tutorial](../../tutorial), which is designed for thi
 The experiments of the paper are reproduced by `./reproduce.sh` (see `./reproduce.sh -h`),
 which writes its figures into `data/output`, i.e., into the mounted directory `<dir>`.
 
+The image also contains [VeriX-plus](https://github.com/minwu-cs/VeriX-plus) at `~/VeriX-plus`,
+for the experiments with it (`./reproduce.sh run-verix-plus`,
+see [the description](../../data/scripts/tacas27/script_all_desc.md#verix-plus)),
+configured as in the original experiments: with its verifier Marabou built without Gurobi.
+
 ## Visualizations
 
 All visualizations are written into files,
@@ -68,5 +73,8 @@ e.g., `SPEXPLAIN_GIT_TAG=<branch> docker/build.sh docker/tacas27`:
   of the dependencies OpenSMT and Marabou (default: pinned to concrete commits)
 * `ONNX_ENGINE_GIT_TAG`: the tag of the repository from which the engine for ONNX networks is built
   (default: `onnx-engine-v1`; requires `make onnx` in the repository; an empty value skips it)
+* `VERIX_GIT_TAG`, `VERIX_MARABOU_GIT_TAG`: the commits of VeriX-plus and of Marabou within it
+  (default: those of the original experiments; an empty `VERIX_GIT_TAG` skips VeriX-plus,
+  which makes the image smaller and its build faster)
 * `PLATFORM`: the target platform, e.g., `linux/arm64`
 * `DOCKER_BUILD_ARGS`: additional arguments of `docker build`, e.g., `--no-cache`
