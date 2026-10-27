@@ -8,6 +8,11 @@
 ##
 ## Actions:
 ##   run            run the experiments of the mode
+##   run-verix-plus run VeriX-plus on the mode's models and datasets (VERIX_NAMES in modes.sh: all),
+##                  with the mode's timeouts and the perturbations epsilon 1, 0.05 and 0.005,
+##                  as jobs of the same kind of queue as run (see verix/verix1.sh), configured as the original
+##                  experiments: the random traversal, Marabou without Gurobi (as in the image docker/tacas27):
+##                  data/explanations/<name>/<width>x<depth>/<dataset>/verix/eps{100,5,0.5}.phi.txt
 ##   collect-stats  collect the stats of the mode's finished experiments with collect_stats.sh,
 ##                  one file per benchmark (50x and 200x): <STATS_DIR>/<mode>/<name>.txt,
 ##                  and of the CNN models: <STATS_DIR>/<mode>/<name>_cnn.txt;
@@ -26,11 +31,6 @@
 ##                  runme_methodes.sh (Fig. 6, heart_attack and loan)
 ##                  and runme_ucore.sh (Fig. 10, heart_attack):
 ##                  data/output/<mode>/*; run also does this at the end
-##   run-verix-plus run VeriX-plus on the mode's models and datasets (VERIX_NAMES in modes.sh: all),
-##                  with the mode's timeouts and the perturbations epsilon 1, 0.05 and 0.005,
-##                  as jobs of the same kind of queue as run (see verix/verix1.sh), configured as the original
-##                  experiments: the random traversal, Marabou without Gurobi (as in the image docker/tacas27):
-##                  data/explanations/<name>/<width>x<depth>/<dataset>/verix/eps{100,5,0.5}.phi.txt
 ##
 ## Modes (see ./modes.sh):
 ##   In every mode but smoke, run also runs the unsat cores of interpolants 'itp aweak, bstrong; ucore min'
