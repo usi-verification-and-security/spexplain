@@ -137,27 +137,8 @@ def shown_depths(task):
     return _depths_by_task[task]
 
 
-# Timeout per sample [s] of each task. With fill_missing_points set in a plotting script, a missing data point
-# is drawn at PAR-2 = 2 * timeout, as if every sample of that experiment had timed out.
+# Timeout per sample [s] of each task (plot_fc_stats.py replaces them with those of the stats)
 timeouts = {'heart_attack': 300, 'obesity': 300, 'loan': 300, 'mnist': 600, 'cifar': 600, 'gtsrb': 840}
-
-
-def fill_missing(data, task, line_keys, x_col, y_col, x_values=None):
-    # Completes every line (one per combination of line_keys present in data) with a point at each of x_values
-    # (default: every x value present in data); a missing point (no row, or no y value) gets y = 2 * timeout.
-    # The added rows have no value in the other columns. Prints every point it fills.
-    task = task.lower().replace(' ', '_').removesuffix('_200')
-    if x_values is None:
-        x_values = data[x_col].dropna().unique()
-    lines = data[line_keys].dropna().drop_duplicates()
-    xs = pd.DataFrame({x_col: pd.Series(list(x_values)).astype(data[x_col].dtype)})
-    data = lines.merge(xs, how='cross').merge(data, on=line_keys + [x_col], how='left')
-    missing = data[y_col].isna()
-    data.loc[missing, y_col] = 2 * timeouts[task]
-    for _, row in data[missing].iterrows():
-        print(f"Missing: {task} " + ' '.join(str(row[k]) for k in line_keys + [x_col])
-              + f" -> {y_col} = {2 * timeouts[task]:g}")
-    return data
 
 
 def draw_timeout_lines(ax, task):

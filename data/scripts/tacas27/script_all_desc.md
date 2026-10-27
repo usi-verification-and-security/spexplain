@@ -309,14 +309,16 @@ per benchmark, with both widths, to `./stats/<mode>/<name>.txt`, e.g. `./stats/s
 ```
 
 `plot-performance` runs `plot_fc_stats.py` on the stats of `collect-stats` (run that first)
-and writes the PAR-2 plots to `./stats/<mode>/plots/`: `PAR-2_all_tasks_<width>.pdf` (all six
-benchmarks) and `PAR-2_image_only_<width>.pdf`, for the widths 50 and 200. The parsed tables
-are written next to the stats as `./stats/<mode>/<name>.csv`.
+and writes the PAR-2 plots to `data/output/<mode>/` (next to the interpretation figures):
+`performance-plots_PAR-2_all_tasks_<width>.pdf` (all six benchmarks) and
+`performance-plots_PAR-2_image_only_<width>.pdf`, for the widths 50 and 200. The parsed tables
+go to the same folder as `performance-plots_<name>.csv`. The stats themselves stay in
+`./stats/<mode>/`.
 
 - It uses the Python of `venv/` in the repository, created with
   `python3 -m venv venv && venv/bin/pip install -r requirements.txt`; `PYTHON` overrides it.
-- The timeout lines, the points of missing results (drawn at PAR-2 = 2 × timeout) and the
-  y-limits use the timeout per sample of the stats, so they fit every mode.
+- The timeout lines and the y-limits use the timeout per sample of the stats, so they fit
+  every mode. Missing results are not drawn: a line simply has no point at that model.
 - Benchmarks without stats keep their place in the grid but stay empty, and widths without
   results are skipped (smoke: only the 50x plots, without cifar and gtsrb).
 - With LaTeX installed, text is rendered with it; without, with Matplotlib's mathtext.

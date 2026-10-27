@@ -1,8 +1,8 @@
 # Plots of the stats files of one runme.sh mode, i.e. of `runme.sh collect-stats <mode>`.
-# USAGE: plot_fc_stats.py <stats_dir> [<plots_dir>]
-#   <stats_dir>  directory with the <task>.txt stats files, e.g. stats/short
-#   <plots_dir>  directory for the PDF plots (default: <stats_dir>/plots)
-# The CSV tables of the stats go to <stats_dir>/<task>.csv.
+# USAGE: plot_fc_stats.py <stats_dir> [<output_dir>]
+#   <stats_dir>   directory with the <task>.txt stats files, e.g. stats/short
+#   <output_dir>  directory for the CSV tables of the stats and the PDF plots (default: <stats_dir>),
+#                 named performance-plots_<task>.csv and performance-plots_<plot>.pdf
 # Tasks without a stats file and widths without results are left out.
 import os
 import re
@@ -16,9 +16,12 @@ from ploting_utils import *
 import matplotlib as mpl
 
 if len(sys.argv) not in (2, 3):
-    sys.exit(f'USAGE: {sys.argv[0]} <stats_dir> [<plots_dir>]')
+    sys.exit(f'USAGE: {sys.argv[0]} <stats_dir> [<output_dir>]')
 stats_dir = os.path.abspath(sys.argv[1])
-plots_dir = os.path.abspath(sys.argv[2]) if len(sys.argv) == 3 else os.path.join(stats_dir, 'plots')
+output_dir = os.path.abspath(sys.argv[2]) if len(sys.argv) == 3 else stats_dir
+os.makedirs(output_dir, exist_ok=True)
+# Prefix of the names of the CSV and PDF files
+output_prefix = 'performance-plots_'
 
 # Full LaTeX rendering needs a LaTeX installation; without one, Matplotlib's mathtext is used
 use_tex = shutil.which('latex') is not None
@@ -54,8 +57,6 @@ def ylim(task, width):
 # Itp algorithms to plot per model width; widths not listed show all of them
 # (any of 'weaker', 'weak', 'mid', 'strong', 'stronger')
 shown_itp = {'200': ['weak']}
-# Draw missing data points at PAR-2 = 2 * timeout (see timeouts in ploting_utils.py)
-fill_missing_points = True
 # filter_experimnet = 'astrong_bstrong'
 plot_case = 'PAR-2'  # Options: 'Size [MB]', 'Time', 'PAR-2', 'completed', 'terms'
 # plot_case = 'Size [MB]'
@@ -64,7 +65,7 @@ all_data = {}
 
 for task in tasks:
     input_file = os.path.join(stats_dir, f'{task}.txt')
-    output_file = os.path.join(stats_dir, f'{task}.csv')
+    output_file = os.path.join(output_dir, f'{output_prefix}{task}.csv')
     if not os.path.exists(input_file):
         print(f'No stats of {task}: {input_file}')
         continue
@@ -133,7 +134,7 @@ for task in tasks:
     all_data[task] = pd.read_csv(output_file, dtype={'Width': str})
 
     # The timeouts of the modes differ (see modes.sh), so use those of the stats instead of the defaults of
-    # ploting_utils.py; fill_missing and draw_timeout_lines read the same dictionary
+    # ploting_utils.py; ylim and draw_timeout_lines read the same dictionary
     if task_timeouts:
         if len(task_timeouts) > 1:
             print(f'WARNING: {task} has several timeouts per sample: {sorted(task_timeouts)}; using the largest one')
@@ -175,8 +176,6 @@ for (layout, (layout_tasks, grid, figsize)), name in [(l, w) for l in layouts.it
         data = data[data['Model Size'].isin(shown_depths(task))]
         if name in shown_itp:
             data = data[data['Experiment Name'].isin(shown_itp[name])]
-        if fill_missing_points and plot_case == 'PAR-2':
-            data = fill_missing(data, task, ['Method', 'Experiment Name'], 'Model Size', 'PAR-2', shown_depths(task))
 
         # x-axis is the number of ReLU neurons: every hidden layer has <width> ReLUs
         data['x'] = data['Model Size'] * int(name)
@@ -241,8 +240,7 @@ for (layout, (layout_tasks, grid, figsize)), name in [(l, w) for l in layouts.it
         frameon=False
     )
 
-    os.makedirs(plots_dir, exist_ok=True)
-    plot_name = os.path.join(plots_dir, f'{plot_case}_{layout}_{name}.pdf')
+    plot_name = os.path.join(output_dir, f'{output_prefix}{plot_case}_{layout}_{name}.pdf')
     # bbox_inches='tight' grows the canvas to fit the legend, however many rows it has
     plt.savefig(f"{plot_name}", format='pdf', bbox_inches='tight')
     # plt.show()

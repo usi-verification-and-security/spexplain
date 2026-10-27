@@ -13,7 +13,8 @@
 ##                  only naive/guide-all/fix-all/hybrid and the itp experiments (see STATS_FILTER)
 ##   plot-performance
 ##                  plot the PAR-2 per model of the collected stats with plot_fc_stats.py:
-##                  <STATS_DIR>/<mode>/plots/*.pdf (run collect-stats first)
+##                  data/output/<mode>/performance-plots_*.pdf, with the tables as
+##                  data/output/<mode>/performance-plots_<name>.csv (run collect-stats first)
 ##   interpret      make the interpretation figures from the mode's explanations with
 ##                  runme_norm.sh (Fig. 7, mnist), runme_diam.sh (Fig. 11, heart_attack and loan)
 ##                  runme_methodes.sh (Fig. 6, heart_attack and loan)
@@ -573,9 +574,10 @@ function action_collect_stats {
 function action_plot_performance {
     local stats_dir=${STATS_DIR:-$PWD/stats}/$MODE
     local python=${PYTHON:-$(dirname "$DATA_DIR")/venv/bin/python}
-    local plot_cmd=("$python" "$TACAS_DIR/plot_fc_stats.py" "$stats_dir")
+    local output_dir=$DATA_DIR/output/$MODE
+    local plot_cmd=("$python" "$TACAS_DIR/plot_fc_stats.py" "$stats_dir" "$output_dir")
 
-    printf "Stats:  %s\nPlots:  %s\n\n" "$stats_dir" "$stats_dir/plots"
+    printf "Stats:  %s\nPlots:  %s\n\n" "$stats_dir" "$output_dir"
 
     local stats_files=("$stats_dir"/*.txt)
     [[ -e ${stats_files[0]} ]] || {
@@ -599,7 +601,7 @@ function action_plot_performance {
     }
 
     printf "\nPlots:\n"
-    ls -1 "$stats_dir"/plots/*.pdf | sed 's/^/  /'
+    ls -1 "$output_dir"/performance-plots_*.pdf | sed 's/^/  /'
     exit 0
 }
 
