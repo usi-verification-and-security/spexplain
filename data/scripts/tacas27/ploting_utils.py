@@ -194,9 +194,11 @@ tick_fs = 14
 legend_fs = 14
 
 
-def read_stats(stats_file, task):
+def read_stats(stats_file, task, cnn=False):
     # Parses the stats file of one task (of `runme.sh collect-stats`, all model widths) into a DataFrame with the
-    # columns of the CSV tables of plot_fc_stats.py, and the set of the timeouts per sample [s] it states
+    # columns of the CSV tables of plot_fc_stats.py, and the set of the timeouts per sample [s] it states.
+    # With cnn, the stats file is that of the CNN models (<task>_cnn.txt, of plot_cnn_stats.py): their names,
+    # e.g. NAB1, are in 'Model Size', and there is no 'Width' column.
     # Initialize a list to store table rows
     rows = []
 
@@ -210,10 +212,21 @@ def read_stats(stats_file, task):
     timeout_pattern = re.compile(r'^Timeout per sample \[s\]: *([0-9.]+)')
     task_timeouts = set()
 
+    # The captured order (after Experiment/Width/Model/Method) is:
+    # Experiment Name, %Features, %Fixed, %Dimension, #Terms, Size [MB], #Checks, %Completed, Time [s], PAR-2
+    columns = ['Experiment', 'Width', 'Model Size', 'Method', 'Experiment Name', '%Features', '%Fixed', '%Dimension',
+               '#Terms', 'Size [MB]', '#Checks', '%Completed', 'Time [s]', 'PAR-2']
+    if cnn:
+        columns.remove('Width')
+
     # Read the file and process it
     with open(stats_file, 'r') as file:
         current_experiment = None
-        header_pattern = re.compile(rf'^{re.escape(task)}\s+\d+x\d+\s+\S+')
+        if cnn:
+            # e.g. 'mnist NAB1 hybrid'
+            header_pattern = re.compile(rf'^{re.escape(task)}\s+[A-Za-z]+\d+\s+\S+$')
+        else:
+            header_pattern = re.compile(rf'^{re.escape(task)}\s+\d+x\d+\s+\S+')
         for line in file:
             line = line.strip()
             if timeout_pattern.match(line):
@@ -221,27 +234,26 @@ def read_stats(stats_file, task):
             elif header_pattern.match(line):  # Experiment name, e.g. 'loan 50x4 fix-all'
                 current_experiment = line
                 parts = current_experiment.split()
-                width, model_size = parts[1].split('x')  # e.g. 50x4 -> width 50, 4 hidden layers
+                if cnn:
+                    model_cols = [parts[1]]
+                else:
+                    model_cols = parts[1].split('x')  # e.g. 50x4 -> width 50, 4 hidden layers
                 method = parts[-1]  # Extract the last word
             elif current_experiment and table_row_pattern.match(line):  # Match table rows
                 match = table_row_pattern.match(line)
                 # Extract row data
-                row = [current_experiment, width, model_size, method] + list(match.groups())
+                row = [current_experiment] + model_cols + [method] + list(match.groups())
                 # Check if `%completed` is not `X`
-                # Note: with the added 'Width' and 'Size [MB]' columns the index of '%Completed' is now 11.
-                if row[11] != 'X':  # `%completed` column (index 11 in the row)
+                if row[columns.index('%Completed')] != 'X':
                     # Replace `X` with NaN for other columns
                     row = [np.nan if value == 'X' else value for value in row]
                     rows.append(row)
 
     # Create a DataFrame from the rows
-    # The captured order (after Experiment/Width/Model/Method) is:
-    # Experiment Name, %Features, %Fixed, %Dimension, #Terms, Size [MB], #Checks, %Completed, Time [s], PAR-2
-    columns = ['Experiment', 'Width', 'Model Size', 'Method', 'Experiment Name', '%Features', '%Fixed', '%Dimension',
-               '#Terms', 'Size [MB]', '#Checks', '%Completed', 'Time [s]', 'PAR-2']
     df = pd.DataFrame(rows, columns=columns)
     # Some stats files contain the same experiment blocks more than once
-    df = df.drop_duplicates(subset=['Width', 'Model Size', 'Method', 'Experiment Name'], keep='first')
+    df = df.drop_duplicates(subset=[c for c in ['Width', 'Model Size', 'Method', 'Experiment Name'] if c in columns],
+                            keep='first')
 
     percent_columns = ['%Features', '%Fixed', '%Dimension', '%Completed']
     for col in percent_columns:

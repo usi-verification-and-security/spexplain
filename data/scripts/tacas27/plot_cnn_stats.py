@@ -74,64 +74,19 @@ def model_prefix(model):
     return re.match(r'^[A-Za-z]+', model).group(0)
 
 
-# Regular expression to match table rows: experiment name plus 9 numeric/text fields
-table_row_pattern = re.compile(
-    r'^\s*(\S.*?)\s+\|\s+([\d.X%]+)\s+\|\s+([\d.X%]+)\s+\|\s+([\d.X%]+)\s+\|\s+([\d.X]+)\s+\|\s+([\d.X]+)\s+\|\s+([\d.X]+)\s+\|\s+([\d.X%]+)\s+\|\s+([\d.X]+)\s+\|\s+([\d.X]+)')
-# The timeout per sample of the mode, as written by collect_stats.sh
-timeout_pattern = re.compile(r'^Timeout per sample \[s\]: *([0-9.]+)')
-
-columns = ['Experiment', 'Model Size', 'Method', 'Experiment Name', '%Features', '%Fixed', '%Dimension',
-           '#Terms', 'Size [MB]', '#Checks', '%Completed', 'Time [s]', 'PAR-2']
-
-
 def read_task(task):
     input_file = os.path.join(stats_dir, f'{task}_cnn.txt')
     output_file = os.path.join(output_dir, f'{output_prefix}{task}_cnn.csv')
     if not os.path.exists(input_file):
         print(f'No CNN stats of {task}: {input_file}')
         return None
-    rows = []
-    task_timeouts = set()
-
-    # Header lines look like: 'mnist NAB1 hybrid'
-    header_pattern = re.compile(rf'^{re.escape(task)}\s+[A-Za-z]+\d+\s+\S+$')
-    with open(input_file, 'r') as file:
-        current_experiment = None
-        for line in file:
-            line = line.strip()
-            if timeout_pattern.match(line):
-                task_timeouts.add(float(timeout_pattern.match(line).group(1)))
-            elif header_pattern.match(line):  # Experiment name
-                current_experiment = line
-                _, model, method = line.split()
-            elif current_experiment and table_row_pattern.match(line):  # Match table rows
-                match = table_row_pattern.match(line)
-                row = [current_experiment, model, method] + list(match.groups())
-                if row[10] != 'X':  # `%completed` column (index 10 in the row)
-                    row = [np.nan if value == 'X' else value for value in row]
-                    rows.append(row)
-
-    df = pd.DataFrame(rows, columns=columns)
-    # Some stats files contain the same experiment blocks more than once
-    df = df.drop_duplicates(subset=['Model Size', 'Method', 'Experiment Name'], keep='first')
-
-    percent_columns = ['%Features', '%Fixed', '%Dimension', '%Completed']
-    for col in percent_columns:
-        df[col] = df[col].str.replace('%', '', regex=False).astype(float)
-
-    numeric_columns = ['#Terms', '#Checks', 'Size [MB]', 'Time [s]', 'PAR-2']
-    for col in numeric_columns:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
+    df, task_timeouts = read_stats(input_file, task, cnn=True)
 
     df.to_csv(output_file, index=False)
     print(f"CSV file saved to {output_file}")
 
-    # The timeouts of the modes differ (see modes.sh), so use those of the stats instead of the defaults of
-    # ploting_utils.py; ylim and draw_timeout_lines read the same dictionary
-    if task_timeouts:
-        if len(task_timeouts) > 1:
-            print(f'WARNING: {task} has several timeouts per sample: {sorted(task_timeouts)}; using the largest one')
-        timeouts[task] = max(task_timeouts)
+    # ylim and draw_timeout_lines read the timeouts of the stats
+    use_stats_timeouts(task, task_timeouts)
 
     data = pd.read_csv(output_file)
     data = rename_methods(data)
