@@ -55,8 +55,8 @@ Models: only these `<name>_<width>x<depth>.nnet` files, for both widths 50x and 
 | timeout per explanation | 1m tabular, 5m mnist | 200s tabular, MN 300s, CIF 400s, GTS 600s | HA/OB/LO 5m, MN/CIF 10m, GTS 14m | HA/OB/LO 5m, MN/CIF 10m, GTS 14m |
 | on a failed job | stop | continue | continue | continue |
 | results in | `s100_scaled_smoke/<variant>/` | `s100_scaled_short/<variant>/` | `s100_scaled_long/<variant>/` | `s100_scaled/<variant>/` |
-| **jobs** (FC + CNN) | **96** (72 + 24) | **1,153** (1,009 + 144) | **1,153** (1,009 + 144) | **2,006** (1,862 + 144) |
-| **explanations** (FC + CNN) | **210** (186 + 24) | **9,224** (8,072 + 1,152) | **23,060** (20,180 + 2,880) | **200,600** (186,200 + 14,400) |
+| **jobs** (FC + CNN) | **90** (72 + 18) | **1,153** (1,009 + 144) | **1,153** (1,009 + 144) | **2,006** (1,862 + 144) |
+| **explanations** (FC + CNN) | **204** (186 + 18) | **9,224** (8,072 + 1,152) | **23,060** (20,180 + 2,880) | **200,600** (186,200 + 14,400) |
 
 `fix-all-no-vars` runs in all modes, but only for the 50x1–50x4 models of heart_attack, loan and mnist.
 `smoke` runs only the models up to 50x6, no `naive` and no unsat-core jobs.
@@ -82,10 +82,10 @@ the same GNU parallel queue (`CNN_*`, `set_cnn_mode` and `is_cnn_excluded` in `m
 | | `smoke` | `short`, `long`, `full` |
 |---|---|---|
 | benchmarks | mnist | mnist, cifar, gtsrb |
-| models (`data/models/<name>/cnn-bench/`) | NS1–NS4, NAB1–NAB4 | NS1–NS6, NAB1–NAB6 |
+| models (`data/models/<name>/cnn-bench/`) | NS1–NS3, NAB1–NAB3 | NS1–NS6, NAB1–NAB6 |
 | variants (`data/scripts/cnn/spec/variants/all`) | guide-all, fix-all, hybrid | naive, guide-all, fix-all, hybrid |
 | experiments | itp_aweak_bstrong | itp_aweak_bstrong |
-| **jobs** | **24** | **144** (48 per benchmark) |
+| **jobs** | **18** | **144** (48 per benchmark) |
 
 - The dataset and the timeout per explanation are those of the mode for the benchmark, as for the
   `.nnet` models (full: MN/CIF 10m, GTS 14m, as in `MN.sh`, `CIF.sh`, `GTS.sh`). The input domain
@@ -154,7 +154,7 @@ Jobs per benchmark and width:
 | mnist 200x | – | 29 | 180 |
 | cifar 200x | – | 23 | 180 |
 | gtsrb 200x | – | 23 | 180 |
-| mnist cnn | 24 | 48 | 48 |
+| mnist cnn | 18 | 48 | 48 |
 | cifar cnn | – | 48 | 48 |
 | gtsrb cnn | – | 48 | 48 |
 

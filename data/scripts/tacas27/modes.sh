@@ -172,8 +172,8 @@ function is_cnn_excluded {
     local depth=$3
     local variant=$4
 
-    ## In smoke: only the models up to NS4 and NAB4
-    is_smoke_mode && (( $depth > 4 )) && return 0
+    ## In smoke: only the models up to NS3 and NAB3
+    is_smoke_mode && (( $depth > 3 )) && return 0
 
     return 1
 }
