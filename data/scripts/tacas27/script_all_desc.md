@@ -4,7 +4,7 @@
 ./runme.sh <action> <mode> [--resume] [-n] [-h]
 ```
 
-Actions: `run`, `collect-stats`, `plot-performance`, `interpret` (more to come: `run-verix-plus`).
+Actions: `run`, `collect-stats`, `plot-performance`, `interpret`, `run-verix-plus`.
 Modes: `smoke`, `short`, `long`, `full`. Both are required.
 
 `runme.sh` runs the `plain_itp` experiments with the `tacas27` variants on the
@@ -341,16 +341,15 @@ with headers like `mnist NAB1 hybrid`; `plot-performance` plots them with `plot_
 
 `plot-performance` runs `plot_fc_stats.py` on the stats of `collect-stats` (run that first)
 and writes the PAR-2 plots to `data/output/<mode>/` (next to the interpretation figures):
-`performance-plots_PAR-2_all_tasks_<width>.pdf` (all six benchmarks) and
-`performance-plots_PAR-2_image_only_<width>.pdf`, for the widths 50 and 200. The parsed tables
-go to the same folder as `performance-plots_<name>.csv`. The stats themselves stay in
+`fig-5-performance-plots_PAR-2_all_tasks_<width>.pdf` (all six benchmarks), for the widths 50 and 200.
+The parsed tables go to the same folder as `fig-5-performance-plots_<name>.csv`. The stats themselves stay in
 `./stats/<mode>/`.
 
 It then runs `plot_cnn_stats.py` on the CNN stats (`<name>_cnn.txt`): one plot per CNN model
-family, `performance-plots_PAR-2_cnn_relus_<family>.pdf` (e.g. `narrow-avg-pool` for NAB,
-`narrow-no-pool` for NS), with mnist, cifar and gtsrb side by side and the PAR-2 over the
+family, `fig-9_CNN_performance-plots_PAR-2_<family>.pdf` (e.g. `narrow-avg-pool` for NAB,
+`narrow-stride2` for NS), with mnist, cifar and gtsrb side by side and the PAR-2 over the
 #ReLUs of the models (from `data/models/<name>/cnn-bench/manifest.csv`). Its tables are
-`performance-plots_<name>_cnn.csv`.
+`fig-9_CNN_performance-plots_<name>_cnn.csv`.
 
 - It uses the Python of `venv/` in the repository, created with
   `python3 -m venv venv && venv/bin/pip install -r requirements.txt`; `PYTHON` overrides it.
@@ -363,12 +362,17 @@ family, `performance-plots_PAR-2_cnn_relus_<family>.pdf` (e.g. `narrow-avg-pool`
 - What to plot (plotted depths, the itp algorithms of 200x, colors, fonts) is set at the top of
   `plot_fc_stats.py` and in `ploting_utils.py`; for the CNN models (families, itp algorithms)
   at the top of `plot_cnn_stats.py`.
-- Not run yet (commented out in `runme.sh`, until the VeriX+ results are available):
-  `plot_compare_with_verix_plus.py <stats_dir> [<output_dir>]` compares our results with VeriX+.
-  It reads our stats as `plot_fc_stats.py` does (the same `read_stats` of `ploting_utils.py`, also
-  the timeouts), and the VeriX+ CSVs from `data/output/<mode>/`: `performance-plots_<name>_verix.csv`
-  (50x) and `performance-plots_<name>200_verix.csv` (200x), columns `Algorithm,epsilon,layers,PAR2`.
-  It writes `performance-plots_PAR-2_ours_vs_verix_plus_<layout>_<width>.pdf` next to them.
+- With the results of `run-verix-plus` of the mode, it also compares our results with VeriX+.
+  First it writes the run times of VeriX+ into `data/output/<mode>/`: `fig-8_comparison-plots_<name>_verix.csv`
+  (50x) and `fig-8_comparison-plots_<name>200_verix.csv` (200x), with the columns `Algorithm,epsilon,layers,PAR2`
+  as `produce_csv.py` of the original experiments: the average PAR-2 of the samples per epsilon (e.g. `5%`)
+  and model depth (`layers`, from 1), with the mode's timeout per explanation. The time of a sample is its
+  `time.txt` of `verix1.py`; one without it (a timeout or a failure), or with at least the timeout, counts as
+  twice the timeout. The algorithm is `IR`, the random traversal order of `run-verix-plus`; the models without
+  its results are left out.
+  Then `plot_compare_with_verix_plus.py <stats_dir> [<output_dir>]` reads our stats as `plot_fc_stats.py` does
+  (the same `read_stats` of `ploting_utils.py`, also the timeouts) and the `IR` rows of these CSVs, and writes
+  `fig-8_comparison-plots_PAR-2_ours_vs_verix_plus_all_tasks_<width>.pdf` next to them.
 
 ## Interpretation figures
 
@@ -386,10 +390,10 @@ family, `performance-plots_PAR-2_cnn_relus_<family>.pdf` (e.g. `narrow-avg-pool`
   `itp_aweak_bstrong` explanations, as an image and as `mathexpr` (PDF): heart_attack sample 21
   (s20 in the paper) and loan sample 90 (s89 in the paper), four pairs of variables each.
 - `runme_methodes.sh` (Fig. 6): `interpret ... 'slice vars <x> <y>' --visualize fspace` of the
-  `naive`, `guide-all` and `fix-all-no-vars` `itp_aweak_bstrong` explanations together, for
-  50x1 and 50x4: heart_attack samples 98 and 63 (s97, s62 in the paper) and loan samples 8 and
-  70 (s7, s69 in the paper). A missing variant is left out of the figure; smoke has no loan
-  `naive`, so its loan figures show only `guide-all` and `fix-all-no-vars`.
+  `naive`, `guide-all` and `fix-all-no-vars` `itp_aweak_bstrong` explanations together with `verix/eps5`
+  (of `run-verix-plus`), for 50x1 and 50x4: heart_attack samples 98 and 63 (s97, s62 in the paper)
+  and loan samples 8 and 70 (s7, s69 in the paper). A missing variant is left out of the figure; smoke has
+  no loan `naive`, so its loan figures show only `guide-all` and `fix-all-no-vars` (and `verix/eps5`).
 - `runme_ucore.sh` (Fig. 10): `interpret ... 'slice vars <x> <y>' --visualize fspace` of the
   heart_attack 50x1 `ucore_min_itp_aweak_bstrong` and `itp_aweak_bstrong` explanations together
   (the ucore min region underneath), one figure per variant, `naive` and `fix-all`: samples 84
@@ -398,8 +402,8 @@ family, `performance-plots_PAR-2_cnn_relus_<family>.pdf` (e.g. `narrow-avg-pool`
 - The samples are the indices in the original s100 dataset. `mode_sample` (in `modes.sh`)
   turns them into the indices in the mode's dataset via `data/datasets/mode_sample_maps.csv`.
   Sample 90 of loan is not in the smoke dataset, so smoke has no loan figures.
-- A missing explanations file or sample is skipped with a message (e.g. verix until
-  `run-verix-plus` exists). A failed `spexplain interpret` makes the script, and then `interpret`
+- A missing explanations file or sample is skipped with a message (e.g. verix without
+  `run-verix-plus` of the mode). A failed `spexplain interpret` makes the script, and then `interpret`
   or `run`, exit with 1.
 - The explanations must have been computed on the current mode dataset. After
   `make_mode_datasets.py` changes it, run the mode again, or `interpret` fails with
@@ -408,6 +412,54 @@ family, `performance-plots_PAR-2_cnn_relus_<family>.pdf` (e.g. `narrow-avg-pool`
   interpret` needs matplotlib.
 - The scripts can also be run on their own: `./runme_norm.sh <mode>`, `./runme_diam.sh <mode>`,
   `./runme_methodes.sh <mode>` (default mode: smoke).
+
+## VeriX-plus
+
+```bash
+./runme.sh run-verix-plus <mode> [--resume] [-n]
+```
+
+`run-verix-plus` computes the explanations of VeriX-plus (https://github.com/minwu-cs/VeriX-plus),
+as in the original experiments, on the same models and mode datasets as `run` with the same timeouts
+per explanation, and with the perturbations epsilon 1, 0.05 and 0.005.
+
+- The configuration of the original experiments, as in the image `docker/tacas27`:
+  - VeriX-plus at commit `5efb636`, with the patch of the original experiments for binary classification
+    (`docker/tacas27/verix-tabular.patch`): the dataset `tabular`, perturbed per feature as mnist, and for
+    networks with a single output, whether the output can change its sign. The patch takes the predicted label
+    as the argmax of the single output, i.e. always 0, so it always checks whether the output can be >= 0:
+    the samples with a positive output are never robust and their explanations fix all features.
+  - Marabou at commit `1c2f478`, built without Gurobi. VeriX-plus solves the queries of Marabou as MILP,
+    which without Gurobi are `sat` unless refuted by the preprocessing of Marabou (bound tightening).
+    The explanations are thus correct, as a feature is perturbed only if refuted, but not minimal, and fast.
+    Gurobi was not used.
+  - The random traversal order of VeriX-plus (with its seed 0), the binary search and the confidence ranking.
+    `VERIX_ORDER` sets another order (e.g. `bounds`).
+- The reference explanations of the original experiments (mnist 50x1 and 50x4, epsilon 1 and 0.05, samples 1-10)
+  are reproduced up to a few features per explanation, with similar run times: the original setup could not be
+  recovered in all details.
+- All benchmarks (`VERIX_NAMES` in `modes.sh`), only the fully connected models (not the CNN models).
+  The tabular samples are shaped `(<features>, 1, 1)`.
+  The images of gtsrb and cifar have three channels: VeriX-plus takes the channels of a pixel together, whereas
+  the datasets and the networks have them channel after channel, so `verix1.py` reorders the inputs of the
+  networks that VeriX-plus reads, and its pixels are mapped back to the features.
+- The jobs are model × epsilon, e.g. `mnist/50x1/verix/eps100`, in the same kind of GNU parallel queue
+  as `run` (also `-n`, `--resume` and `FILTER`). Their job list and joblog are in
+  `data/logs/runme/<mode>/verix/`.
+- One job is `verix/verix1.sh`: it converts the `.nnet` to `.onnx` (unless it exists) with
+  `verix/nnet_to_onnx.py`, runs `verix/verix1.py` on each sample with the timeout per explanation,
+  and writes the explanations with `verix/to_phi.py` to
+  `data/explanations/<name>/<width>x<depth>/<dataset>/verix/eps{100,5,0.5}.phi.txt`, where
+  `runme_norm.sh` and `runme_methodes.sh` read them. The results of VeriX-plus of each sample (`sat.txt`,
+  `unsat.txt`, `time.txt` and its log) are in the directory `eps<P>/` next to them.
+- An explanation fixes the features of the explanation of VeriX-plus (`sat.txt`, pixels with all their
+  channels) to the sample, and perturbs the others (`unsat.txt`) by epsilon, within [0,1]. A sample robust already with all features
+  perturbed perturbs all of them. A timeout or a failure is `<null>`; a failure makes the job fail.
+- The timeout kills VeriX-plus (`timeout --signal=KILL`): Marabou installs its handler of SIGTERM in the process
+  with the first query, the queries as MILP never check it, and the handler refers to the finished queries,
+  so SIGTERM does not stop VeriX-plus, or crashes it.
+- It fails unless VeriX-plus can run as in the original experiments: installed (`VERIX_DIR`, default
+  `~/VeriX-plus`, as in the Docker image), with Marabou without Gurobi.
 
 ## Files
 
@@ -425,6 +477,7 @@ family, `performance-plots_PAR-2_cnn_relus_<family>.pdf` (e.g. `narrow-avg-pool`
 - `runme_norm.sh`, `runme_diam.sh`, `runme_methodes.sh`, `runme_ucore.sh`: the interpretation figures of `interpret`, also run at
   the end of `run`.
 - `commands_fix-all_no_neuron_vars.sh`: the explanations for interpretation, run at the end of `run`.
+- `verix/`: the jobs of `run-verix-plus`.
 
 
 ## Run Times on My Laptop
