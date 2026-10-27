@@ -55,15 +55,15 @@ Models: only these `<name>_<width>x<depth>.nnet` files, for both widths 50x and 
 | timeout per explanation | 1m tabular, 5m mnist | 200s tabular, MN 300s, CIF 400s, GTS 600s | HA/OB/LO 5m, MN/CIF 10m, GTS 14m | HA/OB/LO 5m, MN/CIF 10m, GTS 14m |
 | on a failed job | stop | continue | continue | continue |
 | results in | `s100_scaled_smoke/<variant>/` | `s100_scaled_quick/<variant>/` | `s100_scaled_short/<variant>/` | `s100_scaled/<variant>/` |
-| **jobs** | **72** | **1,009** | **1,009** | **1,862** |
-| **explanations** | **186** | **8,072** | **20,180** | **186,200** |
+| **jobs** (FC + CNN) | **96** (72 + 24) | **1,153** (1,009 + 144) | **1,153** (1,009 + 144) | **2,006** (1,862 + 144) |
+| **explanations** (FC + CNN) | **210** (186 + 24) | **9,224** (8,072 + 1,152) | **9,224** (8,072 + 1,152) | **200,600** (186,200 + 14,400) |
 
 `fix-all-no-vars` runs in all modes, but only for the 50x1–50x4 models of heart_attack, loan and mnist.
 `smoke` runs only the models up to 50x6, no `naive` and no unsat-core jobs.
 
 **`smokeLong`** is a smoke test for us and will be removed later. It is `smoke` plus `naive` for
 the heart_attack 50x1–50x4 models and the unsat-core jobs (see "Unsat cores of interpolants"):
-78 jobs, 222 explanations. It uses the smoke dataset, sample map and timeouts, and so writes into
+78 FC jobs and 222 explanations, plus the 24 CNN jobs of `smoke`. It uses the smoke dataset, sample map and timeouts, and so writes into
 the same results folder `s100_scaled_smoke/` (its jobs that `smoke` also has overwrite those
 results). Its job log, stats and figures go under its own name (`logs/runme/smokeLong/`,
 `stats/smokeLong/`, `output/smokeLong/`). Like `smoke`, it stops at the first failed job.
@@ -81,6 +81,30 @@ In `modes.sh`, `dataset_mode` maps it to `smoke` and `is_smoke_mode` covers both
 
 `quick` differs from `short` in the lower timeouts and in its samples: the first 8 of short
 (the same jobs, separate results folders).
+
+## CNN (ONNX) models
+
+Every mode also runs the CNN-bench models of `data/scripts/cnn/tacas27/{MN,CIF,GTS}.sh`, as jobs of
+the same GNU parallel queue (`CNN_*`, `set_cnn_mode` and `is_cnn_excluded` in `modes.sh`):
+
+| | `smoke`, `smokeLong` | `quick`, `short`, `full` |
+|---|---|---|
+| benchmarks | mnist | mnist, cifar, gtsrb |
+| models (`data/models/<name>/cnn-bench/`) | NS1–NS4, NAB1–NAB4 | NS1–NS6, NAB1–NAB6 |
+| variants (`data/scripts/cnn/spec/variants/all`) | guide-all, fix-all, hybrid | naive, guide-all, fix-all, hybrid |
+| experiments | itp_aweak_bstrong | itp_aweak_bstrong |
+| **jobs** | **24** | **144** (48 per benchmark) |
+
+- The dataset and the timeout per explanation are those of the mode for the benchmark, as for the
+  `.nnet` models (full: MN/CIF 10m, GTS 14m, as in `MN.sh`, `CIF.sh`, `GTS.sh`). The input domain
+  is [0,1] (`CNN_INPUT_MIN`, `CNN_INPUT_MAX`).
+- A job runs `data/scripts/cnn/run1.sh`, i.e. the frozen engine for ONNX networks
+  `build-onnx/engine` with the `explain-onnx` action. Make it first with `make onnx`;
+  `run` stops if it is missing (`-n` only warns).
+- Job ids are `<name>/<id>/<variant>/<experiment>`, e.g. `mnist/NAB1/hybrid/itp_aweak_bstrong`,
+  so `FILTER='^mnist/NAB'` selects them. In the estimate, they are grouped as `<name> cnn`.
+- The results go to `data/explanations/<name>/cnn-bench/<id>/<dataset>/<variant>/`.
+- No exclusions for the deep models yet, except the smoke limits above.
 
 ## Mode datasets
 
@@ -115,6 +139,10 @@ separate seed (`SHORT_EXTRA_SEED`), so smoke and quick are the same as before sh
   `run1.sh` uses for that dataset. They keep all blocks of each sample as in the original files
   (some list a sample twice, some lack samples), so hybrid behaves as on the full dataset.
   `run` stops if one of them is missing.
+  The CNN models have their copies in
+  `data/neuron_activations/<name>/cnn-bench/s100_scaled_<mode>/<id>.txt`, used by
+  `data/scripts/cnn/run1.sh`. For them, `run` only prints
+  `WARNING: neuron activations not found: <file>`.
 - After changing the important samples or adding models, run the script again:
   `python3 make_mode_datasets.py`. The results of the earlier mode datasets are then outdated.
 
@@ -134,11 +162,14 @@ Jobs per benchmark and width:
 | mnist 200x | – | 29 | 180 |
 | cifar 200x | – | 23 | 180 |
 | gtsrb 200x | – | 23 | 180 |
+| mnist cnn | 24 | 48 | 48 |
+| cifar cnn | – | 48 | 48 |
+| gtsrb cnn | – | 48 | 48 |
 
 ## Runtime
 
 All numbers assume a machine with **16 CPUs** and the default `CPU_PERCENTAGE=80`, i.e.
-**13 jobs at once**, and the final model set. For another machine, run e.g.
+**13 jobs at once**, and the final model set, without the CNN jobs. For another machine, run e.g.
 `CPUS=<n> ./runme.sh run short -n`.
 
 **Max** = every explanation hits its timeout. This is a hard upper bound, apart from the
@@ -283,7 +314,8 @@ interpolant is computed in the same run, then reduced), i.e. ITP+ucore min of th
 
 `collect-stats` runs `collect_stats.sh` on the results of the given mode and writes one file
 per benchmark, with both widths, to `./stats/<mode>/<name>.txt`, e.g. `./stats/short/cifar.txt`
-(`STATS_DIR` changes `./stats`).
+(`STATS_DIR` changes `./stats`). The CNN models go to their own file `./stats/<mode>/<name>_cnn.txt`,
+with headers like `mnist NAB1 hybrid`; `plot-performance` does not plot them yet.
 
 - It uses the same job list as `run`, so it only collects what the mode runs: the right
   results folder (`s100_scaled_<mode>/` or `s100_scaled/` for full), only the
@@ -383,7 +415,12 @@ go to the same folder as `performance-plots_<name>.csv`. The stats themselves st
 - `runme.sh`: the actions, the job list and the GNU parallel queue.
 - `modes.sh`: what each mode runs: benchmarks, widths, variants, experiments, exclusions,
   datasets and timeouts.
-- `make_mode_datasets.py`: the mode datasets, the sample maps and their neuron activations.
+- `make_mode_datasets.py`: the mode datasets, the sample maps and their neuron activations
+  (also of the CNN models).
+- `../run1.sh`: one FC job. It no longer passes `--quiet` by default, because `--quiet` segfaults
+  in some builds of the engine (`QUIET=1` turns it back on). So `.out.txt` holds a short
+  progress log; the explanations and stats are unchanged.
+- `../cnn/run1.sh`: one CNN job, with the engine of `make onnx`.
 - `plot_fc_stats.py`, `ploting_utils.py`: the plots of `plot-performance`.
 - `plot_compare_with_verix_plus.py`: the comparison with VeriX+ (not run yet by `plot-performance`).
 - `runme_norm.sh`, `runme_diam.sh`, `runme_methodes.sh`, `runme_ucore.sh`: the interpretation figures of `interpret`, also run at

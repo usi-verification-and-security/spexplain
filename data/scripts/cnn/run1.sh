@@ -58,6 +58,11 @@ set_input_bounds
 
 activations="${MODEL/models\//neuron_activations\/}"
 activations="${activations%.*}.txt"
+## As in ../run1.sh: a dataset other than the original one has its own activations in <dataset>/,
+## named as the results directory, e.g. s100_scaled_short; OUTPUT_DIR is <...>/<dataset>/<variant>
+dataset_dir=$(basename "$(dirname "$OUTPUT_DIR")")
+dataset_activations="$(dirname "$activations")/$dataset_dir/$(basename "$activations")"
+[[ -r $dataset_activations ]] && activations="$dataset_activations"
 [[ -r $activations ]] && {
     for options_var in VAR_OPTIONS OPTIONS; do
         declare -n lOPTIONS=$options_var

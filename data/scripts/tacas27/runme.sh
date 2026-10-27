@@ -9,7 +9,8 @@
 ## Actions:
 ##   run            run the experiments of the mode
 ##   collect-stats  collect the stats of the mode's finished experiments with collect_stats.sh,
-##                  one file per benchmark (50x and 200x): <STATS_DIR>/<mode>/<name>.txt;
+##                  one file per benchmark (50x and 200x): <STATS_DIR>/<mode>/<name>.txt,
+##                  and of the CNN models: <STATS_DIR>/<mode>/<name>_cnn.txt;
 ##                  only naive/guide-all/fix-all/hybrid and the itp experiments (see STATS_FILTER)
 ##   plot-performance
 ##                  plot the PAR-2 per model of the collected stats with plot_fc_stats.py:
@@ -38,6 +39,12 @@
 ##   full      dataset <name>_s100_scaled.csv (100 samples); everything
 ## smoke(Long), quick and short leave out the deep models where naive or guide-all mostly times out.
 ## fix-all-no-vars runs only for the 50x1-50x4 models of heart_attack, loan and mnist, in all modes.
+## CNN (ONNX) models, as jobs of the same queue, in every mode (see CNN_* in ./modes.sh):
+##   mnist, cifar and gtsrb (smoke(Long): mnist only), models/<name>/cnn-bench/{NS,NAB}1-6.onnx
+##   (smoke(Long): up to NS4 and NAB4), naive/guide-all/fix-all/hybrid (smoke(Long): no naive),
+##   itp_aweak_bstrong; the dataset and the timeouts of the mode, as for the .nnet models.
+##   They run cnn/run1.sh with the engine of 'make onnx' (build-onnx/engine), and the results go to
+##   data/explanations/<name>/cnn-bench/<id>/<dataset>/<variant>/.
 ## The results go to data/explanations/<name>/<width>x<depth>/<dataset>/<variant>/,
 ## e.g. s100_scaled_short. In every mode, run also runs commands_fix-all_no_neuron_vars.sh at the end
 ## (explanations for interpretation, into data/explanations_for_interpretation/). The smaller datasets, the maps of their samples to the original ones
@@ -238,7 +245,69 @@ function make_jobs {
         done
     done >"$JOBS_TMP.unsorted"
 
+    make_cnn_jobs >>"$JOBS_TMP.unsorted"
+
     sort -s -t$'\t' -k1,1nr "$JOBS_TMP.unsorted" >"$JOBS_TMP"
+}
+
+## As make_jobs, for the CNN (ONNX) models (CNN_* in modes.sh), to stdout. The job id is
+## <name>/<id>/<variant>/<experiment>, e.g. mnist/NAB1/hybrid/itp_aweak_bstrong, and in the order,
+## the width is 0 and the depth is <family index>*10 + <depth>
+function make_cnn_jobs {
+    set_cnn_mode
+
+    local i name timeout_per dataset n_samples worst_secs
+    local fidx family depth model_id model vidx variant experiment job_id job_strategies
+    for name in ${CNN_NAMES[@]}; do
+        mode_includes_benchmark $name || continue
+
+        for i in ${!NAMES[@]}; do
+            [[ ${NAMES[$i]} == $name ]] && break
+        done
+
+        timeout_per=$(mode_timeout_per $i)
+        dataset=$(mode_dataset $name)
+
+        [[ -r $dataset ]] || {
+            printf "Cannot read the dataset: %s\n" "$dataset" >&2
+            printf "The datasets of the modes are made by %s\n" "$TACAS_DIR/make_mode_datasets.py" >&2
+            exit 1
+        }
+
+        ## The first line is the header
+        n_samples=$(( $(awk 'END { print NR }' "$dataset") - 1 ))
+        worst_secs=$(( $n_samples * $(to_secs $timeout_per) ))
+
+        for fidx in ${!CNN_FAMILIES[@]}; do
+            family=${CNN_FAMILIES[$fidx]}
+            for depth in ${CNN_DEPTHS[@]}; do
+                model_id=$family$depth
+                model="$DATA_DIR/models/$name/$CNN_MODEL_SET/$model_id.onnx"
+
+                [[ -r $model ]] || {
+                    printf "Cannot read the model: %s\n" "$model" >&2
+                    exit 1
+                }
+
+                for vidx in ${!MODE_CNN_VARIANTS[@]}; do
+                    variant=${MODE_CNN_VARIANTS[$vidx]}
+                    is_cnn_excluded $name $family $depth $variant && continue
+
+                    for experiment in "${MODE_CNN_EXPERIMENTS[@]}"; do
+                        job_id="$name/$model_id/$variant/$experiment"
+                        [[ -n $FILTER && ! $job_id =~ $FILTER ]] && continue
+
+                        find_strategies_for_experiment $experiment job_strategies
+
+                        printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%02d.%04d.%03d.%02d\n" \
+                            $worst_secs "$job_id" $timeout_per "$model" "$dataset" \
+                            $variant $experiment "$job_strategies" $n_samples \
+                            $i 0 $(( $fidx*10 + $depth )) $vidx
+                    done
+                done
+            done
+        done
+    done
 }
 
 JOBS_TMP=$(mktemp)
@@ -279,7 +348,9 @@ function print_estimate {
     function dur(s) { return sprintf("%dh %02dm", int(s/3600), int(s%3600/60)) }
     {
         split($2, id, "/")
-        group = id[1] " " substr(id[2], 1, index(id[2], "x"))
+        ## The CNN models have no width
+        if (index(id[2], "x")) group = id[1] " " substr(id[2], 1, index(id[2], "x"))
+        else group = id[1] " cnn"
         if (!(group in jobs)) order[++n_groups] = group
         jobs[group]++
         expl[group] += $9
@@ -308,11 +379,21 @@ function print_estimate {
 }
 
 ## The neuron activations are indexed by the samples of the dataset, so the smaller datasets
-## need their own (see run1.sh); without them, run1.sh would use those of the original dataset
+## need their own (see run1.sh); without them, run1.sh would use those of the original dataset.
+## Of the CNN models, it only warns about the missing ones
 function check_activations {
     local missing=()
     local model dataset name activations
     while IFS=$'\t' read -r model dataset; do
+        [[ $model == *.onnx ]] && {
+            name=$(basename "$(dirname "$(dirname "$model")")")
+            activations="$DATA_DIR/neuron_activations/$name/$CNN_MODEL_SET"
+            [[ $(dataset_dir $name "$dataset") == s100_scaled ]] || activations+="/$(dataset_dir $name "$dataset")"
+            activations+="/$(basename "$model" .onnx).txt"
+            [[ -r $activations ]] || printf "WARNING: neuron activations not found: %s\n" "$activations" >&2
+            continue
+        }
+
         name=$(basename "$(dirname "$model")")
         activations="$DATA_DIR/neuron_activations/$name/$(basename "$model" .nnet).txt"
         [[ -r $activations ]] || continue
@@ -327,6 +408,18 @@ function check_activations {
     printf "Missing neuron activations of the dataset:\n" >&2
     printf "  %s\n" "${missing[@]}" >&2
     printf "They are made by %s\n" "$TACAS_DIR/make_mode_datasets.py" >&2
+    return 1
+}
+
+## The CNN jobs need the frozen engine for ONNX networks; only a warning in a dry run
+function check_onnx_engine {
+    cut -f4 "$JOBS_TMP" | grep -q '\.onnx$' || return 0
+
+    local engine="$(dirname "$DATA_DIR")/build-onnx/engine"
+    [[ -x $engine ]] && return 0
+
+    printf "Missing the engine for ONNX networks: %s\nMake it with: make onnx\n" "$engine" >&2
+    [[ $DRY_RUN == 1 ]] && return 0
     return 1
 }
 
@@ -346,8 +439,15 @@ function run_job {
     local options=$OPTIONS
     [[ $experiment == ucore_* ]] && options+=" -V opensmt"
 
-    VARIANT=$variant TIMEOUT_PER=$timeout_per OPTIONS=$options \
-        "$BASH" "$SCRIPTS_DIR/run1.sh" "$model" "$dataset" "$strategies" $experiment
+    if [[ $model == *.onnx ]]; then
+        ## The frozen engine for ONNX networks, with ../cnn/spec/variants
+        VARIANT=$variant TIMEOUT_PER=$timeout_per OPTIONS=$options \
+            INPUT_MIN=$CNN_INPUT_MIN INPUT_MAX=$CNN_INPUT_MAX \
+            "$BASH" "$SCRIPTS_DIR/cnn/run1.sh" "$model" "$dataset" "$strategies" $experiment
+    else
+        VARIANT=$variant TIMEOUT_PER=$timeout_per OPTIONS=$options \
+            "$BASH" "$SCRIPTS_DIR/run1.sh" "$model" "$dataset" "$strategies" $experiment
+    fi
 
     case $? in
     0)
@@ -372,6 +472,7 @@ function action_run {
 
     print_estimate
     check_activations || exit 1
+    check_onnx_engine || exit 1
 
     [[ $DRY_RUN == 1 ]] && {
         printf "DRY RUN - the longest jobs, in the order they would start:\n"
@@ -500,23 +601,31 @@ function action_collect_stats {
 
     ## One task per variant directory, in the order benchmark, width, depth, variant:
     ## <idx> <stats file> <header> <variant dir> <variant> <experiments>
+    ## The CNN models are in <name>/<CNN_MODEL_SET>/<id> and their stats in <name>_cnn.txt
     local tasks=$(mktemp)
-    local job_id dataset experiment name model_id variant key
-    local -A experiments
+    local job_id model dataset experiment name model_id variant key
+    local -A experiments stats_files headers
     local keys=()
-    while IFS=$'\t' read -r job_id dataset experiment; do
+    while IFS=$'\t' read -r job_id model dataset experiment; do
         [[ $job_id =~ $STATS_FILTER ]] || continue
         IFS=/ read -r name model_id variant _ <<<"$job_id"
-        key="$name/$model_id/$(dataset_dir $name "$dataset")/$variant"
+        if [[ $model == *.onnx ]]; then
+            key="$name/$CNN_MODEL_SET/$model_id/$(dataset_dir $name "$dataset")/$variant"
+            stats_files[$key]="$stats_dir/${name}_cnn.txt"
+        else
+            key="$name/$model_id/$(dataset_dir $name "$dataset")/$variant"
+            stats_files[$key]="$stats_dir/$name.txt"
+        fi
+        headers[$key]="$name $model_id $variant"
         [[ -n ${experiments[$key]} ]] || keys+=("$key")
         experiments[$key]+="$experiment "
-    done < <(sort -s -t$'\t' -k10,10 "$JOBS_TMP" | cut -f2,5,7)
+    done < <(sort -s -t$'\t' -k10,10 "$JOBS_TMP" | cut -f2,4,5,7)
 
     local idx
     for idx in ${!keys[@]}; do
         key=${keys[$idx]}
-        IFS=/ read -r name model_id _ variant <<<"$key"
-        printf "%d\t%s\t%s\t%s\t%s\t%s\n" $idx "$stats_dir/$name.txt" "$name $model_id $variant" \
+        variant=${key##*/}
+        printf "%d\t%s\t%s\t%s\t%s\t%s\n" $idx "${stats_files[$key]}" "${headers[$key]}" \
             "$DATA_DIR/explanations/$key" $variant "${experiments[$key]% }"
     done >"$tasks"
 

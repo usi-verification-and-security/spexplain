@@ -164,6 +164,44 @@ function is_excluded {
 ## naive, guide-all, fix-all and hybrid, the itp experiments only (no fix-all-no-vars, no unsat cores)
 STATS_FILTER=${STATS_FILTER:-'^[^/]+/[^/]+/(naive|guide-all|fix-all|hybrid)/itp_'}
 
+## The CNN (ONNX) models data/models/<name>/<CNN_MODEL_SET>/<family><depth>.onnx, run with the frozen
+## engine for ONNX networks (make onnx) by ../cnn/run1.sh, on the same datasets and with the same
+## timeouts as the .nnet models of the benchmark (mode_dataset, mode_timeout_per)
+CNN_NAMES=(mnist cifar gtsrb)
+CNN_MODEL_SET=cnn-bench
+CNN_FAMILIES=(NS NAB)
+CNN_DEPTHS=(1 2 3 4 5 6)
+## The variants are of ../cnn/spec/variants/all, the experiments of EXPERIMENTS_SPEC
+CNN_VARIANTS=(naive guide-all fix-all hybrid)
+CNN_EXPERIMENTS=(itp_aweak_bstrong)
+## All CNN-bench models take pixels in [0,1]; exported for the jobs of GNU parallel
+export CNN_INPUT_MIN=0
+export CNN_INPUT_MAX=1
+
+## Sets MODE_CNN_VARIANTS and MODE_CNN_EXPERIMENTS of the mode
+function set_cnn_mode {
+    MODE_CNN_VARIANTS=("${CNN_VARIANTS[@]}")
+    MODE_CNN_EXPERIMENTS=("${CNN_EXPERIMENTS[@]}")
+
+    is_smoke_mode && MODE_CNN_VARIANTS=(guide-all fix-all hybrid)
+
+    _check_includes CNN_VARIANTS MODE_CNN_VARIANTS
+    _check_includes ALL_EXPERIMENTS MODE_CNN_EXPERIMENTS
+}
+
+## CNN jobs left out of the modes; returns 0 if the job is excluded
+function is_cnn_excluded {
+    local name=$1
+    local family=$2
+    local depth=$3
+    local variant=$4
+
+    ## In smoke and smokeLong: only the models up to NS4 and NAB4
+    is_smoke_mode && (( $depth > 4 )) && return 0
+
+    return 1
+}
+
 ## Unsat cores of interpolants, in all modes but smoke, besides the experiments of the mode:
 ## 'itp aweak, bstrong; ucore min' (the interpolant is computed in the same run, then reduced)
 ## of heart_attack 50x1, naive and fix-all. They run with OpenSMT (-V opensmt).

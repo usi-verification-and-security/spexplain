@@ -13,6 +13,8 @@ are written to data/datasets/mode_sample_maps.csv: benchmark,mode,index,original
 The neuron activations of the samples (used by the hybrid variant) are indexed by the samples
 of the dataset, so they are renumbered for every mode dataset as well:
 data/neuron_activations/<name>/s100_scaled_<mode>/<name>_<width>x<depth>.txt
+and, for the CNN (ONNX) models of the benchmark:
+data/neuron_activations/<name>/cnn-bench/s100_scaled_<mode>/<id>.txt
 All blocks of an original sample are kept, also when a file lists it more than once,
 and a sample without a block has none, so the activations behave as with the original dataset.
 
@@ -28,6 +30,8 @@ DATA_DIR = Path(__file__).resolve().parents[2]
 DATASETS_DIR = DATA_DIR / 'datasets'
 ACTIVATIONS_DIR = DATA_DIR / 'neuron_activations'
 MAP_FILE = DATASETS_DIR / 'mode_sample_maps.csv'
+## The CNN (ONNX) models, data/models/<name>/<CNN_MODEL_SET>/<id>.onnx
+CNN_MODEL_SET = 'cnn-bench'
 
 SEED = 2027
 ## A separate generator for the samples that short adds to quick, so that the other
@@ -87,8 +91,29 @@ def read_activation_blocks(path, depth):
     return blocks
 
 
+def read_activation_paragraphs(path):
+    """As read_activation_blocks, for files whose depth is unknown (the CNN models):
+    the blocks are separated by empty lines."""
+    blocks = []
+    for paragraph in path.read_text().split('\n\n'):
+        lines = paragraph.strip('\n').splitlines()
+        if lines:
+            blocks.append((int(lines[0]), lines[1:]))
+    return blocks
+
+
+def write_renumbered_activations(out_path, blocks, selection):
+    lines = []
+    for idx, orig in enumerate(selection, start=1):
+        for block_idx, layers in blocks:
+            if block_idx == orig:
+                lines += [str(idx)] + layers + ['']
+    out_path.write_text('\n'.join(lines) + ('\n' if lines else ''))
+
+
 def write_mode_activations(name, mode, selection):
-    """Renumbered activations of all <name>_<width>x<depth> models for the mode dataset."""
+    """Renumbered activations of all <name>_<width>x<depth> models and all CNN models
+    for the mode dataset."""
     out_dir = ACTIVATIONS_DIR / name / f's100_scaled_{mode}'
     out_dir.mkdir(exist_ok=True)
     n_files = 0
@@ -97,12 +122,16 @@ def write_mode_activations(name, mode, selection):
         if not match:
             continue
         blocks = read_activation_blocks(path, int(match.group(1)))
-        lines = []
-        for idx, orig in enumerate(selection, start=1):
-            for block_idx, layers in blocks:
-                if block_idx == orig:
-                    lines += [str(idx)] + layers + ['']
-        (out_dir / path.name).write_text('\n'.join(lines) + ('\n' if lines else ''))
+        write_renumbered_activations(out_dir / path.name, blocks, selection)
+        n_files += 1
+
+    cnn_dir = ACTIVATIONS_DIR / name / CNN_MODEL_SET
+    cnn_paths = sorted(cnn_dir.glob('*.txt'))
+    if cnn_paths:
+        cnn_out_dir = cnn_dir / f's100_scaled_{mode}'
+        cnn_out_dir.mkdir(exist_ok=True)
+    for path in cnn_paths:
+        write_renumbered_activations(cnn_out_dir / path.name, read_activation_paragraphs(path), selection)
         n_files += 1
     return n_files
 
