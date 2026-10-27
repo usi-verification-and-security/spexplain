@@ -6,6 +6,8 @@ source "$SCRIPTS_DIR/lib/run"
 
 function usage {
     printf "USAGE: %s <nn_model_fn> <dataset_fn> <exp_strategies_spec> [<name>] [<max_samples>] <args>...\n" "$0"
+    printf "\nENVIRONMENT:\n"
+    printf "\tQUIET\t\tSet to 1 to pass --quiet (default: 0; it segfaults in some builds)\n"
 
     [[ -n $1 ]] && exit $1
 }
@@ -57,9 +59,14 @@ dataset_activations="$(dirname "$activations")/$dataset_dir/$(basename "$activat
 
 declare -a options
 options=(
-    --quiet
     --format=smtlib2
 )
+
+## --quiet segfaults in some builds of the engine (an uninitialized output sink in
+## src/spexplain/framework/Print.h), so it is opt-in; without it, the .out.txt file only gets
+## a short progress log, the explanations and stats are the same
+[[ -z $QUIET ]] && QUIET=0
+(( $QUIET )) && options=(--quiet "${options[@]}")
 
 [[ -n $MAX_SAMPLES ]] && {
     OUTPUT_DIR+=/$MAX_SAMPLES_NAME
