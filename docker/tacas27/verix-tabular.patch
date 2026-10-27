@@ -1,0 +1,89 @@
+--- a/VeriX.py
++++ b/VeriX.py
+@@ -347,7 +347,7 @@
+             """
+             Set allowable perturbations on the current pixel and the irrelevant pixels.
+             """
+-            if self.dataset == "mnist":
++            if self.dataset == "mnist" or self.dataset == "tabular":
+                 self.mara_model.setLowerBound(i, max(0, image[i][:] - epsilon))
+                 self.mara_model.setUpperBound(i, min(1, image[i][:] + epsilon))
+             elif self.dataset == "gtsrb" or self.dataset == "cifar10":
+@@ -358,11 +358,11 @@
+                 self.mara_model.setLowerBound(3 * i + 2, max(0, image[i][2] - epsilon))
+                 self.mara_model.setUpperBound(3 * i + 2, min(1, image[i][2] + epsilon))
+             else:
+-                print("Dataset not supported: try 'mnist' or 'gtsrb'.")
++                print("Dataset not supported: try 'mnist', 'gtsrb', or 'tabular'.")
+ 
+         fixed_pixels = list(set(self.inputVars) - set(pixels))
+         for i in fixed_pixels:
+-            if self.dataset == "mnist":
++            if self.dataset == "mnist" or self.dataset == "tabular":
+                 self.mara_model.setLowerBound(i, image[i][:])
+                 self.mara_model.setUpperBound(i, image[i][:])
+             elif self.dataset == "gtsrb" or self.dataset == "cifar10":
+@@ -373,25 +373,47 @@
+                 self.mara_model.setLowerBound(3 * i + 2, image[i][2])
+                 self.mara_model.setUpperBound(3 * i + 2, image[i][2])
+             else:
+-                print("Dataset not supported: try 'mnist' or 'gtsrb'.")
+-        ranking = self.confidence_rank if self.use_confidence_ranking else range(len(self.outputVars))
+-        for j in ranking:
+-            """
+-            Set constraints on the output variables.
+-            """
+-            if j != self.label:
+-                self.mara_model.addInequality([self.outputVars[self.label], self.outputVars[j]],
+-                                              [1, -1], -1e-6,
++                print("Dataset not supported: try 'mnist', 'gtsrb', or 'tabular'.")
++        """
++        For single-output networks (binary classifiers) there is no competing
++        class to check against, so we run Marabou directly on the output sign:
++        the prediction is robust if the output cannot change sign under epsilon.
++        For multi-output networks we use the standard argmax-stability check.
++        """
++        if len(self.outputVars) == 1:
++            # Binary classifier: check whether the output can cross zero
++            # (i.e. flip from positive to negative or vice versa).
++            threshold = 0.0
++            if self.label == 1:
++                # predicted positive: check if output can go <= 0
++                self.mara_model.addInequality([self.outputVars[0]], [1], threshold,
++                                              isProperty=True)
++            else:
++                # predicted negative: check if output can go >= 0
++                self.mara_model.addInequality([self.outputVars[0]], [-1], threshold,
+                                               isProperty=True)
+-                exit_code, vals, stats = self.mara_model.solve(options=self.options, verbose=False)
++            exit_code, vals, stats = self.mara_model.solve(options=self.options, verbose=False)
++            self.mara_model.additionalEquList.clear()
++        else:
++            ranking = self.confidence_rank if self.use_confidence_ranking else range(len(self.outputVars))
++            exit_code = 'unsat'
++            for j in ranking:
+                 """
+-                additionalEquList.clear() is to clear the output constraints.
++                Set constraints on the output variables.
+                 """
+-                self.mara_model.additionalEquList.clear()
+-                if exit_code == 'sat' or exit_code == 'TIMEOUT':
+-                    break
+-                elif exit_code == 'unsat':
+-                    continue
++                if j != self.label:
++                    self.mara_model.addInequality([self.outputVars[self.label], self.outputVars[j]],
++                                                  [1, -1], -1e-6,
++                                                  isProperty=True)
++                    exit_code, vals, stats = self.mara_model.solve(options=self.options, verbose=False)
++                    """
++                    additionalEquList.clear() is to clear the output constraints.
++                    """
++                    self.mara_model.additionalEquList.clear()
++                    if exit_code == 'sat' or exit_code == 'TIMEOUT':
++                        break
++                    elif exit_code == 'unsat':
++                        continue
+         """
+         clearProperty() is to clear both input and output constraints.
+         """

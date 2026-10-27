@@ -1,4 +1,4 @@
-# Docker image of SpEXplAIn
+# Docker image of SpEXplAIn, with VeriX-plus for its experiments
 
 # Debian 13: PyTorch 2.x, C++20 compiler, TeX Live with 'standalone' and 'varwidth'
 ARG TARGET=debian:trixie
@@ -108,6 +108,42 @@ RUN \
         export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
         make onnx ONNX_ENGINE_REV=$ONNX_ENGINE_GIT_TAG \
             ONNX_ONLY_CMAKE_FLAGS=-DFETCHCONTENT_SOURCE_DIR_OPENSMT=$HOME/$PROJECT/build/_deps/opensmt-src; \
+    fi
+
+# VeriX-plus, for its experiments (data/scripts/tacas27/runme.sh run-verix-plus), configured as the original ones:
+# with the patch for binary classification (of the original experiments), and with Marabou without Gurobi;
+# empty VERIX_GIT_TAG skips it
+ENV VERIX_DIR=$HOME/VeriX-plus
+# The Git revisions (commits) of VeriX-plus and of Marabou within it, as used in the original experiments
+ARG VERIX_GIT_TAG=5efb63607da04155214c8a2e3374b954759de642
+ARG VERIX_MARABOU_GIT_TAG=1c2f4788c32e2f4e407c356b763a8025c5578722
+# uv installs the Python of VeriX-plus (3.8) and its pinned packages
+COPY --from=ghcr.io/astral-sh/uv:0.5.31 /uv /usr/local/bin/uv
+# VERIX_DIR is made by the user, who then clones and builds in it (not by COPY, which would apply --chmod to it)
+RUN mkdir -p $VERIX_DIR
+# Readable by the user, whatever the permissions in the build context
+COPY --chmod=644 verix-requirements.txt verix-tabular.patch $VERIX_DIR/
+# maraboupy (MarabouCore) for the Python of VeriX-plus; the MILP queries are then 'sat' unless refuted
+# by the preprocessing of Marabou, as in the original experiments
+RUN \
+    if [ -n "$VERIX_GIT_TAG" ]; then \
+        git init -q $VERIX_DIR && \
+        git -C $VERIX_DIR fetch -q --depth 1 https://github.com/minwu-cs/VeriX-plus.git $VERIX_GIT_TAG && \
+        git -C $VERIX_DIR checkout -q FETCH_HEAD && \
+        git -C $VERIX_DIR apply $VERIX_DIR/verix-tabular.patch && \
+        git init -q $VERIX_DIR/Marabou && \
+        git -C $VERIX_DIR/Marabou fetch -q --depth 1 https://github.com/NeuralNetworkVerification/Marabou.git $VERIX_MARABOU_GIT_TAG && \
+        git -C $VERIX_DIR/Marabou checkout -q FETCH_HEAD && \
+        uv venv -q --python 3.8 $VERIX_DIR/venv && \
+        VIRTUAL_ENV=$VERIX_DIR/venv uv pip install -q --no-cache \
+            --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match \
+            -r $VERIX_DIR/verix-requirements.txt && \
+        cmake -S $VERIX_DIR/Marabou -B $VERIX_DIR/Marabou/build -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_GUROBI=OFF -DBUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$VERIX_DIR/venv/bin/python \
+            -DRUN_UNIT_TEST=OFF -DRUN_REGRESS_TEST=OFF -DRUN_SYSTEM_TEST=OFF -DRUN_PYTHON_TEST=OFF && \
+        cmake --build $VERIX_DIR/Marabou/build --parallel $(nproc) && \
+        ! ldd $VERIX_DIR/Marabou/maraboupy/MarabouCore*.so | grep -q libgurobi && \
+        $VERIX_DIR/venv/bin/python -c "import sys; sys.path.insert(0, '$VERIX_DIR/Marabou'); from maraboupy import Marabou"; \
     fi
 
 # The outputs (e.g. visualizations, also of reproduce.sh) to be inspected on the host,

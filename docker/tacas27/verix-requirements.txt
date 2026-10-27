@@ -1,0 +1,13 @@
+# The Python packages of VeriX-plus, pinned as in its verix.yml (Python 3.8), without TensorFlow and auto_LiRPA
+# (not used for fully connected networks); pandas is used by the scripts of the experiments
+numpy==1.24.4
+scipy==1.10.1
+pandas==2.0.3
+torch==2.2.2+cpu; platform_machine == 'x86_64'
+torch==2.2.2; platform_machine == 'aarch64'
+onnx==1.15.0
+onnxruntime==1.17.1
+protobuf==3.20.3
+matplotlib==3.7.5
+scikit-image==0.21.0
+bound-propagation==0.4.3
