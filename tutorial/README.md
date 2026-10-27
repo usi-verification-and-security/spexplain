@@ -1,6 +1,6 @@
-# SpEXplAIn tutorial: explaining the predictions of a neural network
+# SpExplAIn tutorial: explaining the predictions of a neural network
 
-This hands-on tutorial shows how to explain the predictions of a neural network with SpEXplAIn,
+This hands-on tutorial shows how to explain the predictions of a neural network with SpExplAIn,
 starting only from the network, the data, and the original units of the measurements.
 You type every command yourself, look at the results, and then try the same with other inputs.
 
@@ -14,7 +14,7 @@ All commands run in seconds unless stated otherwise.
 
 ## Before you start
 
-The tutorial is designed for the Docker image of SpEXplAIn (see [`docker/tacas27`](../docker/tacas27)),
+The tutorial is designed for the Docker image of SpExplAIn (see [`docker/tacas27`](../docker/tacas27)),
 but it works equally when run directly on your computer,
 once the dependencies are installed and the tool is built
 (see [Building from source](../README.md#building-from-source)).

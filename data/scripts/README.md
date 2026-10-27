@@ -1,11 +1,11 @@
 # Experiment scripts
 
-This folder contains several scripts to automate and simplify experimentation with SpEXplAIn.
+This folder contains several scripts to automate and simplify experimentation with SpExplAIn.
 
 
 ## `run1.sh`
 
-This is a proxy script for the `engine` executable (the explanation computation engine of SpEXplAIn, see `build/engine`) that automatically uses some options suitable for running the experiments (e.g. `--quiet`) and automatically adjusts the destination directory for the generated explanations based on the inputs and parameters:
+This is a proxy script for the `engine` executable (the explanation computation engine of SpExplAIn, see `build/engine`) that automatically uses some options suitable for running the experiments (e.g. `--quiet`) and automatically adjusts the destination directory for the generated explanations based on the inputs and parameters:
 ```
 USAGE: ./run1.sh <nn_model_fn> <dataset_fn> <exp_strategies_spec> [<name>] [<max_samples>] <args>...
 ```

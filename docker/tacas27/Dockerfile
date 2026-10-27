@@ -1,4 +1,4 @@
-# Docker image of SpEXplAIn, with VeriX-plus for its experiments
+# Docker image of SpExplAIn, with VeriX-plus for its experiments
 
 # Debian 13: PyTorch 2.x, C++20 compiler, TeX Live with 'standalone' and 'varwidth'
 ARG TARGET=debian:trixie

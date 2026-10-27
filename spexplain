@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# The user interface of SpEXplAIn: dispatches actions to the particular components of the tool
+# The user interface of SpExplAIn: dispatches actions to the particular components of the tool
 # (the Explanation Computation Engine, the Explanation Interpreter, ...)
 # The implementation resides in python_scripts/spexplain
 

@@ -1,15 +1,15 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-# SpEXplAIn
+# SpExplAIn
 
 Copyright 2024 - present Tomáš Kolárik <tomaqa@gmail.com>  
 Copyright 2024 Martin Blicha <martin.blicha@gmail.com>  
 
-SpEXplAIn is distributed in the hope that it will be useful,
+SpExplAIn is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-SpEXplAIn is a tool that automatically generates Space Explanations of neural network classification.
+SpExplAIn is a tool that automatically generates Space Explanations of neural network classification.
 It gives provable guarantees of the behavior of the network in continuous areas of the
 input feature space.
 The tool leverages [OpenSMT2](https://github.com/usi-verification-and-security/opensmt) solver compatible
@@ -32,8 +32,8 @@ git clone --single-branch --depth 1 https://github.com/usi-verification-and-secu
 ```
 This will *not* fetch submodules, which is currently just `./data/explanations`
 (see `./data/README.md`)
-that is not needed for running the tool
-but contains reference explanations.
+that is not needed for running the tool nor for reproducing the experiments;
+it only contains explanations of earlier experiments.
 To also fetch all submodules, either run
 ```
 git clone --recurse-submodules --single-branch --depth 1 https://github.com/usi-verification-and-security/spexplain.git
@@ -74,12 +74,12 @@ python3 -m venv .venv
 pip install numpy scipy matplotlib pyparsing pandas torch
 ```
 
-The [Docker image](docker/tacas27) contains all of the above, with SpEXplAIn already built.
+The [Docker image](docker/tacas27) contains all of the above, with SpExplAIn already built.
 
-SpEXplAIn uses CMake as a build system generator.
-We use a wrapper `Makefile` (i.e. GNU Make build system) that allows straightforward building of SpEXplAIn.
+SpExplAIn uses CMake as a build system generator.
+We use a wrapper `Makefile` (i.e. GNU Make build system) that allows straightforward building of SpExplAIn.
 
-To configure and build the project, run the following command inside the SpEXplAIn directory:
+To configure and build the project, run the following command inside the SpExplAIn directory:
 ```
 $ make
 ```
