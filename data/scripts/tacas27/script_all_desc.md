@@ -315,7 +315,7 @@ interpolant is computed in the same run, then reduced), i.e. ITP+ucore min of th
 `collect-stats` runs `collect_stats.sh` on the results of the given mode and writes one file
 per benchmark, with both widths, to `./stats/<mode>/<name>.txt`, e.g. `./stats/short/cifar.txt`
 (`STATS_DIR` changes `./stats`). The CNN models go to their own file `./stats/<mode>/<name>_cnn.txt`,
-with headers like `mnist NAB1 hybrid`; `plot-performance` does not plot them yet.
+with headers like `mnist NAB1 hybrid`; `plot-performance` plots them with `plot_cnn_stats.py`.
 
 - It uses the same job list as `run`, so it only collects what the mode runs: the right
   results folder (`s100_scaled_<mode>/` or `s100_scaled/` for full), only the
@@ -355,15 +355,23 @@ and writes the PAR-2 plots to `data/output/<mode>/` (next to the interpretation 
 go to the same folder as `performance-plots_<name>.csv`. The stats themselves stay in
 `./stats/<mode>/`.
 
+It then runs `plot_cnn_stats.py` on the CNN stats (`<name>_cnn.txt`): one plot per CNN model
+family, `performance-plots_PAR-2_cnn_relus_<family>.pdf` (e.g. `narrow-avg-pool` for NAB,
+`narrow-no-pool` for NS), with mnist, cifar and gtsrb side by side and the PAR-2 over the
+#ReLUs of the models (from `data/models/<name>/cnn-bench/manifest.csv`). Its tables are
+`performance-plots_<name>_cnn.csv`.
+
 - It uses the Python of `venv/` in the repository, created with
   `python3 -m venv venv && venv/bin/pip install -r requirements.txt`; `PYTHON` overrides it.
 - The timeout lines and the y-limits use the timeout per sample of the stats, so they fit
   every mode. Missing results are not drawn: a line simply has no point at that model.
-- Benchmarks without stats keep their place in the grid but stay empty, and widths without
-  results are skipped (smoke: only the 50x plots, without cifar and gtsrb).
+- Benchmarks without stats keep their place in the grid but stay empty, and widths (CNN:
+  families) without results are skipped (smoke: only the 50x plots, without cifar and gtsrb).
+  The y-limit is 2 × timeout + 5 s (tabular 50x: 30 s, 200x: + 2 s).
 - With LaTeX installed, text is rendered with it; without, with Matplotlib's mathtext.
 - What to plot (plotted depths, the itp algorithms of 200x, colors, fonts) is set at the top of
-  `plot_fc_stats.py` and in `ploting_utils.py`.
+  `plot_fc_stats.py` and in `ploting_utils.py`; for the CNN models (families, itp algorithms)
+  at the top of `plot_cnn_stats.py`.
 - Not run yet (commented out in `runme.sh`, until the VeriX+ results are available):
   `plot_compare_with_verix_plus.py <stats_dir> [<output_dir>]` compares our results with VeriX+.
   It reads our stats as `plot_fc_stats.py` does (the same `read_stats` of `ploting_utils.py`, also
@@ -421,7 +429,7 @@ go to the same folder as `performance-plots_<name>.csv`. The stats themselves st
   in some builds of the engine (`QUIET=1` turns it back on). So `.out.txt` holds a short
   progress log; the explanations and stats are unchanged.
 - `../cnn/run1.sh`: one CNN job, with the engine of `make onnx`.
-- `plot_fc_stats.py`, `ploting_utils.py`: the plots of `plot-performance`.
+- `plot_fc_stats.py`, `plot_cnn_stats.py`, `ploting_utils.py`: the plots of `plot-performance`.
 - `plot_compare_with_verix_plus.py`: the comparison with VeriX+ (not run yet by `plot-performance`).
 - `runme_norm.sh`, `runme_diam.sh`, `runme_methodes.sh`, `runme_ucore.sh`: the interpretation figures of `interpret`, also run at
   the end of `run`.

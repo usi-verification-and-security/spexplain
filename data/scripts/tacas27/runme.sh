@@ -13,9 +13,10 @@
 ##                  and of the CNN models: <STATS_DIR>/<mode>/<name>_cnn.txt;
 ##                  only naive/guide-all/fix-all/hybrid and the itp experiments (see STATS_FILTER)
 ##   plot-performance
-##                  plot the PAR-2 per model of the collected stats with plot_fc_stats.py:
+##                  plot the PAR-2 per model of the collected stats with plot_fc_stats.py
+##                  and, of the CNN models, plot_cnn_stats.py:
 ##                  data/output/<mode>/performance-plots_*.pdf, with the tables as
-##                  data/output/<mode>/performance-plots_<name>.csv (run collect-stats first)
+##                  data/output/<mode>/performance-plots_<name>[_cnn].csv (run collect-stats first)
 ##   interpret      make the interpretation figures from the mode's explanations with
 ##                  runme_norm.sh (Fig. 7, mnist), runme_diam.sh (Fig. 11, heart_attack and loan)
 ##                  runme_methodes.sh (Fig. 6, heart_attack and loan)
@@ -548,7 +549,7 @@ function collect_one {
     local experiments=($4)
 
     ## The unsat cores of interpolants last: the table keeps the header of the first experiment,
-    ## with its timeout per sample, which plot_fc_stats.py uses for the benchmark
+    ## with its timeout per sample, which plot_fc_stats.py and plot_cnn_stats.py use for the benchmark
     local e others=() ucores=()
     for e in "${experiments[@]}"; do
         if [[ $e == ucore_* ]]; then ucores+=($e); else others+=($e); fi
@@ -679,19 +680,19 @@ function action_collect_stats {
 ########################################################################
 ## plot-performance
 
-## Plots the stats of collect-stats with plot_fc_stats.py
+## Plots the stats of collect-stats with plot_fc_stats.py and plot_cnn_stats.py
 function action_plot_performance {
     local stats_dir=${STATS_DIR:-$PWD/stats}/$MODE
     local python=${PYTHON:-$(dirname "$DATA_DIR")/venv/bin/python}
     local output_dir=$DATA_DIR/output/$MODE
-    local plot_cmd=("$python" "$TACAS_DIR/plot_fc_stats.py" "$stats_dir" "$output_dir")
+    local plot_scripts=(plot_fc_stats.py plot_cnn_stats.py)
     ## Disabled until the VeriX+ results are available: the comparison of our results with VeriX+,
     ## plot_compare_with_verix_plus.py. It reads our stats like plot_fc_stats.py (also their timeouts),
     ## and the VeriX+ CSVs from the output directory: performance-plots_<name>_verix.csv (50x models) and
     ## performance-plots_<name>200_verix.csv (200x), with the columns Algorithm,epsilon,layers,PAR2.
     ## It writes output_dir/performance-plots_PAR-2_ours_vs_verix_plus_<layout>_<width>.pdf.
-    ## To enable it, put the VeriX+ CSVs there and uncomment this line and the two below that use verix_cmd.
-    # local verix_cmd=("$python" "$TACAS_DIR/plot_compare_with_verix_plus.py" "$stats_dir" "$output_dir")
+    ## To enable it, put the VeriX+ CSVs there and uncomment this line:
+    # plot_scripts+=(plot_compare_with_verix_plus.py)
 
     printf "Stats:  %s\nPlots:  %s\n\n" "$stats_dir" "$output_dir"
 
@@ -706,17 +707,21 @@ function action_plot_performance {
         exit 1
     }
 
+    local script
     [[ $DRY_RUN == 1 ]] && {
-        printf "DRY RUN - would run:\n  %s\n" "${plot_cmd[*]}"
-        # printf "  %s\n" "${verix_cmd[*]}"
+        printf "DRY RUN - would run:\n"
+        for script in "${plot_scripts[@]}"; do
+            printf "  %s\n" "$python $TACAS_DIR/$script $stats_dir $output_dir"
+        done
         exit 0
     }
 
-    "${plot_cmd[@]}" || {
-        printf "\nPlotting failed.\n" >&2
-        exit 1
-    }
-    # "${verix_cmd[@]}" || { printf "\nPlotting the comparison with VeriX+ failed.\n" >&2; exit 1; }
+    for script in "${plot_scripts[@]}"; do
+        "$python" "$TACAS_DIR/$script" "$stats_dir" "$output_dir" || {
+            printf "\nPlotting failed: %s\n" $script >&2
+            exit 1
+        }
+    done
 
     printf "\nPlots:\n"
     ls -1 "$output_dir"/performance-plots_*.pdf | sed 's/^/  /'
