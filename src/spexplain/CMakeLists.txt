@@ -55,31 +55,31 @@ PRIVATE
 )
 endif()
 
-add_executable(SpEXplAIn-bin
+add_executable(spexplain-bin
     bin/main.cpp
     ${SOURCE_DIR}/verifiers/Verifier.cpp
     ${SOURCE_DIR}/verifiers/opensmt/OpenSMTVerifier.cpp
 )
 
 if (ENABLE_MARABOU)
-    target_sources(SpEXplAIn-bin PUBLIC
+    target_sources(spexplain-bin PUBLIC
         ${SOURCE_DIR}/verifiers/marabou/MarabouVerifier.cpp
     )
 endif()
 
-set_target_properties(SpEXplAIn-bin
+set_target_properties(spexplain-bin
 PROPERTIES
     OUTPUT_NAME engine
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
-target_link_libraries(SpEXplAIn-bin PUBLIC
+target_link_libraries(spexplain-bin PUBLIC
     spexplain
     OpenSMT::OpenSMT
 )
 
 if (ENABLE_MARABOU)
-    target_link_libraries(SpEXplAIn-bin PUBLIC
+    target_link_libraries(spexplain-bin PUBLIC
         MarabouHelper
     )
 endif()

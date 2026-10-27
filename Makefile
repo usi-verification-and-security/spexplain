@@ -22,6 +22,7 @@ ONNX_DEBUG_BUILD_DIR = $(BUILD_DIR_BASE)$(ONNX_BUILD_DIR_SUFFIX)$(DEBUG_BUILD_DI
 ## which reproduces the previous experiments; its sources are extracted into <build_dir>/source
 ## This can be customized via command line
 ONNX_ENGINE_REV = onnx-engine-v1
+## The name of the target in the frozen revision
 ONNX_ENGINE_TARGET = SpEXplAIn-bin
 ONNX_ENGINE_EXECUTABLE = spexplain
 
