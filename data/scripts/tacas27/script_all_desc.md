@@ -465,6 +465,13 @@ per explanation, and with the perturbations epsilon 1, 0.05 and 0.005.
 - The timeout kills VeriX-plus (`timeout --signal=KILL`): Marabou installs its handler of SIGTERM in the process
   with the first query, the queries as MILP never check it, and the handler refers to the finished queries,
   so SIGTERM does not stop VeriX-plus, or crashes it.
+- VeriX-plus runs with one thread (`OPENBLAS_NUM_THREADS=1` etc.), as each job of the queue: the threads of
+  OpenBLAS (of Marabou) do not speed it up, but the parallel jobs slow each other down with them
+  (measured: about 1.8x slower with 6 jobs at once); the explanations are the same.
+- With epsilon 0.005, many samples are robust already with all features perturbed (refuted by the
+  preprocessing of Marabou), and their explanations are quick; the others run the whole search.
+  The run times (`plot-performance`) count the robust samples with their time and a timeout as twice
+  the timeout per explanation (PAR-2).
 - It fails unless VeriX-plus can run as in the original experiments: installed (`VERIX_DIR`, default
   `~/VeriX-plus`, as in the Docker image), with Marabou without Gurobi.
 
