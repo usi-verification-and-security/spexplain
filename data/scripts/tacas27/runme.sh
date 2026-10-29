@@ -49,7 +49,8 @@
 ## fix-all-no-vars runs only for the 50x1-50x4 models of heart_attack, loan and mnist, in all modes.
 ## CNN (ONNX) models, as jobs of the same queue, in every mode (see CNN_* in ./modes.sh):
 ##   mnist, cifar and gtsrb (smoke: mnist only), models/<name>/cnn-bench/{NS,NAB}1-6.onnx
-##   (smoke: up to NS4 and NAB4), naive/guide-all/fix-all/hybrid (smoke: no naive),
+##   (smoke: up to NS3 and NAB3), and in long and full also {S,AB}1-6.onnx,
+##   naive/guide-all/fix-all/hybrid (smoke: no naive),
 ##   itp_aweak_bstrong; the dataset and the timeouts of the mode, as for the .nnet models.
 ##   They run cnn/run1.sh with the engine of 'make onnx' (build-onnx/engine), and the results go to
 ##   data/explanations/<name>/cnn-bench/<id>/<dataset>/<variant>/.

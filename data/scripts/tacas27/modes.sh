@@ -145,7 +145,8 @@ STATS_FILTER=${STATS_FILTER:-'^[^/]+/[^/]+/(naive|guide-all|fix-all|hybrid)/itp_
 ## timeouts as the .nnet models of the benchmark (mode_dataset, mode_timeout_per)
 CNN_NAMES=(mnist cifar gtsrb)
 CNN_MODEL_SET=cnn-bench
-CNN_FAMILIES=(NS NAB)
+## S and AB only in long and full (is_cnn_excluded)
+CNN_FAMILIES=(NS NAB S AB)
 CNN_DEPTHS=(1 2 3 4 5 6)
 ## The variants are of ../cnn/spec/variants/all, the experiments of EXPERIMENTS_SPEC
 CNN_VARIANTS=(naive guide-all fix-all hybrid)
@@ -174,6 +175,9 @@ function is_cnn_excluded {
 
     ## In smoke: only the models up to NS3 and NAB3
     is_smoke_mode && (( $depth > 3 )) && return 0
+
+    ## S and AB only in long and full
+    [[ $family == S || $family == AB ]] && [[ $MODE != long && $MODE != full ]] && return 0
 
     return 1
 }

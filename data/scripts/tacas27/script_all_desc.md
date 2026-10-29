@@ -55,8 +55,8 @@ Models: only these `<name>_<width>x<depth>.nnet` files, for both widths 50x and 
 | timeout per explanation | 1m tabular, 5m mnist | 200s tabular, MN 300s, CIF 400s, GTS 600s | HA/OB/LO 5m, MN/CIF 10m, GTS 14m | HA/OB/LO 5m, MN/CIF 10m, GTS 14m |
 | on a failed job | stop | continue | continue | continue |
 | results in | `s100_scaled_smoke/<variant>/` | `s100_scaled_short/<variant>/` | `s100_scaled_long/<variant>/` | `s100_scaled/<variant>/` |
-| **jobs** (FC + CNN) | **90** (72 + 18) | **1,153** (1,009 + 144) | **1,153** (1,009 + 144) | **2,006** (1,862 + 144) |
-| **explanations** (FC + CNN) | **204** (186 + 18) | **9,224** (8,072 + 1,152) | **23,060** (20,180 + 2,880) | **200,600** (186,200 + 14,400) |
+| **jobs** (FC + CNN) | **90** (72 + 18) | **1,153** (1,009 + 144) | **1,297** (1,009 + 288) | **2,150** (1,862 + 288) |
+| **explanations** (FC + CNN) | **204** (186 + 18) | **9,224** (8,072 + 1,152) | **25,940** (20,180 + 5,760) | **215,000** (186,200 + 28,800) |
 
 `fix-all-no-vars` runs in all modes, but only for the 50x1–50x4 models of heart_attack, loan and mnist.
 `smoke` runs only the models up to 50x6, no `naive` and no unsat-core jobs.
@@ -79,13 +79,17 @@ Models: only these `<name>_<width>x<depth>.nnet` files, for both widths 50x and 
 Every mode also runs the CNN-bench models of `data/scripts/cnn/tacas27/{MN,CIF,GTS}.sh`, as jobs of
 the same GNU parallel queue (`CNN_*`, `set_cnn_mode` and `is_cnn_excluded` in `modes.sh`):
 
-| | `smoke` | `short`, `long`, `full` |
-|---|---|---|
-| benchmarks | mnist | mnist, cifar, gtsrb |
-| models (`data/models/<name>/cnn-bench/`) | NS1–NS3, NAB1–NAB3 | NS1–NS6, NAB1–NAB6 |
-| variants (`data/scripts/cnn/spec/variants/all`) | guide-all, fix-all, hybrid | naive, guide-all, fix-all, hybrid |
-| experiments | itp_aweak_bstrong | itp_aweak_bstrong |
-| **jobs** | **18** | **144** (48 per benchmark) |
+| | `smoke` | `short` | `long`, `full` |
+|---|---|---|---|
+| benchmarks | mnist | mnist, cifar, gtsrb | mnist, cifar, gtsrb |
+| models (`data/models/<name>/cnn-bench/`) | NS1–NS3, NAB1–NAB3 | NS1–NS6, NAB1–NAB6 | NS1–NS6, NAB1–NAB6, S1–S6, AB1–AB6 |
+| variants (`data/scripts/cnn/spec/variants/all`) | guide-all, fix-all, hybrid | naive, guide-all, fix-all, hybrid | naive, guide-all, fix-all, hybrid |
+| experiments | itp_aweak_bstrong | itp_aweak_bstrong | itp_aweak_bstrong |
+| **jobs** | **18** | **144** (48 per benchmark) | **288** (96 per benchmark) |
+
+The families: NS (narrow, stride 2), NAB (narrow, average pooling), S (stride 2) and AB
+(average pooling); S and AB have about twice the ReLUs of NS and NAB at the same depth
+(`manifest.csv`). S and AB run only in `long` and `full` (`is_cnn_excluded`).
 
 - The dataset and the timeout per explanation are those of the mode for the benchmark, as for the
   `.nnet` models (full: MN/CIF 10m, GTS 14m, as in `MN.sh`, `CIF.sh`, `GTS.sh`). The input domain
@@ -140,23 +144,23 @@ separate seed (`LONG_EXTRA_SEED`), so adding them changes neither the smoke nor 
 
 Jobs per benchmark and width:
 
-| benchmark | smoke | short, long | full |
-|---|---|---|---|
-| heart_attack 50x | 19 | 137 | 142 |
-| obesity 50x | 15 | 115 | 120 |
-| loan 50x | 19 | 135 | 140 |
-| mnist 50x | 19 | 175 | 200 |
-| cifar 50x | – | 150 | 180 |
-| gtsrb 50x | – | 150 | 180 |
-| heart_attack 200x | – | 24 | 120 |
-| obesity 200x | – | 24 | 120 |
-| loan 200x | – | 24 | 120 |
-| mnist 200x | – | 29 | 180 |
-| cifar 200x | – | 23 | 180 |
-| gtsrb 200x | – | 23 | 180 |
-| mnist cnn | 18 | 48 | 48 |
-| cifar cnn | – | 48 | 48 |
-| gtsrb cnn | – | 48 | 48 |
+| benchmark | smoke | short | long | full |
+|---|---|---|---|---|
+| heart_attack 50x | 19 | 137 | 137 | 142 |
+| obesity 50x | 15 | 115 | 115 | 120 |
+| loan 50x | 19 | 135 | 135 | 140 |
+| mnist 50x | 19 | 175 | 175 | 200 |
+| cifar 50x | – | 150 | 150 | 180 |
+| gtsrb 50x | – | 150 | 150 | 180 |
+| heart_attack 200x | – | 24 | 24 | 120 |
+| obesity 200x | – | 24 | 24 | 120 |
+| loan 200x | – | 24 | 24 | 120 |
+| mnist 200x | – | 29 | 29 | 180 |
+| cifar 200x | – | 23 | 23 | 180 |
+| gtsrb 200x | – | 23 | 23 | 180 |
+| mnist cnn | 18 | 48 | 96 | 96 |
+| cifar cnn | – | 48 | 96 | 96 |
+| gtsrb cnn | – | 48 | 96 | 96 |
 
 ## Runtime
 
