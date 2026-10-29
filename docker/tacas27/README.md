@@ -25,7 +25,8 @@ We apply for the **Available**, **Functional** and **Reusable** badges.
 ## Contents of the archive
 
 * `README.md`: this file (also included in the image, at `~/spexplain/docker/tacas27/README.md`)
-* `LICENSE`: the MIT license
+* `LICENSE`: the MIT license of SpExplAIn, and the licenses of the third-party software
+  (e.g., Marabou and VeriX-plus) and datasets in the images
 * `spexplain-tacas27_latest.tar`: the Docker image for **amd64** (x86-64) hosts
 * `spexplain-tacas27_latest-arm64.tar`: the Docker image for **arm64** hosts (e.g., Apple silicon Macs)
 
@@ -39,8 +40,9 @@ and all dependencies of the tool and of the reproducibility script.
 * Docker (https://docs.docker.com/get-docker/); on Linux, the commands below may need `sudo`.
   No other software is needed on the host.
 * An amd64 or arm64 host with Linux, macOS or Windows.
-* Disk: TODO GB for the loaded image, plus TODO GB for the results of the `full` mode.
-* Memory: TODO GB.
+* Disk for the results of the experiments: 0.5 GB for the mode `smoke`, about 110 GB for `short`,
+  315 GB for `long` and 1.5 TB for `full` (see [Run times and storage](#run-times-and-storage)).
+* Memory: tested with 16 GB memory.
 * No network access is needed after loading the image.
 * Optional: a display connected to the container, only to open the pictures in windows
   (see [Showing the pictures in windows](#optional-showing-the-pictures-in-windows));
@@ -52,9 +54,8 @@ configured as in the original experiments (its verifier Marabou without Gurobi, 
 
 ## Tested platforms
 
-<!-- TODO(authors): the actual machines -->
-* amd64: TODO (CPU, cores, memory), TODO (Linux distribution and version), Docker TODO
-* arm64: TODO (e.g., MacBook with Apple M-series), macOS TODO, Docker Desktop TODO
+* amd64: Lenovo ThinkPad P16 Gen 2 (32 CPU threads, 64 GB memory), Arch Linux with GNU/Linux 7.2.11
+* arm64: MacBook Pro with Apple M3 (8 CPU threads, 16 GB memory), macOS
 
 ## Getting started
 
@@ -90,7 +91,7 @@ unless they are said to be typed inside the container.
 
 ## Smoke test
 
-Inside the container (about TODO minutes in total):
+Inside the container (about 15 minutes in total on 32 CPU threads):
 
 1. Compute the explanations of a toy network and look at one of them:
    ```
@@ -107,12 +108,22 @@ Inside the container (about TODO minutes in total):
    It prints each command with its output and ends with `TUTORIAL PASSED`;
    the pictures and formulas are in `output`.
 
-3. Run the smallest experiments of the paper (about TODO minutes on TODO CPUs):
+3. Run the smallest experiments of the paper (about 5 minutes on 32 CPU threads):
    ```
    ./reproduce.sh run smoke
    ```
-   It ends with the summary of the jobs (all `OK`, or `TIMEOUT` for some explanations)
-   and writes the interpretation figures into `output/smoke`.
+   It prints `Finished:` (or `Timeout:`, if some explanations time out) for each job,
+   ends with `Success.` and the overall running time, and writes the interpretation figures into `output/smoke`.
+
+4. Run VeriX+ on the same experiments, and remake the interpretation figures with it
+   (about 5 minutes on 32 CPU threads):
+   ```
+   ./reproduce.sh run-verix-plus smoke
+   ./reproduce.sh interpret smoke
+   ```
+   It prints and ends as step 3; the figures in `output/smoke` now also show VeriX+.
+   When an explanation of VeriX+ times out, it is killed (`SIGKILL`),
+   so messages ending with `Killed` are expected.
 
 ## Reproducing the results of the paper
 
@@ -126,17 +137,21 @@ With `-n`, it only prints the jobs and their worst-case time, without running an
 
 The modes differ in the samples of the datasets, the networks and the timeouts:
 
-| Mode    | Samples per dataset | Networks | Time on TODO CPUs |
-|---------|---------------------|----------|-------------------|
-| `smoke` | the important ones (1-6) | depth up to 6, without CIFAR and GTSRB; CNNs: MNIST only, depth up to 3 | TODO |
-| `short` | 8 (the first 8 of `long`) | all (some deep ones left out) | TODO |
-| `long`  | 20 | all (some deep ones left out), longer timeouts | TODO |
-| `full`  | 100 | all, as in the paper | TODO |
+| Mode    | Samples per dataset | Networks | Time of `run` on 32 CPU threads |
+|---------|---------------------|----------|---------------------------------|
+| `smoke` | the important ones (1-6) | depth up to 6, without CIFAR and GTSRB; CNNs: MNIST only, depth up to 3 | about 5 minutes |
+| `short` | 8 (the first 8 of `long`) | all but the wide CNNs (some deep ones left out) | 10-16 hours |
+| `long`  | 20 | all, also the wide CNNs (some deep ones left out), longer timeouts | 2-4 days |
+| `full`  | 100 | all, as in the paper | 2-3 weeks |
 
+`run-verix-plus` (the comparison with VeriX+) takes about 5 minutes in `smoke`, 5.5 hours in `short`,
+a day in `long` and 4-5 days in `full`.
 The mode `full` reproduces the results of the paper, with its time limits per explanation
 (5 min for the tabular datasets, 10 min for MNIST and CIFAR10, 14 min for GTSRB),
-but it takes TODO days on TODO CPUs.
-**We recommend the mode `TODO` as a representative subset** (TODO hours on a notebook with TODO cores):
+but it takes 2-3 weeks on 32 CPU threads, and several days even on 60-128 cores
+(see [Run times and storage](#run-times-and-storage)).
+**We recommend the mode `smoke` for the first round of the evaluation (the smoke test),
+and the mode `short` for the second round as a representative subset** (10-16 hours on 32 CPU threads):
 it covers all benchmarks and all variants of the paper with fewer samples and shorter timeouts,
 so the absolute numbers differ, but the trends of the paper are visible.
 A finished run can be extended later: `--resume` skips the jobs that already finished.
@@ -151,11 +166,12 @@ For a mode `<mode>` (e.g., `short`), inside the container:
    ```
    The explanations go to `data/explanations/`, inside the container only.
 2. Compute the explanations of VeriX+ for the comparison with it (Figs. 6, 7, 8 and 12),
-   on the same networks, samples and timeouts, and remake the interpretation figures with them:
+   on the same fully connected networks, samples and timeouts, and remake the interpretation figures with them:
    ```
    ./reproduce.sh run-verix-plus <mode>
    ./reproduce.sh interpret <mode>
    ```
+   The explanations of VeriX+ that time out are killed (`SIGKILL`), so messages ending with `Killed` are expected.
 3. Collect the statistics (sizes and run times of the explanations) into tables:
    ```
    STATS_DIR=$OUTPUT/stats ./reproduce.sh collect-stats <mode>
@@ -173,7 +189,7 @@ All of the following is in the directory `output` of your computer:
 |-------|------|
 | Fig. 5 (PAR-2 of the FC networks with 50 neurons per layer w.r.t. their depth) | `<mode>/fig-5-performance-plots_PAR-2_all_tasks_50.pdf` (and `_200.pdf` for 200 neurons per layer) |
 | Fig. 9 (PAR-2 of the narrow CNNs) | `<mode>/fig-9_CNN_performance-plots_PAR-2_narrow-avg-pool.pdf`, `…_narrow-stride2.pdf` |
-| Fig. 13 (PAR-2 of the wide CNNs) | TODO (the wide CNNs are not run yet) |
+| Fig. 13 (PAR-2 of the wide CNNs) | `<mode>/fig-9_CNN_performance-plots_PAR-2_avg-pool.pdf`, `…_stride2.pdf` (only in `long` and `full`) |
 | Figs. 8 and 12 (PAR-2 of SpExplAIn and VeriX+) | `<mode>/fig-8_comparison-plots_PAR-2_ours_vs_verix_plus_all_tasks_50.pdf` and `…_200.pdf`: Fig. 8 is the row of the image datasets of both, Fig. 12 the row of the tabular datasets of `…_50.pdf` |
 | the data of these plots | `<mode>/*.csv`; the statistics (sizes, run times, timeouts) in `stats/<mode>/<benchmark>.txt` |
 | Fig. 6 (slices of the explanations of heart attack and loan) | `<mode>/fig-6_*.png` |
@@ -196,6 +212,45 @@ We will correct this in the final version of the paper.
 The modes other than `full` use other samples and shorter timeouts,
 so their numbers and figures differ from the paper; the samples of the paper's figures
 that are not in a mode's dataset are left out of its figures.
+
+## Run times and storage
+
+The following are estimates for the Lenovo ThinkPad P16 Gen 2 (32 CPU threads, 64 GB memory),
+with 26 jobs at once (the default 80% of 32 CPU threads).
+The number of jobs at once is `CPUS` × `CPU_PERCENTAGE` / 100 (default: all CPU threads and 80%).
+
+The actions of `./reproduce.sh` on 32 CPU threads:
+
+| Mode | `run` | `run-verix-plus` | `interpret` |
+|------|-------|------------------|-------------|
+| `smoke` | ~5 min | ~5 min | ~30 s |
+| `short` | 10-16 h | ~5.5 h | ~15 min |
+| `long`  | 2-4 days | ~1 day | ~15 min |
+| `full`  | 2-3 weeks | 4-5 days | ~15 min |
+
+`run` also runs `interpret` at the end; it is needed again only after `run-verix-plus`.
+
+`run` with more cores:
+
+| Mode | 60 cores (48 jobs) | 128 cores (102 jobs) |
+|------|--------------------|----------------------|
+| `smoke` | ~5 min | ~5 min |
+| `short` | 5-7 h | 2.5-3.5 h |
+| `long`  | 28-43 h | 14-21 h |
+| `full`  | several days | ~2.5 days or more |
+
+The explanations of `run` and the space they take in `data/explanations/` inside the container:
+
+| Mode | Explanations | Space |
+|------|--------------|-------|
+| `smoke` | 204 | 0.5 GB |
+| `short` | 9,224 | about 110 GB |
+| `long`  | 25,940 | about 270-315 GB |
+| `full`  | 215,000 | about 1.4-1.5 TB |
+
+Almost all of the space is the explanations of the image networks (`*.phi.txt`, single files up to 1.5 GB),
+mainly of `guide-all` and `hybrid` on GTSRB and CIFAR10, which are stored uncompressed.
+The figures, tables and logs take only a few MB.
 
 ## Reusing the tool
 
