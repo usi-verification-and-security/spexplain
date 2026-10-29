@@ -34,6 +34,10 @@ EXPERIMENT=$4
 export VERIX_DIR=${VERIX_DIR:-$HOME/VeriX-plus}
 VERIX_PYTHON=${VERIX_PYTHON:-$VERIX_DIR/venv/bin/python}
 
+## One thread, as each job of the queue (as those of the engine): the threads of OpenBLAS (of Marabou)
+## do not speed VeriX-plus up, but the parallel jobs slow each other down with them; the explanations are the same
+export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+
 set_timeout
 ## Marabou installs its handler of SIGTERM in the process with the first query, which the queries of VeriX-plus
 ## (as MILP) never check, so SIGTERM does not stop it (or crashes it, the handler refers to finished queries)
