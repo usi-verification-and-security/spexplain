@@ -4,6 +4,10 @@ source $(dirname "$0")/lib
 
 ARGS=()
 [[ -n $PLATFORM ]] && ARGS+=(--platform "$PLATFORM")
+# The name of the started container (from the image), e.g. to continue in it later by `docker start -ai <name>`;
+# by default the name of the image without its tag (REPO of lib, e.g. spexplain-tacas27), unnamed if set to empty
+CONTAINER=${CONTAINER-$REPO}
+[[ -n $CONTAINER ]] && ARGS+=(--name "$CONTAINER")
 # A host directory to inspect the outputs, mounted at the output directory of the image
 # (its variable OUTPUT, e.g. ~/spexplain/data/output), or at /output if the image does not set it
 [[ -n $OUTPUT ]] && {

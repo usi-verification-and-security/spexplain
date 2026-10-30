@@ -12,6 +12,7 @@ function usage {
     printf "\tPLATFORM\tthe target platform, e.g. linux/arm64 (all)\n"
     printf "\tDOCKER_BUILD_ARGS\tadditional arguments of docker build (build.sh)\n"
     printf "\tOUTPUT\ta host directory mounted at the output directory of the image, e.g. data/output (run.sh)\n"
+    printf "\tCONTAINER\tthe name of the started container (default: the image without its tag, e.g. spexplain-tacas27; empty: unnamed) (run.sh)\n"
     printf "\tX11\tif set, connect to the X11 display of the host, e.g. for --show (run.sh)\n"
     printf "\tDOCKER_RUN_ARGS\tadditional arguments of docker run (run.sh)\n"
 
