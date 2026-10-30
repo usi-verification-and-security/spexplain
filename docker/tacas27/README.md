@@ -29,6 +29,8 @@ We apply for the **Available**, **Functional** and **Reusable** badges.
   (e.g., Marabou and VeriX-plus) and datasets in the images
 * `spexplain-tacas27_latest.tar`: the Docker image for **amd64** (x86-64) hosts
 * `spexplain-tacas27_latest-arm64.tar`: the Docker image for **arm64** hosts (e.g., Apple silicon Macs)
+* `docker/load.sh`, `docker/run.sh` (with `docker/lib`): Bash scripts that load the image
+  and start a container from it, also connected to the display of your computer
 
 Each image contains the sources of SpExplAIn, already built
 (the Explanation Computation Engine, also with the verifier Marabou),
@@ -38,8 +40,11 @@ and all dependencies of the tool and of the reproducibility script.
 ## Requirements
 
 * Docker (https://docs.docker.com/get-docker/); on Linux, the commands below may need `sudo`.
-  No other software is needed on the host.
-* An amd64 or arm64 host with Linux, macOS or Windows.
+  In the TACAS 2027 VM (Ubuntu), install it by `sudo apt install docker.io`
+  and allow it for your user by `sudo usermod -aG docker $USER` (then log out and in again).
+  No other software is needed on the host; in particular, no proprietary software and no special hardware.
+* An amd64 or arm64 host with Linux or macOS (13 or later), with Bash 3.1 or later for the scripts of the archive
+  (the Bash of macOS suffices).
 * Disk for the results of the experiments: 0.5 GB for the mode `smoke`, about 110 GB for `short`,
   315 GB for `long` and 1.5 TB for `full` (see [Run times and storage](#run-times-and-storage)).
 * Memory: tested with 16 GB memory.
@@ -55,7 +60,7 @@ configured as in the original experiments (its verifier Marabou without Gurobi, 
 ## Tested platforms
 
 * amd64: Lenovo ThinkPad P16 Gen 2 (32 CPU threads, 64 GB memory), Arch Linux with GNU/Linux 7.2.11
-* arm64: MacBook Pro with Apple M3 (8 CPU threads, 16 GB memory), macOS
+* arm64: MacBook Pro with Apple M3 (8 CPU threads, 16 GB memory), macOS 26.6.2
 
 ## Getting started
 
@@ -64,18 +69,22 @@ unless they are said to be typed inside the container.
 
 1. Load the image for your host (this takes a few minutes and needs no network):
    ```
-   docker load -i spexplain-tacas27_latest.tar          # amd64 (x86-64)
-   docker load -i spexplain-tacas27_latest-arm64.tar    # arm64 (e.g., Apple silicon)
+   docker/load.sh spexplain-tacas27_latest.tar          # amd64 (x86-64)
+   docker/load.sh spexplain-tacas27_latest-arm64.tar    # arm64 (e.g., Apple silicon)
    ```
-   The image is then available as `spexplain-tacas27:latest` (amd64) or `spexplain-tacas27:latest-arm64` (arm64);
-   below, we write `spexplain-tacas27:latest`, replace it if you use arm64.
+   The image is then available as `spexplain-tacas27:latest` (amd64) or `spexplain-tacas27:latest-arm64` (arm64).
 
-2. Create a directory for the outputs and start a container from the image:
+2. Start a container named `spexplain-tacas27` from the image, with the directory `output` for the outputs
+   (it is created if it does not exist):
+   ```
+   OUTPUT=output docker/run.sh docker/tacas27                         # amd64 (x86-64)
+   PLATFORM=linux/arm64 OUTPUT=output docker/run.sh docker/tacas27    # arm64 (e.g., Apple silicon)
+   ```
+   This is the same as the following command of Docker (on arm64, with the image `spexplain-tacas27:latest-arm64`):
    ```
    mkdir -p output
    docker run -it --name spexplain-tacas27 -v "$PWD/output:/home/tacas27/spexplain/data/output" spexplain-tacas27:latest
    ```
-   (On Windows, use the full path of the directory `output` instead of `$PWD/output`.)
    You are now in a shell inside the container, in the root of the tool (`~/spexplain`).
    The directory `output` of your computer is the directory `data/output` inside the container,
    which is also in the variable `OUTPUT`: all pictures and results that you should look at go there.
@@ -86,12 +95,12 @@ unless they are said to be typed inside the container.
    ```
    docker start -ai spexplain-tacas27
    ```
-   (`docker run` with the same `--name` would fail, because the container already exists;
-   remove it with `docker rm spexplain-tacas27` to start from scratch.)
+   (`docker/run.sh` would fail now, as it creates a new container with the same name;
+   remove the existing one with `docker rm spexplain-tacas27` to start from scratch.)
 
 ## Smoke test
 
-Inside the container (about 15 minutes in total on 32 CPU threads):
+Inside the container (about 12 minutes in total on 32 CPU threads):
 
 1. Compute the explanations of a toy network and look at one of them:
    ```
@@ -106,24 +115,30 @@ Inside the container (about 15 minutes in total on 32 CPU threads):
    data/scripts/tacas27/tutorial.sh
    ```
    It prints each command with its output and ends with `TUTORIAL PASSED`;
-   the pictures and formulas are in `output`.
+   the pictures and formulas are in `output/tutorial`.
 
-3. Run the smallest experiments of the paper (about 5 minutes on 32 CPU threads):
+3. Run the smallest experiments of the paper:
    ```
    ./reproduce.sh run smoke
    ```
    It prints `Finished:` (or `Timeout:`, if some explanations time out) for each job,
-   ends with `Success.` and the overall running time, and writes the interpretation figures into `output/smoke`.
+   and ends with `Success.` and the overall running time.
 
-4. Run VeriX+ on the same experiments, and remake the interpretation figures with it
-   (about 5 minutes on 32 CPU threads):
+4. Run VeriX+ on the same experiments, and make the interpretation figures of both:
    ```
    ./reproduce.sh run-verix-plus smoke
    ./reproduce.sh interpret smoke
    ```
-   It prints and ends as step 3; the figures in `output/smoke` now also show VeriX+.
+   The first command prints and ends as step 3; the figures go into `output/smoke`.
    When an explanation of VeriX+ times out, it is killed (`SIGKILL`),
    so messages ending with `Killed` are expected.
+
+5. Collect the statistics of the explanations and plot the performance, also compared with VeriX+:
+   ```
+   STATS_DIR=$OUTPUT/stats ./reproduce.sh collect-stats smoke
+   STATS_DIR=$OUTPUT/stats ./reproduce.sh plot-performance smoke
+   ```
+   The plots (`fig-5`, `fig-8` and `fig-9`) go into `output/smoke`, the statistics into `output/stats/smoke`.
 
 ## Reproducing the results of the paper
 
@@ -137,21 +152,18 @@ With `-n`, it only prints the jobs and their worst-case time, without running an
 
 The modes differ in the samples of the datasets, the networks and the timeouts:
 
-| Mode    | Samples per dataset | Networks | Time of `run` on 32 CPU threads |
-|---------|---------------------|----------|---------------------------------|
-| `smoke` | the important ones (1-6) | depth up to 6, without CIFAR and GTSRB; CNNs: MNIST only, depth up to 3 | about 5 minutes |
-| `short` | 8 (the first 8 of `long`) | all but the wide CNNs (some deep ones left out) | 10-16 hours |
-| `long`  | 20 | all, also the wide CNNs (some deep ones left out), longer timeouts | 2-4 days |
-| `full`  | 100 | all, as in the paper | 2-3 weeks |
+| Mode    | Samples per dataset | Networks |
+|---------|---------------------|----------|
+| `smoke` | the important ones (1-6) | depth up to 6, without CIFAR and GTSRB; CNNs: MNIST only, depth up to 3 |
+| `short` | 8 (the first 8 of `long`) | all but the wide CNNs (some deep ones left out) |
+| `long`  | 20 | all, also the wide CNNs (some deep ones left out), longer timeouts |
+| `full`  | 100 | all, as in the paper |
 
-`run-verix-plus` (the comparison with VeriX+) takes about 5 minutes in `smoke`, 5.5 hours in `short`,
-a day in `long` and 4-5 days in `full`.
 The mode `full` reproduces the results of the paper, with its time limits per explanation
 (5 min for the tabular datasets, 10 min for MNIST and CIFAR10, 14 min for GTSRB),
-but it takes 2-3 weeks on 32 CPU threads, and several days even on 60-128 cores
-(see [Run times and storage](#run-times-and-storage)).
+but it takes weeks (see [Run times and storage](#run-times-and-storage)).
 **We recommend the mode `smoke` for the first round of the evaluation (the smoke test),
-and the mode `short` for the second round as a representative subset** (10-16 hours on 32 CPU threads):
+and the mode `short` for the second round as a representative subset** (about a day on 32 CPU threads):
 it covers all benchmarks and all variants of the paper with fewer samples and shorter timeouts,
 so the absolute numbers differ, but the trends of the paper are visible.
 A finished run can be extended later: `--resume` skips the jobs that already finished.
@@ -160,13 +172,13 @@ A finished run can be extended later: `--resume` skips the jobs that already fin
 
 For a mode `<mode>` (e.g., `short`), inside the container:
 
-1. Compute the explanations, and the interpretation figures at the end:
+1. Compute the explanations:
    ```
    ./reproduce.sh run <mode>
    ```
    The explanations go to `data/explanations/`, inside the container only.
 2. Compute the explanations of VeriX+ for the comparison with it (Figs. 6, 7, 8 and 12),
-   on the same fully connected networks, samples and timeouts, and remake the interpretation figures with them:
+   on the same fully connected networks, samples and timeouts, and make the interpretation figures of both:
    ```
    ./reproduce.sh run-verix-plus <mode>
    ./reproduce.sh interpret <mode>
@@ -209,6 +221,14 @@ Hence, a sample in these figures of the artifact has a number by one greater tha
 e.g., the heart attack sample 97 of Fig. 6 is the sample 98 here (also in the names of the files).
 We will correct this in the final version of the paper.
 
+**Disclaimer: the run times of VeriX+ in Figs. 8 and 12.**
+By mistake, the run times of VeriX+ in the submitted paper leave out the samples that are robust already
+with all features perturbed, whose explanations are found quickly; the artifact correctly includes them
+in the average PAR-2.
+Hence, the run times of VeriX+ in Figs. 8 and 12 of the artifact are lower than in the submitted paper,
+most visibly with ε = 0.005, where many samples are robust.
+We will update the run times of VeriX+ in the final version of the paper.
+
 The modes other than `full` use other samples and shorter timeouts,
 so their numbers and figures differ from the paper; the samples of the paper's figures
 that are not in a mode's dataset are left out of its figures.
@@ -219,25 +239,16 @@ The following are estimates for the Lenovo ThinkPad P16 Gen 2 (32 CPU threads, 6
 with 26 jobs at once (the default 80% of 32 CPU threads).
 The number of jobs at once is `CPUS` × `CPU_PERCENTAGE` / 100 (default: all CPU threads and 80%).
 
-The actions of `./reproduce.sh` on 32 CPU threads:
+The actions of `./reproduce.sh` on 32 CPU threads, and their total also with more cores:
 
-| Mode | `run` | `run-verix-plus` | `interpret` |
-|------|-------|------------------|-------------|
-| `smoke` | ~5 min | ~5 min | ~30 s |
-| `short` | 10-16 h | ~5.5 h | ~15 min |
-| `long`  | 2-4 days | ~1 day | ~15 min |
-| `full`  | 2-3 weeks | 4-5 days | ~15 min |
+| Mode | `run` | `run-verix-plus` | `interpret` | Total | Total, 60 cores | Total, 128 cores |
+|------|-------|------------------|-------------|-------|-----------------|------------------|
+| `smoke` | ~5 min | ~5 min | ~30 s | ~11 min | ~11 min | ~11 min |
+| `short` | 10-16 h | ~5.5 h | ~15 min | 16-22 h | 8-10 h | 4-5 h |
+| `long`  | 2-4 days | ~1 day | ~15 min | 3-5 days | 40-55 h | 20-27 h |
+| `full`  | 2-3 weeks | 4-5 days | ~15 min | 2.5-4 weeks | 8-10 days | 4-5 days |
 
-`run` also runs `interpret` at the end; it is needed again only after `run-verix-plus`.
-
-`run` with more cores:
-
-| Mode | 60 cores (48 jobs) | 128 cores (102 jobs) |
-|------|--------------------|----------------------|
-| `smoke` | ~5 min | ~5 min |
-| `short` | 5-7 h | 2.5-3.5 h |
-| `long`  | 28-43 h | 14-21 h |
-| `full`  | several days | ~2.5 days or more |
+`interpret` makes the interpretation figures from the explanations of `run` and `run-verix-plus`.
 
 The explanations of `run` and the space they take in `data/explanations/` inside the container:
 
@@ -258,32 +269,31 @@ The figures, tables and logs take only a few MB.
   and shows how to try it on other networks and data.
 * The main [README](../../README.md) describes all actions and options of the tool;
   each action also prints them with `--help`, e.g., `./spexplain interpret --help`.
-* New networks (`.nnet`) and datasets (`.csv`) are used directly by `./spexplain <network> <dataset>`;
+* New networks and datasets (`.csv`) are used directly by `./spexplain <network> <dataset>`:
+  fully connected networks in the NNet format (`.nnet`), and other networks (e.g., convolutional)
+  in the ONNX format (`.onnx`);
   the formats and the organization of the data are described in [data/README.md](../../data/README.md).
 * The scripts of the experiments are described in [data/scripts/tacas27/script_all_desc.md](../../data/scripts/tacas27/script_all_desc.md).
 
 ## Optional: showing the pictures in windows
 
 The option `--show` of `spexplain interpret` (used by the tutorial) additionally opens the picture in a window.
-This requires starting the container connected to the display of your computer:
+This requires starting the container connected to the display of your computer, by adding `X11=1`
+(on arm64, also `PLATFORM=linux/arm64`):
+```
+X11=1 OUTPUT=output docker/run.sh docker/tacas27
+```
 
-* **Linux with X11** (or XWayland): allow the access to the display, then start the container with it:
-  ```
-  xhost +local:
-  docker run -it --name spexplain-tacas27 -v "$PWD/output:/home/tacas27/spexplain/data/output" \
-      -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix:ro spexplain-tacas27:latest
-  ```
-  With SELinux (e.g., Fedora), add `--security-opt label=type:container_runtime_t`;
-  with errors related to `MIT-SHM`, add `--ipc=host`.
+* **Linux with X11** (or XWayland): the script passes the display and its authorization to the container;
+  without `xauth` on your computer, allow the access to the display first with `xhost +local:`.
+  With SELinux (e.g., Fedora), also set `DOCKER_RUN_ARGS='--security-opt label=type:container_runtime_t'`;
+  with errors related to `MIT-SHM`, set `DOCKER_RUN_ARGS=--ipc=host`.
 * **macOS:** install and start [XQuartz](https://www.xquartz.org), enable
-  *Allow connections from network clients* in its settings (*Security*), restart it, and then:
-  ```
-  xhost +localhost
-  docker run -it --name spexplain-tacas27 -v "$PWD/output:/home/tacas27/spexplain/data/output" \
-      -e DISPLAY=host.docker.internal:0 spexplain-tacas27:latest
-  ```
+  *Allow connections from network clients* in its settings (*Security*), restart it,
+  and allow the access with `xhost +localhost` before starting the container.
 
 If the container already exists, remove it first with `docker rm spexplain-tacas27`.
+On Linux, a container started with `X11=1` cannot be restarted later (by `docker start`); start a new one instead.
 Without a display, leave out `--show`; the files are written in both cases.
 
 ## Building the image from the sources
