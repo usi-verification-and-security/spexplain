@@ -1,6 +1,7 @@
 #!/bin/bash
 # Runs all command blocks of tutorial/README.md in order, from the root of the repository (~/spexplain in Docker),
-# with the outputs into $OUTPUT (default data/output in Docker); each block is timed, the run stops at the first failure.
+# with the outputs into $OUTPUT/tutorial ($OUTPUT: default data/output in Docker); each block is timed,
+# the run stops at the first failure.
 # The setup blocks (docker/run.sh, choosing OUTPUT) are skipped; 'ucore min' (about 4 minutes) only with SLOW=1;
 # '--show' is removed (it opens windows) unless SHOW=1.
 set -eu
@@ -17,7 +18,7 @@ awk -v dir="$BLOCKS" '
     inside { print > f }
 ' "$TUTORIAL"
 
-printf "Outputs: %s\n" "$OUTPUT"
+printf "Outputs: %s\n" "$OUTPUT/tutorial"
 for f in "$BLOCKS"/*.sh; do
     if grep -q 'docker/run.sh\|^OUTPUT=\|^mkdir -p \$OUTPUT' "$f"; then
         printf "\n=== %s: SKIPPED (setup)\n" "$(basename "$f")"
@@ -38,6 +39,6 @@ for f in "$BLOCKS"/*.sh; do
 done
 
 printf "\n=== outputs\n"
-ls -l "$OUTPUT"
+ls -l "$OUTPUT/tutorial"
 rm -rf "$BLOCKS"
 echo "TUTORIAL PASSED"
