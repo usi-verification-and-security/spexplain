@@ -260,24 +260,6 @@ WRAPPER=~/srun_commands/sbatch.sh ./runme.sh run full --resume
 FILTER='^mnist/200x[0-9]+/hybrid/' ./runme.sh run full
 ```
 
-## Explanations for interpretation
-
-At the end of `run`, in every mode, after the GNU parallel queue has finished, `runme.sh` also
-runs `commands_fix-all_no_neuron_vars.sh`. It computes explanations without inner-neuron
-variables (`--allow-neuron-vars-in-explanations false`), suitable for visualization:
-
-- loan and obesity, 50x1–50x4, variants `naive` (Direct), `guide-all` and `fix-all`;
-- `itp_astrong_bstrong`, `itp_afactor_0.5_bstrong`, `itp_aweak_bstrong`;
-- always on the `<name>_s100_scaled_short.csv` datasets (8 samples), whatever the mode is,
-  with a 10 min limit per explanation;
-- the 72 runs go one after another (not through the queue), into
-  `data/explanations_for_interpretation/<name>/50x<d>/s100_scaled_short/<variant>/`,
-  overwriting earlier results.
-
-`-n` does not run it. If it fails, `run` reports it and exits with 1. The overall running time
-printed by `run` includes it. It can also be run on its own:
-`./commands_fix-all_no_neuron_vars.sh` (needs bash >= 4).
-
 ## Unsat cores of interpolants
 
 In every mode but `smoke`, `run` also has the jobs `heart_attack/50x1/{naive,fix-all}/ucore_min_itp_aweak_bstrong`:
@@ -385,8 +367,8 @@ family, `fig-9_CNN_performance-plots_PAR-2_<family>.pdf` (e.g. `narrow-avg-pool`
 ```
 
 `interpret` runs `runme_norm.sh <mode>`, `runme_diam.sh <mode>`, `runme_methodes.sh <mode>` and
-`runme_ucore.sh <mode>`, in this order, on the mode's explanations. `run` also runs all four at the end, in every mode, after the GNU parallel queue
-(not with `-n`). The figures go to `data/output/<mode>/`.
+`runme_ucore.sh <mode>`, in this order, on the mode's explanations (of `run`, and of `run-verix-plus`).
+The figures go to `data/output/<mode>/`.
 
 - `runme_norm.sh` (Fig. 7): `interpret ... 'norm min, inv' --visualize 'pixel center'` of mnist
   50x1, sample 1, with the variants `guide-all`, `fix-all-no-vars`, `verix/eps5` and `verix/eps100`.
@@ -488,9 +470,7 @@ per explanation, and with the perturbations epsilon 1, 0.05 and 0.005.
 - `../cnn/run1.sh`: one CNN job, with the engine of `make onnx`.
 - `plot_fc_stats.py`, `plot_cnn_stats.py`, `ploting_utils.py`: the plots of `plot-performance`.
 - `plot_compare_with_verix_plus.py`: the comparison with VeriX+ (not run yet by `plot-performance`).
-- `runme_norm.sh`, `runme_diam.sh`, `runme_methodes.sh`, `runme_ucore.sh`: the interpretation figures of `interpret`, also run at
-  the end of `run`.
-- `commands_fix-all_no_neuron_vars.sh`: the explanations for interpretation, run at the end of `run`.
+- `runme_norm.sh`, `runme_diam.sh`, `runme_methodes.sh`, `runme_ucore.sh`: the interpretation figures of `interpret`.
 - `verix/`: the jobs of `run-verix-plus`.
 
 
