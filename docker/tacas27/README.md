@@ -6,7 +6,7 @@ submitted to TACAS 2027.
 It contains the tool SpExplAIn, which computes and interprets space explanations of the classifications
 of neural networks, and everything needed to reproduce the experiments and figures of the paper.
 
-* **Artifact:** TODO(Zenodo DOI link), a self-contained archive with the Docker images below
+* **Artifact:** https://doi.org/10.5281/zenodo.23783598, a self-contained archive with the Docker images below
 * **Source code:** https://github.com/usi-verification-and-security/spexplain (tag `tacas27-artifact`)
 
 ## Badges

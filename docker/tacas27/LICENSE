@@ -19,3 +19,73 @@ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+-------------------------------------------------------------------------------
+Third-party software in the Docker images
+-------------------------------------------------------------------------------
+
+The Docker images of this artifact also contain the following third-party
+software, each under its own license; the full texts of the licenses are in
+the images at the given paths (~ is /home/tacas27).
+
+* OpenSMT -- MIT license
+  Copyright (c) 2008 - 2012 Roberto Bruttomesso, 2012 - 2022 Antti Hyvarinen,
+  2018 - 2024 Martin Blicha, 2024 - 2025 Tomas Kolarik
+  ~/spexplain/build/_deps/opensmt-src/LICENSE
+
+* Marabou (the verifier of SpExplAIn, and the verifier of VeriX-plus) --
+  modified BSD license (BSD-3-Clause), copyright (C) by its authors and
+  contributors; it includes third-party libraries (e.g., Boost, OpenBLAS,
+  protobuf, ONNX, pybind11) under their own licenses, listed in the same file
+  ~/spexplain/build-marabou/_deps/marabou-src/COPYING
+  ~/VeriX-plus/Marabou/COPYING
+
+* VeriX-plus (https://github.com/minwu-cs/VeriX-plus), with a patch of the
+  original experiments of the paper -- BSD-3-Clause
+  Copyright (c) 2022, NeuralNetworkVerification
+  ~/VeriX-plus/LICENSE
+
+* The Python packages of VeriX-plus (e.g., NumPy, SciPy, pandas, PyTorch, ONNX,
+  ONNX Runtime, Matplotlib, scikit-image, and their dependencies) -- mostly BSD,
+  MIT and Apache-2.0 licenses; bound-propagation is under the GNU GPL v3
+  ~/VeriX-plus/venv/lib/python3.8/site-packages/*.dist-info/
+
+* uv (the installer of the Python of VeriX-plus) -- MIT or Apache-2.0 license
+  Copyright (c) Astral Software Inc.
+
+* The packages of the Debian GNU/Linux base system and the tools installed from
+  it (e.g., Python and its packages, TeX Live, GNU parallel, Z3, cvc5, MuPDF) --
+  various free software licenses, including the GNU GPL, LGPL and AGPL;
+  the sources are available from the Debian archive (https://www.debian.org)
+  /usr/share/doc/<package>/copyright
+
+-------------------------------------------------------------------------------
+Third-party datasets
+-------------------------------------------------------------------------------
+
+The datasets of the experiments (in ~/spexplain/data/datasets/ of the images)
+are samples of the following datasets, scaled to [0, 1]; they remain under the
+terms of the original datasets.
+
+* Heart attack risk: Janosi, A., Steinbrunn, W., Pfisterer, M., Detrano, R.:
+  Heart Disease. UCI Machine Learning Repository (1989),
+  https://doi.org/10.24432/C52P4X -- CC BY 4.0
+
+* Obesity: Palechor, F.M., Manotas, A.D.l.H.: Estimation of Obesity Levels Based
+  On Eating Habits and Physical Condition. UCI Machine Learning Repository
+  (2019), https://doi.org/10.24432/C5H31Z -- CC BY 4.0
+
+* Loan: Lo, T.w.: Loan approval classification dataset (2024),
+  https://www.kaggle.com/datasets/taweilo/loan-approval-classification-data
+  -- Apache License 2.0
+
+* MNIST: LeCun, Y., Cortes, C., Burges, C.J.C.: The MNIST database of
+  handwritten digits -- CC BY-SA 3.0
+
+* CIFAR-10: Krizhevsky, A.: Learning multiple layers of features from tiny
+  images. Tech. rep., University of Toronto (2009),
+  https://www.cs.toronto.edu/~kriz/cifar.html -- no explicit license
+
+* GTSRB: Stallkamp, J., Schlipsing, M., Salmen, J., Igel, C.: The German Traffic
+  Sign Recognition Benchmark: A multi-class classification competition. IJCNN
+  (2011), https://benchmark.ini.rub.de -- under the terms of its website
