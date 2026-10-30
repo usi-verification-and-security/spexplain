@@ -30,7 +30,7 @@
 ##                  runme_norm.sh (Fig. 7, mnist), runme_diam.sh (Fig. 11, heart_attack and loan)
 ##                  runme_methodes.sh (Fig. 6, heart_attack and loan)
 ##                  and runme_ucore.sh (Fig. 10, heart_attack):
-##                  data/output/<mode>/*; run also does this at the end
+##                  data/output/<mode>/* (after run and run-verix-plus)
 ##
 ## Modes (see ./modes.sh):
 ##   In every mode but smoke, run also runs the unsat cores of interpolants 'itp aweak, bstrong; ucore min'
@@ -55,8 +55,7 @@
 ##   They run cnn/run1.sh with the engine of 'make onnx' (build-onnx/engine), and the results go to
 ##   data/explanations/<name>/cnn-bench/<id>/<dataset>/<variant>/.
 ## The results go to data/explanations/<name>/<width>x<depth>/<dataset>/<variant>/,
-## e.g. s100_scaled_short. In every mode, run also runs commands_fix-all_no_neuron_vars.sh at the end
-## (explanations for interpretation, into data/explanations_for_interpretation/). The smaller datasets, the maps of their samples to the original ones
+## e.g. s100_scaled_short. The smaller datasets, the maps of their samples to the original ones
 ## (data/datasets/mode_sample_maps.csv) and their neuron activations are made by make_mode_datasets.py.
 ##
 ## Options:
@@ -564,22 +563,11 @@ function run_jobs {
     cut -f2-8 "$log_dir/jobs.txt" | parallel "${parallel_opts[@]}" run_job {1} {2} {3} {4} {5} {6} {7}
     local status=$?
 
-#    ## >>> explanations for interpretation (added) >>>
-#    ## In every mode, also compute the explanations without inner-neuron variables for the interpretation
-#    ## (loan, obesity, 50x1-4, naive/guide-all/fix-all, on the _short datasets, whatever the mode is)
-#    ## into data/explanations_for_interpretation/; see commands_fix-all_no_neuron_vars.sh
-#    printf "\nRunning: explanations for interpretation (%s)\n" "$TACAS_DIR/commands_fix-all_no_neuron_vars.sh"
-#    "$BASH" "$TACAS_DIR/commands_fix-all_no_neuron_vars.sh" || {
-#        printf "explanations for interpretation failed!\n" >&2
-#        (( status++ ))
-#    }
-#    ## <<< explanations for interpretation (added) <<<
-
     ## SECONDS counts from the start of the script
     local elapsed=$(printf "%dh %02dm %02ds" $(( $SECONDS/3600 )) $(( $SECONDS%3600/60 )) $(( $SECONDS%60 )))
 
     (( $status )) && {
-        printf "\nFailed: %d (jobs: see the non-zero Exitval in %s; or the interpretation)\n" $status "$joblog" >&2
+        printf "\nFailed: %d (jobs: see the non-zero Exitval in %s)\n" $status "$joblog" >&2
         printf "Overall running time: %s\n" "$elapsed" >&2
         exit 1
     }
