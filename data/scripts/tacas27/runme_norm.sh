@@ -27,9 +27,8 @@ dataset_base=$(basename "$dataset" .csv)
 dataset_base=${dataset_base#${model_base}_}
 width=50
 
-## The query of the figure; smoke computes it without 'inv'
+## The query of the figure
 query='norm min, inv'
-is_smoke_mode && query='norm min'
 
 ## The samples of the original s100 dataset; mode_sample gives their index in the mode's dataset
 for orig_s in 1 7; do
