@@ -148,6 +148,13 @@ def output_kind_file(base, kind):
     return str(base.with_name(f'{base.stem}_{kind}{base.suffix}'))
 
 
+def with_progress(results, titles, report):
+    """Yields the results of the steps, reporting the title of each before it is computed."""
+    for title in titles:
+        report(title)
+        yield next(results)
+
+
 def output_file(base, idx):
     base = Path(base)
     return base.with_name(f'{base.stem}_s{idx}{base.suffix}')
@@ -490,6 +497,22 @@ def main(args):
                 continue
 
             sample = dataset.get_sample(idx) if dataset else None
+
+            # The titles of the steps of the sample: the kinds of norm, or the extractions of more explanations files
+            steps = []
+            if extraction and not use_samples_only:
+                if not multiple:
+                    steps = extraction_config.kinds if extraction[0] == 'norm' else []
+                elif pixel_visualization:
+                    steps = [t for titles, is_invalid in zip(point_titles, invalid) if not is_invalid for t in titles]
+                else:
+                    steps = [label for label, is_invalid in zip(labels, invalid) if not is_invalid]
+
+            def report_step(title):
+                # Only if there are more steps
+                if len(steps) > 1:
+                    info(f'{title} ... ', end='', flush=True)
+
             # An extracted point or the sample, a segment, otherwise the constraints of an explanation
             point = None
             segment = None
@@ -498,7 +521,7 @@ def main(args):
                 if extraction[0] == 'norm':
                     # The points of the kinds, a single one for mathexpr, each written as soon as it is computed
                     points = []
-                    for i, p in enumerate(result):
+                    for i, p in enumerate(with_progress(result, steps, report_step)):
                         points.append(p)
                         # No outputs when only visualizing
                         if outs:
@@ -529,7 +552,8 @@ def main(args):
                         panels += [(f'{title} ({INVALID_EXPLANATION})', None) for title in titles]
                         continue
                     if extraction and multiple:
-                        file_points = list(extraction_module.interpret(exps[idx], extraction_config, sample))
+                        file_points = list(with_progress(
+                            extraction_module.interpret(exps[idx], extraction_config, sample), titles, report_step))
                     elif extraction:
                         file_points = points
                     else:
@@ -548,6 +572,8 @@ def main(args):
                     if is_invalid:
                         series.append((label, None, None, True))
                         continue
+                    if extraction:
+                        report_step(label)
                     A2, B2 = slice_.interpret(exps[idx], visualization_config, sample)
                     vertices = region2d.vertices(A2[:, visualization_config.var_indices], B2)
                     diameter = None
