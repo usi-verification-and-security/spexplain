@@ -205,7 +205,7 @@ All of the following is in the directory `output` of your computer:
 | Figs. 8 and 12 (PAR-2 of SpExplAIn and VeriX+) | `<mode>/fig-8_comparison-plots_PAR-2_ours_vs_verix_plus_all_tasks_50.pdf` and `…_200.pdf`: Fig. 8 is the row of the image datasets of both, Fig. 12 the row of the tabular datasets of `…_50.pdf` |
 | the data of these plots | `<mode>/*.csv`; the statistics (sizes, run times, timeouts) in `stats/<mode>/<benchmark>.txt` |
 | Fig. 6 (slices of the explanations of heart attack and loan) | `<mode>/fig-6_*.png` |
-| Fig. 7 (minimum norm points of MNIST explanations) | `<mode>/fig-7_*.png` (in `smoke`, only the minimal points, without `inv`) |
+| Fig. 7 (minimum and inverted minimum norm points of MNIST explanations) | `<mode>/fig-7_*.png` |
 | Fig. 10 (explanations reduced by `ucore` and `ucore min`) | `<mode>/fig-10_*.png` |
 | Fig. 11 (maximum diameters of explanations) | `<mode>/fig-11_*.png` |
 
@@ -229,6 +229,12 @@ Hence, the run times of VeriX+ in Figs. 8 and 12 of the artifact are lower than 
 most visibly with ε = 0.005, where many samples are robust.
 We will update the run times of VeriX+ in the final version of the paper.
 
+**Disclaimer: the inverted minimum norm points in Fig. 7.**
+In the submitted paper, the points `inv` of Fig. 7 were incorrectly computed as the points with the maximum norm.
+We corrected `norm inv` after the submission, so the points `inv` of Fig. 7 of the artifact differ from the paper;
+the corrected `norm inv` is also considerably faster (about as fast as `norm min`).
+We will update Fig. 7 in the final version of the paper.
+
 The modes other than `full` use other samples and shorter timeouts,
 so their numbers and figures differ from the paper; the samples of the paper's figures
 that are not in a mode's dataset are left out of its figures.
@@ -243,10 +249,10 @@ The actions of `./reproduce.sh` on 32 CPU threads, and their total also with mor
 
 | Mode | `run` | `run-verix-plus` | `interpret` | Total | Total, 60 cores | Total, 128 cores |
 |------|-------|------------------|-------------|-------|-----------------|------------------|
-| `smoke` | ~5 min | ~5 min | ~30 s | ~11 min | ~11 min | ~11 min |
-| `short` | 10-16 h | ~5.5 h | ~15 min | 16-22 h | 8-10 h | 4-5 h |
-| `long`  | 2-4 days | ~1 day | ~15 min | 3-5 days | 40-55 h | 20-27 h |
-| `full`  | 2-3 weeks | 4-5 days | ~15 min | 2.5-4 weeks | 8-10 days | 4-5 days |
+| `smoke` | ~5 min | ~5 min | ~1 min | ~11 min | ~11 min | ~11 min |
+| `short` | 10-16 h | ~5.5 h | ~2 min | 16-22 h | 8-10 h | 4-5 h |
+| `long`  | 2-4 days | ~1 day | ~2 min | 3-5 days | 40-55 h | 20-27 h |
+| `full`  | 2-3 weeks | 4-5 days | ~2 min | 2.5-4 weeks | 8-10 days | 4-5 days |
 
 `interpret` makes the interpretation figures from the explanations of `run` and `run-verix-plus`.
 
