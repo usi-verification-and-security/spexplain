@@ -471,7 +471,8 @@ def main(args):
     selected = set(indices)
     outs = []
     try:
-        outs = [open(file, 'w') for file in outputs_explanations]
+        # Line-buffered, so that each explanation is written as soon as it is computed
+        outs = [open(file, 'w', buffering=1) for file in outputs_explanations]
         # The output contains an explanation for each sample, the samples not processed are invalid
         for idx in range(1, n_samples + 1):
             if idx not in selected:
@@ -495,11 +496,14 @@ def main(args):
             if extraction and not multiple and not use_samples_only:
                 result = extraction_module.interpret(explanations[idx], extraction_config, sample)
                 if extraction[0] == 'norm':
-                    # The points of the kinds, a single one for mathexpr
-                    points = result
+                    # The points of the kinds, a single one for mathexpr, each written as soon as it is computed
+                    points = []
+                    for i, p in enumerate(result):
+                        points.append(p)
+                        # No outputs when only visualizing
+                        if outs:
+                            outs[i].write(formula.from_point(p) + '\n')
                     point = points[0]
-                    for out, p in zip(outs, points):
-                        out.write(formula.from_point(p) + '\n')
                 elif extraction[0] == 'slice':
                     # The features outside of the slice are fixed to the sample
                     A, B = formula.fix(*result, extraction_module.fixed_values(extraction_config, sample))
@@ -525,7 +529,7 @@ def main(args):
                         panels += [(f'{title} ({INVALID_EXPLANATION})', None) for title in titles]
                         continue
                     if extraction and multiple:
-                        file_points = extraction_module.interpret(exps[idx], extraction_config, sample)
+                        file_points = list(extraction_module.interpret(exps[idx], extraction_config, sample))
                     elif extraction:
                         file_points = points
                     else:

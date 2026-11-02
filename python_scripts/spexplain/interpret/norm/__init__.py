@@ -70,11 +70,10 @@ class Config:
 
 
 def interpret(explanation, config, sample):
-    """The points of the explanation of the sample with the minimal, the inverted minimal, or the maximal norm,
-    one for each kind."""
+    """Yields the points of the explanation of the sample with the minimal, the inverted minimal, or the maximal
+    norm, one for each kind, each as soon as it is computed."""
     A, B = formula.parse(explanation, sample.size)
 
-    points = []
     for kind in config.kinds:
         if formula.is_interval(A):
             # The domains are non-negative, so the upper bounds are both the closest to the upper corner and maximal
@@ -88,6 +87,4 @@ def interpret(explanation, config, sample):
             point = get_max_norm_point(A, B, sample)
 
         check_point(A, B, point)
-        points.append(point)
-
-    return points
+        yield point
