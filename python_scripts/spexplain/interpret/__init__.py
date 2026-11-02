@@ -23,7 +23,7 @@ technique spec: '<name>[ <param>[, <param>]...]'
 extraction techniques and possible parameters [default visualization]:
        slice: vars x<i> x<j>  [fspace]
         diam: vars x<i> x<j>, max  [fspace]
-        norm: min, inv (the points in their order, default: min)  [pixel]
+        norm: min, inv, max (the points in their order, default: min)  [pixel]
 visualization techniques and possible parameters:
       fspace: vars x<i> x<j> (default after an extraction: its features)
        pixel: center (the sample in between the points, otherwise first)

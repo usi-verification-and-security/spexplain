@@ -1,4 +1,4 @@
-# Technique norm: the point of an explanation with the minimal or the maximal (L2) norm
+# Technique norm: the point of an explanation with the minimal (L2) norm, the inverted minimal norm, or the maximal norm
 # Assumes that the domains of all features are normalized to [0,1]
 
 import numpy as np
@@ -39,47 +39,11 @@ def get_max_norm_point(A, B, sample):
     return _minimize(lambda x: 1.0 / scipy.linalg.norm(x), A, B + 0.00001, sample, A.shape[1])
 
 
-def _reflect_polytope(A, b):
-    # reflect at the hyperplane with normal (1,...,1) going through (0.5,...,0.5)
-    d = A.shape[1]
-    ones = np.ones(d)
-
-    # Reflection matrix
-    R = np.eye(d) - (2.0 / d) * np.outer(ones, ones)
-
-    # Reflection translation
-    t = (2.0 / d) * ones
-
-    # Reflected polytope
-    A_ref = A @ R
-    b_ref = b + A @ t
-
-    return A_ref, b_ref
-
-
-def _reflect_point(x):
-    d = x.size
-    return x - (2.0 / d) * (np.sum(x) - 1.0)
-
-
-#+ WIP, not used yet
-# obtain points with minimum norm in the inverse space
+# obtain points with minimum norm in the inverted domains, i.e., closest to their upper corner
 def get_inv_norm_point(A, B, sample):
-    # reflect at the hyperplane with normal (1,...,1) going through (0.5,...,0.5)
-    A_ref, B_ref = _reflect_polytope(A, B)
-
-    start = _reflect_point(sample)
-    _check_start(A_ref, B_ref, start)
-
-    min_point = _minimize(scipy.linalg.norm, A_ref, B_ref, start, A.shape[1])
-    inverted = _reflect_point(min_point)
-
-    assert np.all(np.dot(A_ref, min_point) <= B_ref + TOLERANCE)
-    assert np.all(min_point >= 0.0)
-    assert np.all(min_point <= 1.0)
-    check_point(A, B, inverted)
-
-    return inverted
+    # x = 1 - y maps the domains [0,1] onto themselves and A x <= B to -A y <= B - A 1
+    ones = np.ones(A.shape[1])
+    return ones - get_min_norm_point(-A, B - A @ ones, ones - sample)
 
 
 def check_point(A, B, point):
@@ -93,11 +57,10 @@ class Config:
     """The configuration of the technique given by its parameters."""
 
     def __init__(self, params):
-        # The kinds of the points in their order: 'min' or 'inv'
-        # Inconsistent: 'inv' yields the point with the maximal norm, not the one from get_inv_norm_point
+        # The kinds of the points in their order: 'min', 'inv' or 'max'
         self.kinds = []
         for param in params:
-            if param not in ('min', 'inv'):
+            if param not in ('min', 'inv', 'max'):
                 raise Error('Unknown parameter of norm: %s' % param)
             if param in self.kinds:
                 raise Error('Duplicate parameter of norm: %s' % param)
@@ -107,20 +70,22 @@ class Config:
 
 
 def interpret(explanation, config, sample):
-    """The points of the explanation of the sample with the minimal or the maximal norm, one for each kind."""
+    """The points of the explanation of the sample with the minimal, the inverted minimal, or the maximal norm,
+    one for each kind."""
     A, B = formula.parse(explanation, sample.size)
 
     points = []
     for kind in config.kinds:
-        maximal = kind == 'inv'
         if formula.is_interval(A):
-            # The domains are non-negative
+            # The domains are non-negative, so the upper bounds are both the closest to the upper corner and maximal
             lower, upper = formula.interval_bounds(A, B)
-            point = upper if maximal else lower
-        elif maximal:
-            point = get_max_norm_point(A, B, sample)
-        else:
+            point = lower if kind == 'min' else upper
+        elif kind == 'min':
             point = get_min_norm_point(A, B, sample)
+        elif kind == 'inv':
+            point = get_inv_norm_point(A, B, sample)
+        else:
+            point = get_max_norm_point(A, B, sample)
 
         check_point(A, B, point)
         points.append(point)
