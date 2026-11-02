@@ -320,7 +320,7 @@ This takes about 15 seconds.
 The picture `$OUT/mnist_s1.png` shows the image of the digit next to the darkest image within its explanation:
 an image with much less ink that the network still recognizes as the same digit.
 The brightest image is computed by `norm inv`, and both of them by `norm min, inv`
-(with `--visualize 'pixel center'`, the digit is shown between them); these take a few minutes.
+(with `--visualize 'pixel center'`, the digit is shown between them), which takes about twice as long.
 
 ## Going further
 

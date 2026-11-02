@@ -281,7 +281,8 @@ It is recommended to also apply the sed script `./data/scripts/polish_psi.sed` t
 
 Interprets stored explanations of the sample points
 using an extraction technique,
-e.g., `slice vars x1 x5`, `diam vars x1 x5`, or `norm` (optionally `min`, `inv`, or both, e.g., `norm min, inv`),
+e.g., `slice vars x1 x5`, `diam vars x1 x5`,
+or `norm` (optionally `min`, `inv`, `max`, or more of them, e.g., `norm min, inv`),
 or directly using a visualization technique, `fspace`, `pixel`, or `mathexpr`.
 An extraction technique can be followed by a visualization,
 which is triggered by the option `--visualize`;
@@ -361,8 +362,10 @@ using the parameter `vars x<i> x<j>` and optionally `max` (the default).
 The extracted explanation is the segment, with the other features equal to the sample point.
 * `norm`:
 Computes the point of the explanation with the minimal (L2) norm using the parameter `min` (the default),
-or with the maximal norm using the parameter `inv`;
-with both parameters (e.g., `norm min, inv`), it computes both points in the order of the parameters.
+the inverted minimal norm point using the parameter `inv`,
+that is, the point with the minimal norm of `1 - x`, the closest to the upper corner of the domains,
+or the point with the maximal norm using the parameter `max`;
+with more parameters (e.g., `norm min, inv`), it computes the points in the order of the parameters.
 Assumes that the domains of all features are normalized to [0,1].
 * `fspace`:
 Shows the slice of the explanation (see `slice`) in the 2D feature space of the two features
@@ -397,7 +400,8 @@ assuming square images with a single channel (e.g., MNIST) and values in [0,1].
 It shows the sample point first (unless `--exclude-samples`) and then the explanations, which must be points
 (e.g., extracted by `norm`, including all its points);
 with the parameter `center`, the sample point is placed in between the points (after the first half of them,
-e.g., `norm min, inv` with `pixel center` shows the minimal point, the sample point, and the maximal point).
+e.g., `norm min, inv` with `pixel center` shows the minimal point, the sample point,
+and the inverted minimal point).
 Multiple explanations files are supported as in `fspace`.
 The sample point is titled `sample <idx>`, and the points by the labels of the explanations as in `fspace`
 (`explanation` by default), with the kinds of the points of `norm` (only the kinds for a single explanations file
