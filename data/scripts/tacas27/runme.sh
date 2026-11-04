@@ -13,6 +13,10 @@
 ##                  as jobs of the same kind of queue as run (see verix/verix1.sh), configured as the original
 ##                  experiments: the random traversal, Marabou without Gurobi (as in the image docker/tacas27):
 ##                  data/explanations/<name>/<width>x<depth>/<dataset>/verix/eps{100,5,0.5}.phi.txt
+##   run-cora       as run-verix-plus, for CORA (neuralNetwork/explain, abstract+refine, see cora/cora1.sh):
+##                  the compiled application on the MATLAB Runtime (CORA_BIN, e.g. in the image docker/eiger
+##                  of CORA, also on Eiger: ENV=cora-matlab WRAPPER=~/srun_commands/sbatch.sh), or MATLAB:
+##                  data/explanations/<name>/<width>x<depth>/<dataset>/cora/eps{100,5,0.5}.phi.txt
 ##   collect-stats  collect the stats of the mode's finished experiments with collect_stats.sh,
 ##                  one file per benchmark (50x and 200x): <STATS_DIR>/<mode>/<name>.txt,
 ##                  and of the CNN models: <STATS_DIR>/<mode>/<name>_cnn.txt;
@@ -25,7 +29,8 @@
 ##                  data/output/<mode>/fig-9_CNN_performance-plots_<name>_cnn.csv (run collect-stats first);
 ##                  with the results of run-verix-plus of the mode, also their run times as
 ##                  data/output/<mode>/fig-8_comparison-plots_<name>[200]_verix.csv and the comparison
-##                  with plot_compare_with_verix_plus.py
+##                  with plot_compare_with_sota.py; likewise with the results of run-cora
+##                  (data/output/<mode>/fig-8_comparison-plots_<name>[200]_cora.csv)
 ##   interpret      make the interpretation figures from the mode's explanations with
 ##                  runme_norm.sh (Fig. 7, mnist), runme_diam.sh (Fig. 11, heart_attack and loan)
 ##                  runme_methodes.sh (Fig. 6, heart_attack and loan)
@@ -96,6 +101,14 @@
 ##   VERIX_DIR         run-verix-plus: VeriX-plus (default: ~/VeriX-plus)
 ##   VERIX_ORDER       run-verix-plus: the traversal order of VeriX-plus (default: random,
 ##                     as in the original experiments; e.g. bounds)
+##   CORA_BIN          run-cora: the compiled CORA application, run_cora_explain_dataset.sh (set in its image;
+##                     default: CORA_DIR/build/cora_explain/run_cora_explain_dataset.sh if it exists;
+##                     if set empty, MATLAB runs CORA, which is meant for debugging single jobs)
+##   MCR_ROOT          run-cora with CORA_BIN: the MATLAB Runtime (set in its image;
+##                     default: the installation of the matlab in PATH)
+##   CORA_DIR          run-cora: CORA (required without CORA_BIN)
+##   MATLAB            run-cora without CORA_BIN: MATLAB (default: matlab)
+##                     (see cora/backend)
 ##   OUTER_FILTER      relaxed-features: regex over '<name>/<width>x<idx>/' of the models whose non-interval
 ##                     explanations (ours) get the outer widths, by two linear programs per feature; empty: none
 ##                     (default: '^(heart_attack|obesity|loan)/|^mnist/50x[14]/')
@@ -133,7 +146,7 @@ export PYTHON
 
 source "$TACAS_DIR/modes.sh"
 
-ACTIONS=(run collect-stats plot-performance interpret run-verix-plus relaxed-features)
+ACTIONS=(run collect-stats plot-performance interpret run-verix-plus run-cora relaxed-features)
 
 ACTION=
 MODE=
@@ -233,7 +246,7 @@ function print_job {
 ## Writes the jobs of the mode to JOBS_TMP, one per line, tab-separated:
 ## <worst-case secs> <job id> <timeout per> <model> <dataset> <variant> <experiment> <strategies>
 ## <samples> <order: benchmark.width.depth.variant>
-## For run-verix-plus, the variant is verix, the experiments are VERIX_EXPERIMENTS
+## For run-verix-plus (run-cora), the variant is verix (cora), the experiments are VERIX_EXPERIMENTS
 ## and the strategies are their epsilons.
 ## The longest jobs go first, so that they do not prolong the end of the run.
 function make_jobs {
@@ -247,7 +260,7 @@ function make_jobs {
         for i in ${!NAMES[@]}; do
             name=${NAMES[$i]}
             mode_includes_benchmark $name || continue
-            [[ $ACTION == run-verix-plus && " ${VERIX_NAMES[*]} " != *" $name "* ]] && continue
+            [[ -n $TOOL_VARIANT && " ${VERIX_NAMES[*]} " != *" $name "* ]] && continue
 
             timeout_per=$(mode_timeout_per $i)
             dataset=$(mode_dataset $name)
@@ -271,16 +284,16 @@ function make_jobs {
                     exit 1
                 }
 
-                [[ $ACTION == run-verix-plus ]] && {
-                    is_excluded $name $width $depth verix && continue
+                [[ -n $TOOL_VARIANT ]] && {
+                    is_excluded $name $width $depth $TOOL_VARIANT && continue
 
                     for vidx in ${!VERIX_EXPERIMENTS[@]}; do
                         experiment=${VERIX_EXPERIMENTS[$vidx]}
-                        job_id="$name/$model_id/verix/$experiment"
+                        job_id="$name/$model_id/$TOOL_VARIANT/$experiment"
                         [[ -n $FILTER && ! $job_id =~ $FILTER ]] && continue
 
                         print_job $worst_secs "$job_id" $timeout_per "$model" "$dataset" \
-                            verix $experiment ${VERIX_EPSILONS[$vidx]} $n_samples \
+                            $TOOL_VARIANT $experiment ${VERIX_EPSILONS[$vidx]} $n_samples \
                             $i $width $depth $vidx
                     done
                     continue
@@ -312,8 +325,8 @@ function make_jobs {
         done
     done >"$JOBS_TMP.unsorted"
 
-    ## VeriX-plus runs only on the fully connected models
-    [[ $ACTION == run-verix-plus ]] || make_cnn_jobs >>"$JOBS_TMP.unsorted"
+    ## VeriX-plus and CORA run only on the fully connected models
+    [[ -n $TOOL_VARIANT ]] || make_cnn_jobs >>"$JOBS_TMP.unsorted"
 
     sort -s -t$'\t' -k1,1nr "$JOBS_TMP.unsorted" >"$JOBS_TMP"
 }
@@ -378,6 +391,13 @@ function make_cnn_jobs {
     done
 }
 
+## The variant of the jobs of the other tools, the same for all their jobs
+case $ACTION in
+run-verix-plus) TOOL_VARIANT=verix ;;
+run-cora)       TOOL_VARIANT=cora ;;
+*)              TOOL_VARIANT= ;;
+esac
+
 JOBS_TMP=$(mktemp)
 trap 'rm -f "$JOBS_TMP" "$JOBS_TMP.unsorted"' EXIT
 
@@ -406,11 +426,11 @@ SLOTS=$(( ($CPUS*$CPU_PERCENTAGE + 50)/100 ))
 
 printf "Action:      %s\n" "$ACTION"
 printf "Mode:        %s\n" "$MODE"
-if [[ $ACTION == run-verix-plus ]]; then
+if [[ -n $TOOL_VARIANT ]]; then
     printf "Benchmarks:  %s\n" "${VERIX_NAMES[*]}"
     printf "Epsilons:    %s\n" "${VERIX_EPSILONS[*]}"
     ## The default as in verix/verix1.py
-    printf "Order:       %s\n" "${VERIX_ORDER:-random}"
+    [[ $ACTION == run-verix-plus ]] && printf "Order:       %s\n" "${VERIX_ORDER:-random}"
 else
     printf "Experiments: %s\n" "$EXPERIMENTS_SPEC"
     printf "Variants:    %s\n" "$VARIANTS_SPEC"
@@ -503,7 +523,8 @@ function check_onnx_engine {
     return 1
 }
 
-## One job of the run action, or of run-verix-plus (the variant verix, the strategies are the epsilon)
+## One job of the run action, or of run-verix-plus or run-cora (the variant verix or cora,
+## the strategies are the epsilon)
 function run_job {
     local job_id="$1"
     local timeout_per=$2
@@ -518,6 +539,9 @@ function run_job {
     if [[ $variant == verix ]]; then
         TIMEOUT_PER=$timeout_per \
             "$BASH" "$SCRIPTS_DIR/tacas27/verix/verix1.sh" "$model" "$dataset" $strategies $experiment
+    elif [[ $variant == cora ]]; then
+        TIMEOUT_PER=$timeout_per \
+            "$BASH" "$SCRIPTS_DIR/tacas27/cora/cora1.sh" "$model" "$dataset" $strategies $experiment
     else
         ## The unsat cores of interpolants (see UCORE_EXPERIMENTS in modes.sh) need OpenSMT
         local options=$OPTIONS
@@ -822,16 +846,20 @@ function action_collect_stats {
 ## plot-performance
 
 ## Plots the stats of collect-stats with plot_fc_stats.py and plot_cnn_stats.py
-## Writes the CSVs of the run times of run-verix-plus of the mode into <output dir>, as produce_csv.py
-## of the original experiments: fig-8_comparison-plots_<name>_verix.csv (50x models) and
-## fig-8_comparison-plots_<name>200_verix.csv (200x), with the columns Algorithm,epsilon,layers,PAR2:
+## Writes the CSVs of the run times of run-verix-plus (or run-cora) of the mode into <output dir>, as produce_csv.py
+## of the original experiments: fig-8_comparison-plots_<name>_<variant>.csv (50x models) and
+## fig-8_comparison-plots_<name>200_<variant>.csv (200x), with the columns Algorithm,epsilon,layers,PAR2:
 ## the average PAR-2 of the samples per epsilon (e.g. 5%) and model depth (layers, from 1).
-## The time of a sample is its time.txt of verix/verix1.py; a sample without it (a timeout or a failure),
-## or with at least the timeout per explanation of the mode, counts as twice the timeout.
-## The algorithm is IR, i.e. the random traversal order, as run-verix-plus.
-## The models without the results of run-verix-plus are left out. Prints the written CSVs (only them with -n).
-function write_verix_csvs {
+## The time of a sample is its time.txt of verix/verix1.py (cora/cora1.sh); a sample without it (a timeout
+## or a failure), or with at least the timeout per explanation of the mode, counts as twice the timeout.
+## The algorithm is IR for verix, i.e. the random traversal order, as run-verix-plus, and CORA for cora.
+## The models without the results are left out. Prints the written CSVs (only them with -n).
+## USAGE: write_tool_csvs <output dir> <variant: verix or cora>
+function write_tool_csvs {
     local output_dir="$1"
+    local variant=$2
+    local algorithm=IR
+    [[ $variant == cora ]] && algorithm=CORA
     local width i name timeout_secs dataset n_samples depth vidx experiment results_dir csv rows s par2
     for width in ${WIDTHS[@]}; do
         set_mode_for_width $width || continue
@@ -851,22 +879,22 @@ function write_verix_csvs {
             for vidx in ${!VERIX_EXPERIMENTS[@]}; do
                 experiment=${VERIX_EXPERIMENTS[$vidx]}
                 for depth in $(model_depths $name); do
-                    is_excluded $name $width $depth verix && continue
+                    is_excluded $name $width $depth $variant && continue
 
-                    results_dir="$DATA_DIR/explanations/$name/${width}x$depth/$(dataset_dir $name "$dataset")/verix/$experiment"
+                    results_dir="$DATA_DIR/explanations/$name/${width}x$depth/$(dataset_dir $name "$dataset")/$variant/$experiment"
                     [[ -d $results_dir ]] || continue
 
                     par2=$(for (( s=0; s < $n_samples; ++s )); do
                         if [[ -r $results_dir/$s/time.txt ]]; then cat "$results_dir/$s/time.txt"; else echo -; fi
                     done | awk -v t=$timeout_secs '{ sum += ($1 == "-" || $1 >= t) ? 2*t : $1 } END { printf "%.2f", sum/NR }')
                     ## e.g. eps5 -> 5%
-                    rows+=("IR,${experiment#eps}%,$depth,$par2")
+                    rows+=("$algorithm,${experiment#eps}%,$depth,$par2")
                 done
             done
             (( ${#rows[@]} )) || continue
 
-            ## The prefix as output_prefix of plot_compare_with_verix_plus.py
-            csv="$output_dir/fig-8_comparison-plots_${name}$( (( $width == 50 )) || printf %s $width )_verix.csv"
+            ## The prefix as output_prefix of plot_compare_with_sota.py
+            csv="$output_dir/fig-8_comparison-plots_${name}$( (( $width == 50 )) || printf %s $width )_$variant.csv"
             printf "%s\n" "$csv"
             [[ $DRY_RUN == 1 ]] && continue
 
@@ -898,17 +926,27 @@ function action_plot_performance {
         exit 1
     }
 
-    ## The comparison of our results with VeriX-plus, plot_compare_with_verix_plus.py, if there are the results
-    ## of run-verix-plus of the mode: it reads our stats like plot_fc_stats.py (also their timeouts),
-    ## and the CSVs of VeriX-plus of write_verix_csvs from the output directory.
+    ## The comparison of our results with VeriX-plus (and CORA), plot_compare_with_sota.py, if there are
+    ## the results of run-verix-plus or run-cora of the mode: it reads our stats like plot_fc_stats.py
+    ## (also their timeouts), and the CSVs of write_tool_csvs from the output directory.
     ## It writes output_dir/fig-8_comparison-plots_PAR-2_ours_vs_verix_plus_<layout>_<width>.pdf.
-    local verix_csvs
-    verix_csvs=$(write_verix_csvs "$output_dir") || exit 1
+    local verix_csvs cora_csvs
+    verix_csvs=$(write_tool_csvs "$output_dir" verix) || exit 1
+    cora_csvs=$(write_tool_csvs "$output_dir" cora) || exit 1
     if [[ -n $verix_csvs ]]; then
         printf "VeriX-plus run times%s:\n%s\n\n" "$( [[ $DRY_RUN == 1 ]] && printf " (would write)" )" "$(sed 's/^/  /' <<<"$verix_csvs")"
-        plot_scripts+=(plot_compare_with_verix_plus.py)
     else
-        printf "No results of run-verix-plus of the mode, no comparison with VeriX-plus.\n\n"
+        printf "No results of run-verix-plus of the mode.\n\n"
+    fi
+    if [[ -n $cora_csvs ]]; then
+        printf "CORA run times%s:\n%s\n\n" "$( [[ $DRY_RUN == 1 ]] && printf " (would write)" )" "$(sed 's/^/  /' <<<"$cora_csvs")"
+    else
+        printf "No results of run-cora of the mode.\n\n"
+    fi
+    if [[ -n $verix_csvs || -n $cora_csvs ]]; then
+        plot_scripts+=(plot_compare_with_sota.py)
+    else
+        printf "No comparison with VeriX-plus or CORA.\n\n"
     fi
 
     local script
@@ -1180,6 +1218,37 @@ function action_run_verix_plus {
 }
 
 ########################################################################
+## run-cora
+
+## Returns 1 unless CORA can run: the compiled application with the MATLAB Runtime (CORA_BIN),
+## or MATLAB and CORA with cora_explain_dataset.m
+## Sets (and exports, for the jobs) how CORA runs, see cora/backend
+function check_cora {
+    source "$TACAS_DIR/cora/backend"
+    set_cora_backend || return 1
+
+    if [[ -n $CORA_BIN ]]; then
+        printf "CORA:        %s\nRuntime:     %s\n\n" "$CORA_BIN" "$MCR_ROOT"
+    else
+        printf "CORA:        %s, by %s\n\n" "$CORA_DIR" "$MATLAB"
+    fi
+    return 0
+}
+
+function action_run_cora {
+    printf "Parallel:    %d jobs at once\n\n" $SLOTS
+
+    print_estimate
+
+    check_cora || {
+        [[ $DRY_RUN == 1 ]] || exit 1
+        printf "CORA cannot run, see above.\n\n" >&2
+    }
+
+    run_jobs "${LOG_DIR:-$DATA_DIR/logs/runme/$MODE}/cora"
+}
+
+########################################################################
 
 case $ACTION in
 run)
@@ -1196,6 +1265,9 @@ interpret)
     ;;
 run-verix-plus)
     action_run_verix_plus
+    ;;
+run-cora)
+    action_run_cora
     ;;
 relaxed-features)
     action_relaxed_features
