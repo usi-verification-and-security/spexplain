@@ -1,10 +1,11 @@
-# Compares our experiments with the VeriX+ ones in one figure per model family, one subplot per task.
-# USAGE: plot_compare_with_verix_plus.py <stats_dir> [<output_dir>]
+# Compares our experiments with the state of the art (VeriX+ and CORA) in one figure per model family, one subplot per task.
+# USAGE: plot_compare_with_sota.py <stats_dir> [<output_dir>]
 #   <stats_dir>   directory with our <task>.txt stats files (of `runme.sh collect-stats`), e.g. stats/short;
 #                 read as in plot_fc_stats.py, also their timeouts per sample (timeout lines and y-limits)
 #   <output_dir>  the output directory of plot_fc_stats.py (default: <stats_dir>), e.g. data/output/short:
 #                 it holds the VeriX+ CSVs fig-8_comparison-plots_<task><suffix>_verix.csv (of `runme.sh
-#                 plot-performance`; <suffix> is '' for the 50x models and '200' for the 200x ones), and gets the
+#                 plot-performance`; <suffix> is '' for the 50x models and '200' for the 200x ones), and likewise
+#                 the CORA CSVs fig-8_comparison-plots_<task><suffix>_cora.csv (of `runme.sh run-cora`), and gets the
 #                 PDF plots fig-8_comparison-plots_PAR-2_ours_vs_verix_plus_<layout>_<family>.pdf
 import os
 import shutil
@@ -66,11 +67,14 @@ ours_methods = [rename_single_methods('naive'), 'Guide-all', 'Fix-all', 'Hybrid'
 ours_itp = ['weak']  # any of 'weaker', 'weak', 'mid', 'strong', 'stronger'
 # Only the model depths in shown_depths(task) (ploting_utils.py) are plotted
 
-# VeriX+: CSV columns are Algorithm, epsilon, layers (the model depth, from 1), PAR2 (as write_verix_csvs of
+# VeriX+: CSV columns are Algorithm, epsilon, layers (the model depth, from 1), PAR2 (as write_tool_csvs of
 # runme.sh). Only the IR algorithm is shown, i.e. the random traversal order, as run-verix-plus (the original
 # experiments); the legend does not name it. Drawn dashed, one color per epsilon (verix_line_style in ploting_utils.py).
 verix_algorithm = 'IR'
 verix_name = 'VeriX+'
+# CORA: the same CSV columns (as write_tool_csvs of runme.sh), the algorithm is CORA; drawn dotted
+cora_algorithm = 'CORA'
+cora_name = 'CORA'
 epsilon_order = ['100%', '5%', '0.5%']
 epsilon_keys = {'100%': 'e=1', '5%': 'e=0.05', '0.5%': 'e=0.005'}
 
@@ -95,14 +99,14 @@ def read_ours(task, width):
     return data.sort_values(by=['_method_rank', '_itp_rank', 'Model Size']) if len(data) else None
 
 
-def read_verix(task, suffix):
-    path = os.path.join(verix_dir, f'{output_prefix}{task}{suffix}_verix.csv')
+def read_verix(task, suffix, tool='verix', algorithm=verix_algorithm, name=verix_name):
+    path = os.path.join(verix_dir, f'{output_prefix}{task}{suffix}_{tool}.csv')
     if not os.path.exists(path):
-        print(f"Warning: {path} not found, no VeriX+ data for {task}")
+        print(f"Warning: {path} not found, no {name} data for {task}")
         return None
     data = pd.read_csv(path)
     data['PAR2'] = pd.to_numeric(data['PAR2'], errors='coerce')
-    data = data[(data['Algorithm'] == verix_algorithm)
+    data = data[(data['Algorithm'] == algorithm)
                 & pd.to_numeric(data['layers'], errors='coerce').isin(shown_depths(task))].copy()
     if not len(data):
         return None
@@ -123,8 +127,9 @@ for (layout, (tasks, n_rows)), (family, (width, suffix)) in (
     for ax, task in zip(axes, tasks):
         ours = read_ours(task, width)
         verix = read_verix(task, suffix)
+        cora = read_verix(task, suffix, 'cora', cora_algorithm, cora_name)
         ax.set_title(f'{rename_task_name(task)}', fontsize=title_fs)
-        if ours is None and verix is None:
+        if ours is None and verix is None and cora is None:
             ax.text(0.5, 0.5, 'no data', transform=ax.transAxes, ha='center', va='center', fontsize=label_fs)
             ax.set_axis_off()
             continue
@@ -142,6 +147,12 @@ for (layout, (tasks, n_rows)), (family, (width, suffix)) in (
                 label = rename_method_algorithm(verix_name, epsilon_keys.get(epsilon, epsilon))
                 ax.plot(group['layers'] * n_relus, group['PAR2'], label=label, **verix_line_style(epsilon))
             layers |= set(verix['layers'].dropna().astype(int))
+
+        if cora is not None:
+            for epsilon, group in cora.groupby('epsilon', sort=False):
+                label = rename_method_algorithm(cora_name, epsilon_keys.get(epsilon, epsilon))
+                ax.plot(group['layers'] * n_relus, group['PAR2'], label=label, **verix_line_style(epsilon, ':'))
+            layers |= set(cora['layers'].dropna().astype(int))
 
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
