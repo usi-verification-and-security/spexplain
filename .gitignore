@@ -33,6 +33,8 @@
 venv/
 
 build*/
+# The compiled CORA, of data/scripts/tacas27/cora/build.sh
+docker/tacas27-cora/cora_explain/
 
 *cache/
 

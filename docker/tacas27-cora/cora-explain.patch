@@ -1,0 +1,277 @@
+diff --git a/nn/@neuralNetwork/explain.m b/nn/@neuralNetwork/explain.m
+index 73b92f0e..38eb030c 100644
+--- a/nn/@neuralNetwork/explain.m
++++ b/nn/@neuralNetwork/explain.m
+@@ -11,6 +11,8 @@ function [idxFreedFeats,featOrder,timesPerFeat] = explain(nn, x, label, epsilon,
+ %    epsilon - numeric, noise radius
+ %    varargin - name-value pair
+ %       <'Verbose',verbose> - logical, verbose output
++%       <'Plot',doPlot> - logical, plot the explanation in a figure
++%           (default: verbose)
+ %       <'Method',method> - str, methods: 'standard', 'abstract+refine'
+ %       <'FeatOrder',featOrderMethod> - str, method to determine
+ %           order to process features: 'sensitivity', 'in-order'
+@@ -19,6 +21,10 @@ function [idxFreedFeats,featOrder,timesPerFeat] = explain(nn, x, label, epsilon,
+ %       <'BucketType',bucketType> - char, for reduction: 'static', 'dynamic'
+ %       <'OutputThreshold',delta> - numeric, threshold for regression tasks
+ %       <'Timeout',timeout> - numeric, timeout for explanation computation
++%       <'InputBounds',inputBounds> - numeric, [lb,ub] domain of the input
++%           features: perturbations are intersected with it and
++%           counterexamples only perturb the freed features within it
++%           (default: [], unbounded)
+ %
+ % Outputs:
+ %    idxFreedFeats - numeric, indices of freed features
+@@ -42,17 +48,19 @@ function [idxFreedFeats,featOrder,timesPerFeat] = explain(nn, x, label, epsilon,
+ % Last update:   24-June-2024 (TL, generalized function)
+ %                16-July-2024 (TL, improved plotting of explanation)
+ %                15-November-2024 (TL, added option for regression tasks)
++%                03-November-2026 (TK, added option for input bounds,
++%                   plotting separated from verbose output)
+ % Last revision: ---
+ 
+ % ------------------------------ BEGIN CODE -------------------------------
+ 
+ % parse inputs
+ narginchk(4,inf)
+-[nn,x,label,epsilon,verbose,method,featOrderMethod,refineMethod,inputSize,refineSteps,bucketType,delta,timeout] = aux_parseInputs(nn,x,label,epsilon,varargin{:});
+-aux_checkInputs(nn,x,label,epsilon,verbose,method,featOrderMethod,refineMethod,inputSize,refineSteps,bucketType,delta,timeout)
++[nn,x,label,epsilon,verbose,doPlot,method,featOrderMethod,refineMethod,inputSize,refineSteps,bucketType,delta,timeout,inputBounds] = aux_parseInputs(nn,x,label,epsilon,varargin{:});
++aux_checkInputs(nn,x,label,epsilon,verbose,doPlot,method,featOrderMethod,refineMethod,inputSize,refineSteps,bucketType,delta,timeout,inputBounds)
+ 
+ % init plotting
+-aux_initPlotting(x,verbose,inputSize)
++aux_initPlotting(x,doPlot,inputSize)
+ 
+ % have logic difference as output for easier specification check 
+ % (for classification tasks: n_out > 1, otherwise regression)
+@@ -74,15 +82,17 @@ timerVal = tic;
+ if verbose
+     disp('Checking if all features can be freed..')
+ end
+-isVerified = aux_checkVerifiability(nn,x,epsilon,featOrder,inputSize,delta);
++isVerified = aux_checkVerifiability(nn,x,epsilon,featOrder,inputSize,delta,inputBounds);
+ t = toc(timerVal);
+ if verbose
+     fprintf('Time to compute initial check: %.4f.\n',t);
+ end
+ if isVerified
+-    disp('All features can be freed.')
++    if verbose
++        disp('All features can be freed.')
++    end
+     idxFreedFeats = featOrder;
+-    aux_updatePlotting(x,verbose,idxFreedFeats,inputSize)
++    aux_updatePlotting(x,doPlot,idxFreedFeats,inputSize)
+     timesPerFeat = zeros(1,numel(featOrder));
+     return
+ end
+@@ -102,7 +112,7 @@ for i=1:numel(featOrder)
+ 
+     % run verification
+     timerVal = tic;
+-    [isVerified,nn_abs] = aux_runVerification(nn,nn_abs,x,label,epsilon,verbose,method,refineMethod,idxFreedFeats_i,inputSize,refineSteps,bucketType,delta);
++    [isVerified,nn_abs] = aux_runVerification(nn,nn_abs,x,label,epsilon,verbose,doPlot,method,refineMethod,idxFreedFeats_i,inputSize,refineSteps,bucketType,delta,inputBounds);
+     timesPerFeat(i) = toc(timerVal);
+     if verbose
+         fprintf('Elapsed time: %.4f.\n',timesPerFeat(i));
+@@ -116,11 +126,11 @@ for i=1:numel(featOrder)
+         % verbose output
+         if verbose
+             fprintf('Input feature %i was freed.\n',featOrder(i))
+-            
+-            % update plot
+-            aux_updatePlotting(x,verbose,idxFreedFeats,inputSize)
+         end
+ 
++        % update plot
++        aux_updatePlotting(x,doPlot,idxFreedFeats,inputSize)
++
+     else % could not verify freed features
+         if verbose
+             fprintf('Input feature %i cannot be freed.\n',featOrder(i))
+@@ -129,7 +139,9 @@ for i=1:numel(featOrder)
+ 
+     % check if freeing next feature would exceed timeout
+     if (i+1)*mean(timesPerFeat(1:i)) > timeout
+-        disp('Timeout!')
++        if verbose
++            disp('Timeout!')
++        end
+         break
+     end
+ end
+@@ -139,13 +151,14 @@ end
+ 
+ % Auxiliary functions -----------------------------------------------------
+ 
+-function [nn,x,label,epsilon,verbose,method,featOrderMethod,refineMethod,inputSize,refineSteps,bucketType,delta,timeout] = aux_parseInputs(nn,x,label,epsilon,varargin)
++function [nn,x,label,epsilon,verbose,doPlot,method,featOrderMethod,refineMethod,inputSize,refineSteps,bucketType,delta,timeout,inputBounds] = aux_parseInputs(nn,x,label,epsilon,varargin)
+     % read input arguments
+     NVpairs = varargin(1:end);
+     % check list of name-value pairs
+-    checkNameValuePairs(NVpairs,{'Verbose','Method','FeatOrder','RefineMethod','InputSize','RefinementSteps','BucketType','OutputThreshold','Timeout'});
++    checkNameValuePairs(NVpairs,{'Verbose','Plot','Method','FeatOrder','RefineMethod','InputSize','RefinementSteps','BucketType','OutputThreshold','Timeout','InputBounds'});
+     % read arguments
+     [NVpairs,verbose] = readNameValuePair(NVpairs,'Verbose',{},false);
++    [NVpairs,doPlot] = readNameValuePair(NVpairs,'Plot',{},verbose);
+     [NVpairs,method] = readNameValuePair(NVpairs,'Method',{},'standard');
+     [NVpairs,featOrderMethod] = readNameValuePair(NVpairs,'FeatOrder',{},'sensitivity');
+     [NVpairs,refineMethod] = readNameValuePair(NVpairs,'RefineMethod',{},'all');
+@@ -154,9 +167,10 @@ function [nn,x,label,epsilon,verbose,method,featOrderMethod,refineMethod,inputSi
+     [NVpairs,bucketType] = readNameValuePair(NVpairs,'BucketType',{},'static');
+     [NVpairs,delta] = readNameValuePair(NVpairs,'OutputThreshold',{},0);
+     [NVpairs,timeout] = readNameValuePair(NVpairs,'Timeout',{},Inf);
++    [NVpairs,inputBounds] = readNameValuePair(NVpairs,'InputBounds',{},[]);
+ end
+ 
+-function aux_checkInputs(nn,x,label,epsilon,verbose,method,featOrderMethod,refineMethod,inputSize,refineSteps,bucketType,delta,timeout)
++function aux_checkInputs(nn,x,label,epsilon,verbose,doPlot,method,featOrderMethod,refineMethod,inputSize,refineSteps,bucketType,delta,timeout,inputBounds)
+ 
+     % validate name-value pairs
+     if CHECKS_ENABLED
+@@ -173,6 +187,11 @@ function aux_checkInputs(nn,x,label,epsilon,verbose,method,featOrderMethod,refin
+             throw(CORAerror('CORA:wrongValue','name-value pair ''Verbose''','logical, scalar'))
+         end
+ 
++        % plot
++        if ~isscalar(doPlot) || ~islogical(doPlot)
++            throw(CORAerror('CORA:wrongValue','name-value pair ''Plot''','logical, scalar'))
++        end
++
+         % method
+         methods = {'standard','abstract+refine'};
+         if ~ismember(method,methods)
+@@ -210,16 +229,21 @@ function aux_checkInputs(nn,x,label,epsilon,verbose,method,featOrderMethod,refin
+         if ~isnumeric(timeout) || ~isscalar(timeout) || ~all(timeout >= 0,"all")
+             throw(CORAerror('CORA:wrongValue','name-value pair ''Timeout''','positive numeric scalar'))
+         end
++
++        % input bounds
++        if ~isnumeric(inputBounds) || ~(isempty(inputBounds) || (numel(inputBounds) == 2 && inputBounds(1) <= inputBounds(2)))
++            throw(CORAerror('CORA:wrongValue','name-value pair ''InputBounds''','empty or numeric vector [lb,ub] with lb <= ub'))
++        end
+     end
+ end
+ 
+-function isVerified = aux_checkVerifiability(nn,x,epsilon,featOrder,inputSize,delta)
+-    X = aux_initInputSet(x,epsilon,featOrder,inputSize);
++function isVerified = aux_checkVerifiability(nn,x,epsilon,featOrder,inputSize,delta,inputBounds)
++    X = aux_initInputSet(x,epsilon,featOrder,inputSize,inputBounds);
+     Y = nn.evaluate(X);
+     isVerified = aux_checkSpecs(Y,delta);
+ end
+ 
+-function X = aux_initInputSet(x,epsilon,idxFree,inputSize)
++function X = aux_initInputSet(x,epsilon,idxFree,inputSize,inputBounds)
+     X = interval(x);
+     if isempty(inputSize)
+         % allow any value for free features
+@@ -230,6 +254,10 @@ function X = aux_initInputSet(x,epsilon,idxFree,inputSize)
+         X(idxFree,:) = X(idxFree,:) + interval(-epsilon,epsilon); % pixel +/- epsilon
+         X = reshape(X,[],1);
+     end
++    if ~isempty(inputBounds)
++        % restrict to the input domain
++        X = interval(max(X.inf,inputBounds(1)),min(X.sup,inputBounds(2)));
++    end
+     X = zonotope(X); % convert to zonotope
+ end
+ 
+@@ -246,9 +274,9 @@ function x = aux_normalizeInputForPlotting(x)
+     end
+ end
+ 
+-function aux_initPlotting(x,verbose,inputSize)
++function aux_initPlotting(x,doPlot,inputSize)
+     % init plotting
+-    if verbose
++    if doPlot
+         % normalize image for plotting
+         x = aux_normalizeInputForPlotting(x);
+ 
+@@ -288,9 +316,9 @@ function aux_repositionOverlay(initNewOverlay,x,alpha)
+     set(ax,'Children',chH);
+ end
+ 
+-function aux_updatePlotting(x,verbose,idxFree,inputSize)
++function aux_updatePlotting(x,doPlot,idxFree,inputSize)
+     % update plot showing all freed features
+-    if verbose     
++    if doPlot     
+         % plot
+ 
+         alsoPlotOrgImage = false;
+@@ -427,10 +455,10 @@ function [res,nn_abs,Y] = aux_refineAbstractNetwork(nn,nn_abs,X,verbose,method,r
+     end
+ end
+ 
+-function [isVerified,nn_abs] = aux_runVerification(nn,nn_abs,x,label,epsilon,verbose,method,refineMethod,idxFreedFeats_i,inputSize,refineSteps,bucketType,delta)
++function [isVerified,nn_abs] = aux_runVerification(nn,nn_abs,x,label,epsilon,verbose,doPlot,method,refineMethod,idxFreedFeats_i,inputSize,refineSteps,bucketType,delta,inputBounds)
+ 
+     % construct input set
+-    X = aux_initInputSet(x,epsilon,idxFreedFeats_i,inputSize);
++    X = aux_initInputSet(x,epsilon,idxFreedFeats_i,inputSize,inputBounds);
+     
+     % run verification
+     switch method
+@@ -466,7 +494,7 @@ function [isVerified,nn_abs] = aux_runVerification(nn,nn_abs,x,label,epsilon,ver
+                     % 2.b) can we refine the abstract network?
+ 
+                     % try to find counter example
+-                    xs_ = aux_findCounterExample(nn,nn_abs,x,label,epsilon,delta);
++                    xs_ = aux_findCounterExample(nn,nn_abs,x,label,epsilon,delta,idxFreedFeats_i,inputSize,inputBounds);
+ 
+                     if isempty(xs_)
+                         % 3.a) no counter example found, refine abstraction (also obtains Y)
+@@ -476,7 +504,9 @@ function [isVerified,nn_abs] = aux_runVerification(nn,nn_abs,x,label,epsilon,ver
+                             % 4.a) refinement successful
+                             % reset variable to continue in loop
+                             isVerified = [];
+-                            aux_repositionOverlay(true);
++                            if doPlot
++                                aux_repositionOverlay(true);
++                            end
+                         else
+                             % 4.b) network could not be refined 
+                             % stop loop, feature i cannot be freed
+@@ -487,7 +517,9 @@ function [isVerified,nn_abs] = aux_runVerification(nn,nn_abs,x,label,epsilon,ver
+                         % 3.b) falsified on original network
+                         % no necessity to refine abstract network
+                         % feature i cannot be freed
+-                        disp('Counterexample')
++                        if verbose
++                            disp('Counterexample')
++                        end
+                         isVerified = false;
+                     end
+                 end
+@@ -533,9 +565,27 @@ function [isVerified,idxSpurious] = aux_checkSpecs(Y,delta)
+     end
+ end
+ 
+-function xs_ = aux_findCounterExample(nn,nn_abs,x,label,epsilon,delta)
++function xs_ = aux_findCounterExample(nn,nn_abs,x,label,epsilon,delta,idxFree,inputSize,inputBounds)
++    if ~isempty(inputBounds)
++        % only perturb the free features, i.e., stay within the input set
++        isFree = false(size(x));
++        if isempty(inputSize)
++            isFree(idxFree) = true;
++        else
++            isFree = reshape(isFree,[inputSize(1)*inputSize(2),inputSize(3)]);
++            isFree(idxFree,:) = true;
++            isFree = reshape(isFree,[],1);
++        end
++        epsilon = epsilon .* isFree;
++    end
++
+     % compute attack
+     xs_ = nn_abs.computeFGSMAttack(x,label,struct,epsilon);
++
++    if ~isempty(inputBounds)
++        % restrict to the input domain
++        xs_ = min(max(xs_,inputBounds(1)),inputBounds(2));
++    end
+     
+     % evaluate attack on original network
+     ys_ = nn.evaluate(xs_);

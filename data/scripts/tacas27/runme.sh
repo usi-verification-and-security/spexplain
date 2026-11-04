@@ -14,8 +14,9 @@
 ##                  experiments: the random traversal, Marabou without Gurobi (as in the image docker/tacas27):
 ##                  data/explanations/<name>/<width>x<depth>/<dataset>/verix/eps{100,5,0.5}.phi.txt
 ##   run-cora       as run-verix-plus, for CORA (neuralNetwork/explain, abstract+refine, see cora/cora1.sh):
-##                  the compiled application on the MATLAB Runtime (CORA_BIN, e.g. in the image docker/eiger
-##                  of CORA, also on Eiger: ENV=cora-matlab WRAPPER=~/srun_commands/sbatch.sh), or MATLAB:
+##                  the compiled application on the MATLAB Runtime (CORA_BIN, of cora/build.sh, e.g. in the image
+##                  docker/tacas27-cora, also on CSCS Eiger, e.g. ENV=cora-matlab CPU_PERCENTAGE=50
+##                  WRAPPER=~/slurm/sbatch.sh, see its README.md), or MATLAB:
 ##                  data/explanations/<name>/<width>x<depth>/<dataset>/cora/eps{100,5,0.5}.phi.txt
 ##   collect-stats  collect the stats of the mode's finished experiments with collect_stats.sh,
 ##                  one file per benchmark (50x and 200x): <STATS_DIR>/<mode>/<name>.txt,
@@ -90,11 +91,11 @@
 ##   VERIX_ORDER       run-verix-plus: the traversal order of VeriX-plus (default: random,
 ##                     as in the original experiments; e.g. bounds)
 ##   CORA_BIN          run-cora: the compiled CORA application, run_cora_explain_dataset.sh (set in its image;
-##                     default: CORA_DIR/build/cora_explain/run_cora_explain_dataset.sh if it exists;
-##                     if set empty, MATLAB runs CORA, which is meant for debugging single jobs)
+##                     default: docker/tacas27-cora/cora_explain/run_cora_explain_dataset.sh of cora/build.sh
+##                     if it exists; if set empty, MATLAB runs CORA, which is meant for debugging single jobs)
 ##   MCR_ROOT          run-cora with CORA_BIN: the MATLAB Runtime (set in its image;
 ##                     default: the installation of the matlab in PATH)
-##   CORA_DIR          run-cora: CORA (required without CORA_BIN)
+##   CORA_DIR          run-cora: CORA with docker/tacas27-cora/cora-explain.patch (required without CORA_BIN)
 ##   MATLAB            run-cora without CORA_BIN: MATLAB (default: matlab)
 ##                     (see cora/backend)
 ##   WRAPPER           if set, submit this script through it (e.g. sbatch.sh) instead of running it;

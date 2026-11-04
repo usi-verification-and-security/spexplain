@@ -5,9 +5,9 @@
 ## E.g.:  TIMEOUT_PER=10m ./cora1.sh data/models/mnist/mnist_50x1.nnet data/datasets/mnist/mnist_s100_scaled.csv 1 eps100
 ## The explanations go to data/explanations/<name>/<model>/<dataset>/cora/<experiment>.phi.txt,
 ## and the results of CORA of each sample (as of verix1.py, see to_phi.py) to the directory <experiment>/ next to it,
-## made by examples/nn/spexplain/cora_explain_dataset.m of CORA, all samples in one process: either the application
-## compiled by build_cora_explain.m on the MATLAB Runtime (CORA_BIN, as in the image docker/eiger of CORA, no license
-## needed), or MATLAB itself (its run time per sample is measured inside, without the startup).
+## made by cora_explain_dataset.m (here), all samples in one process: either the application compiled by build.sh
+## on the MATLAB Runtime (CORA_BIN, as in the image docker/tacas27-cora, no license needed), or MATLAB itself
+## (its run time per sample is measured inside, without the startup).
 ## Returns 0 even if some explanations timed out (they are '<null>'), 1 if some failed.
 ##
 ## Env. variables:
@@ -61,7 +61,8 @@ gtsrb|cifar) INPUT_SIZE='[32 32 3]'; CHANNELS=3 ;;
 esac
 
 RESULTS_DIR="$OUTPUT_DIR/$EXPERIMENT"
-[[ $CORA_RESUME == 1 ]] || rm -rf "$RESULTS_DIR" "$RESULTS_DIR.log"
+## Otherwise the old results would count as finished
+[[ $CORA_RESUME == 1 ]] || rm -rf "$RESULTS_DIR" "$RESULTS_DIR.log" || exit $?
 mkdir -p "$RESULTS_DIR" || exit $?
 
 ## The first line is the header
@@ -130,12 +131,9 @@ if [[ -n $CORA_BIN ]]; then
 else
     ## The arguments as MATLAB char literals
     MATLAB_ARGS=$(printf ",'%s'" "${ARGS[@]}")
-    ## Without what may be inside CORA but is not part of it: other copies of CORA (as in a repeatability
-    ## package), SpExplAIn and the builds of build_cora_explain.m
-    MATLAB_RMPATH="p = strsplit(path, pathsep); p = p(startsWith(p, fullfile('$CORA_DIR', {'repeatability','spexplain','build'}))); if ~isempty(p), rmpath(p{:}); end;"
     ## -batch would start a virtual display (Xvfb)
     $TIMEOUT_ALL_CMD $PIN_CMD "$MATLAB" -nosplash -nodesktop -nojvm -singleCompThread \
-        -r "addpath(genpath('$CORA_DIR')); $MATLAB_RMPATH try, cora_explain_dataset(${MATLAB_ARGS#,}); catch e, disp(getReport(e)); exit(1); end; exit" </dev/null >>"$RESULTS_DIR.log" 2>&1
+        -r "addpath(genpath('$CORA_DIR')); addpath('$CORA_SCRIPTS_DIR'); try, cora_explain_dataset(${MATLAB_ARGS#,}); catch e, disp(getReport(e)); exit(1); end; exit" </dev/null >>"$RESULTS_DIR.log" 2>&1
     status=$?
 fi
 (( $status )) && printf "CORA exited with %d on %s, see %s\n" $status "$DATASET" "$RESULTS_DIR.log" >&2
