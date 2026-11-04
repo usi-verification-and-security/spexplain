@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-## Fig. 7: the norm of the mnist explanations, from the results of the mode
+## Fig. 7: the norm of the mnist explanations, from the results of the mode (also of VeriX-plus and CORA, if any)
 ## USAGE: ./runme_norm.sh [<mode>]   (default: smoke)
 ## The figures go to data/output/<mode>/
 
@@ -38,11 +38,11 @@ for orig_s in 1 7; do
     }
     for l in 1 4; do
         variant_k=0
-        for variant in guide-all fix-all-no-vars verix-eps{5,100}; do
+        for variant in guide-all fix-all-no-vars verix-eps{5,100} cora-eps{5,100}; do
             variant_char=$(printf "\\$(printf '%03o' $((97+$variant_k)))\n")
             (( ++variant_k ))
 
-            if [[ $variant =~ ^verix ]]; then
+            if [[ $variant =~ ^(verix|cora)- ]]; then
                 strategy=${variant#*-}
                 variant=${variant%%-*}
             else
