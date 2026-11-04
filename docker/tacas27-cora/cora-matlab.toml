@@ -1,0 +1,14 @@
+# Environment of the Container Engine of CSCS (the cluster Eiger of the Swiss National Supercomputing Centre)
+# for the image of ./Dockerfile (see README.md); copy it to ~/.edf/ on Eiger.
+# Used through ENV=cora-matlab (srun --environment=cora-matlab).
+# The image is kept in the persistent home; the SpExplAIn checkout must be under $HOME or $SCRATCH.
+# The Container Engine expands the variables ${VAR} (with the braces) in all fields, also in image.
+
+image = "${HOME}/docker/spexplain-tacas27-cora_latest.sqsh"
+
+mounts = [
+    "${HOME}:${HOME}",
+    "${SCRATCH}:${SCRATCH}",
+]
+
+workdir = "${PWD}"
