@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 ## Fig. 6: slices of the naive, guide-all and fix-all-no-vars explanations of heart_attack and loan,
-## and of VeriX-plus with epsilon 0.05 (verix/eps5, of runme.sh run-verix-plus), from the results of the mode
+## and of VeriX-plus and CORA with epsilon 0.05 (verix/eps5 of runme.sh run-verix-plus, cora/eps5 of run-cora),
+## from the results of the mode
 ## USAGE: ./runme_methodes.sh [<mode>]   (default: smoke)
 ## The figures go to data/output/<mode>/
 
@@ -31,8 +32,8 @@ VARIANTS=(
     naive
 )
 strategy=itp_aweak_bstrong
-## The experiment of VeriX-plus shown together with them
-verix_experiment=eps5
+## The experiment of VeriX-plus and CORA shown together with them
+sota_experiment=eps5
 
 ## '<model_base> <sample> <var1> <var2>', the samples are those of the original s100 dataset (from 1);
 ## mode_sample gives their index in the mode's dataset
@@ -68,9 +69,9 @@ for l in 1 4; do
         domains="$DATA_DIR/domains/$model_base/${model_base}.csv"
 
         fexps=()
-        for variant in "${VARIANTS[@]}" verix; do
-            if [[ $variant == verix ]]; then
-                fexp="$EXPLANATION_DIR/$model_base/${width}x$l/$dataset_base/verix/${verix_experiment}.phi.txt"
+        for variant in "${VARIANTS[@]}" verix cora; do
+            if [[ $variant == verix || $variant == cora ]]; then
+                fexp="$EXPLANATION_DIR/$model_base/${width}x$l/$dataset_base/$variant/${sota_experiment}.phi.txt"
             else
                 fexp="$EXPLANATION_DIR/$model_base/${width}x$l/$dataset_base/$variant/${strategy}.phi.txt"
             fi
