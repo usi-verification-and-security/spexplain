@@ -4,7 +4,7 @@
 ./runme.sh <action> <mode> [--resume] [-n] [-h]
 ```
 
-Actions: `run`, `collect-stats`, `plot-performance`, `interpret`, `run-verix-plus`.
+Actions: `run`, `collect-stats`, `plot-performance`, `interpret`, `run-verix-plus`, `run-cora`.
 Modes: `smoke`, `short`, `long`, `full`. Both are required.
 
 `runme.sh` runs the `plain_itp` experiments with the `tacas27` variants on the
@@ -399,7 +399,7 @@ family, `fig-9_CNN_performance-plots_PAR-2_<family>.pdf` (e.g. `narrow-avg-pool`
   `time.txt` of `verix1.py`; one without it (a timeout or a failure), or with at least the timeout, counts as
   twice the timeout. The algorithm is `IR`, the random traversal order of `run-verix-plus`; the models without
   its results are left out.
-  Then `plot_compare_with_verix_plus.py <stats_dir> [<output_dir>]` reads our stats as `plot_fc_stats.py` does
+  Then `plot_compare_with_sota.py <stats_dir> [<output_dir>]` reads our stats as `plot_fc_stats.py` does
   (the same `read_stats` of `ploting_utils.py`, also the timeouts) and the `IR` rows of these CSVs, and writes
   `fig-8_comparison-plots_PAR-2_ours_vs_verix_plus_all_tasks_<width>.pdf` next to them.
 
@@ -410,19 +410,20 @@ family, `fig-9_CNN_performance-plots_PAR-2_<family>.pdf` (e.g. `narrow-avg-pool`
 ```
 
 `interpret` runs `runme_norm.sh <mode>`, `runme_diam.sh <mode>`, `runme_methodes.sh <mode>` and
-`runme_ucore.sh <mode>`, in this order, on the mode's explanations (of `run`, and of `run-verix-plus`).
+`runme_ucore.sh <mode>`, in this order, on the mode's explanations (of `run`, and of `run-verix-plus` and `run-cora`).
 The figures go to `data/output/<mode>/`.
 
 - `runme_norm.sh` (Fig. 7): `interpret ... 'norm min, inv' --visualize 'pixel center'` of mnist
-  50x1, sample 1, with the variants `guide-all`, `fix-all-no-vars`, `verix/eps5` and `verix/eps100`.
+  50x1, sample 1, with the variants `guide-all`, `fix-all-no-vars`, `verix/eps5`, `verix/eps100`, `cora/eps5`
+  and `cora/eps100`.
 - `runme_diam.sh` (Fig. 11): `interpret ... 'diam vars <x> <y>'` of the 50x1 `guide-all`
   `itp_aweak_bstrong` explanations, as an image and as `mathexpr` (PDF): heart_attack sample 21
   (s20 in the paper) and loan sample 90 (s89 in the paper), four pairs of variables each.
 - `runme_methodes.sh` (Fig. 6): `interpret ... 'slice vars <x> <y>' --visualize fspace` of the
   `naive`, `guide-all` and `fix-all-no-vars` `itp_aweak_bstrong` explanations together with `verix/eps5`
-  (of `run-verix-plus`), for 50x1 and 50x4: heart_attack samples 98 and 63 (s97, s62 in the paper)
+  (of `run-verix-plus`) and `cora/eps5` (of `run-cora`), for 50x1 and 50x4: heart_attack samples 98 and 63 (s97, s62 in the paper)
   and loan samples 8 and 70 (s7, s69 in the paper). A missing variant is left out of the figure; smoke has
-  no loan `naive`, so its loan figures show only `guide-all` and `fix-all-no-vars` (and `verix/eps5`).
+  no loan `naive`, so its loan figures show only `guide-all` and `fix-all-no-vars` (and `verix/eps5`, `cora/eps5`).
 - `runme_ucore.sh` (Fig. 10): `interpret ... 'slice vars <x> <y>' --visualize fspace` of the
   heart_attack 50x1 `ucore_min_itp_aweak_bstrong` and `itp_aweak_bstrong` explanations together
   (the ucore min region underneath), one figure per variant, `naive` and `fix-all`: samples 84
@@ -432,7 +433,7 @@ The figures go to `data/output/<mode>/`.
   turns them into the indices in the mode's dataset via `data/datasets/mode_sample_maps.csv`.
   Sample 90 of loan is not in the smoke dataset, so smoke has no loan figures.
 - A missing explanations file or sample is skipped with a message (e.g. verix without
-  `run-verix-plus` of the mode). A failed `spexplain interpret` makes the script, and then `interpret`
+  `run-verix-plus` of the mode, or cora without `run-cora`). A failed `spexplain interpret` makes the script, and then `interpret`
   or `run`, exit with 1.
 - The explanations must have been computed on the current mode dataset. After
   `make_mode_datasets.py` changes it, run the mode again, or `interpret` fails with
@@ -499,6 +500,54 @@ per explanation, and with the perturbations epsilon 1, 0.05 and 0.005.
 - It fails unless VeriX-plus can run as in the original experiments: installed (`VERIX_DIR`, default
   `~/VeriX-plus`, as in the Docker image), with Marabou without Gurobi.
 
+## CORA
+
+```bash
+./runme.sh run-cora <mode> [--resume] [-n]
+# on Eiger, in the image of CORA (docker/eiger of CORA, branch spexplain-batch)
+ENV=cora-matlab WRAPPER=~/srun_commands/sbatch.sh ./runme.sh run-cora <mode> [--resume]
+```
+
+`run-cora` computes the explanations of CORA (`neuralNetwork/explain`, https://github.com/TUMcps/CORA,
+Bassan et al., ICML 2025) as `run-verix-plus` does: the same models, mode datasets, timeouts per
+explanation and perturbations epsilon (1, 0.05, 0.005), and the same files of the results.
+
+- CORA runs from the branch `spexplain-batch` of CORA, which adds `examples/nn/spexplain/cora_explain_dataset.m`
+  (all samples of a dataset in one process) and the option `InputBounds` of `explain`.
+  Its configuration: the method `abstract+refine`, the traversal order `sensitivity` (the defaults of the paper),
+  the predicted class of each sample, and the perturbation within [0,1] (`InputBounds`, also for the
+  counterexamples of its attack, which then perturbs only the freed features), as VeriX-plus.
+  Without it, CORA perturbs by epsilon also outside [0,1].
+- The explanations are correct but not minimal: each query of CORA is a reachability analysis with zonotopes
+  (sound, but not complete), and a feature also stays fixed if the attack finds a counterexample.
+  Hence CORA is often fast. `summary.csv` has the size of each explanation (the fixed pixels).
+- Two ways of running it (`cora/cora1.sh`, configured by `cora/backend`):
+  - the application compiled by `build_cora_explain.m` of CORA on the free MATLAB Runtime (`CORA_BIN`,
+    `MCR_ROOT`), as in the image `docker/eiger` of CORA: no MATLAB license is needed, so it also runs
+    on Eiger (`ENV=cora-matlab`, see `docker/eiger/README.md` of CORA). Locally, it is enough to set `CORA_DIR`
+    after `build_cora_explain`: `CORA_BIN` is then `CORA_DIR/build/cora_explain/run_cora_explain_dataset.sh`,
+    and `MCR_ROOT` the installation of the `matlab` in `PATH` (a MATLAB installation works as the runtime);
+  - MATLAB itself (`CORA_DIR`, `CORA_BIN=` empty, `MATLAB`), with `-nosplash -nodesktop -nojvm` (not `-batch`,
+    which starts a virtual display). Only for debugging single jobs: MATLAB is slow to start, and many of them
+    at once may hang in the license checkout.
+- The jobs are model x epsilon, e.g. `mnist/50x1/cora/eps100`, with the job list and joblog in
+  `data/logs/runme/<mode>/cora/`. One job runs all samples in one process with one thread, with the timeout
+  per explanation inside (explain stops before it), and a kill of the whole job only against a hang
+  (2x the timeouts of all samples and of the warm-up); its log is `eps<P>.log`.
+- Each job runs on its own CPU (`taskset`, by the job slot of GNU parallel; `CORA_PIN=0` disables it) and first
+  explains one sample without results (the warm-up, `WarmUp` of `cora_explain_dataset.m`). The JIT compiler of
+  MATLAB runs in extra threads while the code is first compiled (in each process, as nothing is kept between
+  runs); this keeps it out of the measured times and away from the other jobs. The other tools are not pinned.
+- The results of each sample in `eps<P>/<idx>/` are those of VeriX-plus (`sat.txt`, `unsat.txt`, `robust.txt`,
+  `time.txt`), so `verix/to_phi.py` writes
+  `data/explanations/<name>/<width>x<depth>/<dataset>/cora/eps{100,5,0.5}.phi.txt`, and `plot-performance`
+  writes `fig-8_comparison-plots_<name>[200]_cora.csv` (PAR-2), drawn dotted by
+  `plot_compare_with_sota.py`; `runme_norm.sh` shows `cora/eps5` and `cora/eps100` in Fig. 7,
+  and `runme_methodes.sh` `cora/eps5` in Fig. 6.
+  Also `timeout.txt` or `error.txt`, and `explanation.png` (the freed pixels in red).
+- Memory: a process of the MATLAB Runtime without Java takes about 0.5-1 GB; a node of Eiger (256 GB) fits the
+  default `CPU_PERCENTAGE`.
+
 ## Files
 
 - `runme.sh`: the actions, the job list and the GNU parallel queue.
@@ -511,9 +560,10 @@ per explanation, and with the perturbations epsilon 1, 0.05 and 0.005.
   progress log; the explanations and stats are unchanged.
 - `../cnn/run1.sh`: one CNN job, with the engine of `make onnx`.
 - `plot_fc_stats.py`, `plot_cnn_stats.py`, `ploting_utils.py`: the plots of `plot-performance`.
-- `plot_compare_with_verix_plus.py`: the comparison with VeriX+ (not run yet by `plot-performance`).
+- `plot_compare_with_sota.py`: the comparison with the state of the art, VeriX+ and CORA (run by `plot-performance` when their results exist).
 - `runme_norm.sh`, `runme_diam.sh`, `runme_methodes.sh`, `runme_ucore.sh`: the interpretation figures of `interpret`.
 - `verix/`: the jobs of `run-verix-plus`.
+- `cora/`: the jobs of `run-cora`.
 
 
 ## Run Times on My Laptop
