@@ -1,19 +1,22 @@
 ## How CORA runs, for runme.sh run-cora and cora/cora1.sh (to be sourced)
 ## set_cora_backend sets and exports CORA_BIN and MCR_ROOT (the compiled application), or CORA_DIR and MATLAB
 ## (MATLAB itself), and prints a message and returns 1 if CORA cannot run:
-##   CORA_BIN      the compiled application, run_cora_explain_dataset.sh of build_cora_explain.m of CORA
-##                 (default: CORA_DIR/build/cora_explain/run_cora_explain_dataset.sh if it exists;
+##   CORA_BIN      the compiled application, run_cora_explain_dataset.sh of cora/build.sh
+##                 (default: docker/tacas27-cora/cora_explain/run_cora_explain_dataset.sh if it exists;
 ##                 set it empty to use MATLAB, which is meant for debugging single jobs, as MATLAB is slow
 ##                 to start and many at once may hang in the license checkout)
 ##   MCR_ROOT      with CORA_BIN: the MATLAB Runtime, or a MATLAB installation of the same release
 ##                 (default: the installation of the matlab in PATH)
-##   CORA_DIR      CORA, with examples/nn/spexplain/cora_explain_dataset.m (required without CORA_BIN)
+##   CORA_DIR      CORA with docker/tacas27-cora/cora-explain.patch, e.g. of cora/build.sh
+##                 (required without CORA_BIN); cora_explain_dataset.m is in cora/
 ##   MATLAB        without CORA_BIN: MATLAB (default: matlab)
 
+CORA_SCRIPTS_DIR=${CORA_SCRIPTS_DIR:-$(dirname "$(realpath "${BASH_SOURCE[0]}")")}
+
 function set_cora_backend {
-    [[ -z ${CORA_BIN+set} && -n $CORA_DIR ]] && {
-        local default_bin="$CORA_DIR/build/cora_explain/run_cora_explain_dataset.sh"
-        [[ -x $default_bin ]] && CORA_BIN=$default_bin
+    [[ -z ${CORA_BIN+set} ]] && {
+        local default_bin="$CORA_SCRIPTS_DIR/../../../../docker/tacas27-cora/cora_explain/run_cora_explain_dataset.sh"
+        [[ -x $default_bin ]] && CORA_BIN=$(realpath "$default_bin")
     }
 
     if [[ -n $CORA_BIN ]]; then
@@ -35,11 +38,15 @@ function set_cora_backend {
 
     MATLAB=${MATLAB:-matlab}
     [[ -n $CORA_DIR ]] || {
-        printf "Set CORA_BIN (the compiled CORA) or CORA_DIR (CORA, run by MATLAB)\n" >&2
+        printf "Set CORA_BIN (the compiled CORA, see cora/build.sh) or CORA_DIR (CORA, run by MATLAB)\n" >&2
         return 1
     }
-    [[ -r $CORA_DIR/examples/nn/spexplain/cora_explain_dataset.m ]] || {
-        printf "CORA with examples/nn/spexplain/cora_explain_dataset.m not found in %s\n" "$CORA_DIR" >&2
+    [[ -r $CORA_DIR/nn/@neuralNetwork/explain.m ]] || {
+        printf "CORA not found in %s\n" "$CORA_DIR" >&2
+        return 1
+    }
+    grep -q "'InputBounds'" "$CORA_DIR/nn/@neuralNetwork/explain.m" || {
+        printf "CORA in %s is without docker/tacas27-cora/cora-explain.patch\n" "$CORA_DIR" >&2
         return 1
     }
     command -v "$MATLAB" >/dev/null || {

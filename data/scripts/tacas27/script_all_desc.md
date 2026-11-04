@@ -557,16 +557,17 @@ per explanation, and with the perturbations epsilon 1, 0.05 and 0.005.
 
 ```bash
 ./runme.sh run-cora <mode> [--resume] [-n]
-# on Eiger, in the image of CORA (docker/eiger of CORA, branch spexplain-batch)
-ENV=cora-matlab WRAPPER=~/srun_commands/sbatch.sh ./runme.sh run-cora <mode> [--resume]
+# on CSCS Eiger, in the image docker/tacas27-cora (see its README.md; the wrapper is an example)
+ENV=cora-matlab CPU_PERCENTAGE=50 WRAPPER=~/slurm/sbatch.sh ./runme.sh run-cora <mode> [--resume]
 ```
 
 `run-cora` computes the explanations of CORA (`neuralNetwork/explain`, https://github.com/TUMcps/CORA,
 Bassan et al., ICML 2025) as `run-verix-plus` does: the same models, mode datasets, timeouts per
 explanation and perturbations epsilon (1, 0.05, 0.005), and the same files of the results.
 
-- CORA runs from the branch `spexplain-batch` of CORA, which adds `examples/nn/spexplain/cora_explain_dataset.m`
-  (all samples of a dataset in one process) and the option `InputBounds` of `explain`.
+- CORA of the release `v2026.1.0`, with the patch `docker/tacas27-cora/cora-explain.patch`, which adds
+  the options `InputBounds` and `Plot` (no figures, e.g. without a display) of `explain`; `cora/build.sh`
+  clones and patches it, and compiles `cora/cora_explain_dataset.m` (all samples of a dataset in one process).
   Its configuration: the method `abstract+refine`, the traversal order `sensitivity` (the defaults of the paper),
   the predicted class of each sample, and the perturbation within [0,1] (`InputBounds`, also for the
   counterexamples of its attack, which then perturbs only the freed features), as VeriX-plus.
@@ -575,12 +576,12 @@ explanation and perturbations epsilon (1, 0.05, 0.005), and the same files of th
   (sound, but not complete), and a feature also stays fixed if the attack finds a counterexample.
   Hence CORA is often fast. `summary.csv` has the size of each explanation (the fixed pixels).
 - Two ways of running it (`cora/cora1.sh`, configured by `cora/backend`):
-  - the application compiled by `build_cora_explain.m` of CORA on the free MATLAB Runtime (`CORA_BIN`,
-    `MCR_ROOT`), as in the image `docker/eiger` of CORA: no MATLAB license is needed, so it also runs
-    on Eiger (`ENV=cora-matlab`, see `docker/eiger/README.md` of CORA). Locally, it is enough to set `CORA_DIR`
-    after `build_cora_explain`: `CORA_BIN` is then `CORA_DIR/build/cora_explain/run_cora_explain_dataset.sh`,
+  - the application compiled by `cora/build.sh <CORA dir>` on the free MATLAB Runtime (`CORA_BIN`,
+    `MCR_ROOT`), as in the image `docker/tacas27-cora`: no MATLAB license is needed, so it also runs
+    on CSCS Eiger (`ENV=cora-matlab`, see `docker/tacas27-cora/README.md`). Locally, nothing has to be set
+    after `cora/build.sh`: `CORA_BIN` is then `docker/tacas27-cora/cora_explain/run_cora_explain_dataset.sh`,
     and `MCR_ROOT` the installation of the `matlab` in `PATH` (a MATLAB installation works as the runtime);
-  - MATLAB itself (`CORA_DIR`, `CORA_BIN=` empty, `MATLAB`), with `-nosplash -nodesktop -nojvm` (not `-batch`,
+  - MATLAB itself (`CORA_DIR` the patched CORA, `CORA_BIN=` empty, `MATLAB`), with `-nosplash -nodesktop -nojvm` (not `-batch`,
     which starts a virtual display). Only for debugging single jobs: MATLAB is slow to start, and many of them
     at once may hang in the license checkout.
 - The jobs are model x epsilon, e.g. `mnist/50x1/cora/eps100`, with the job list and joblog in
@@ -598,8 +599,8 @@ explanation and perturbations epsilon (1, 0.05, 0.005), and the same files of th
   `plot_compare_with_sota.py`; `runme_norm.sh` shows `cora/eps5` and `cora/eps100` in Fig. 7,
   and `runme_methodes.sh` `cora/eps5` in Fig. 6.
   Also `timeout.txt` or `error.txt`, and `explanation.png` (the freed pixels in red).
-- Memory: a process of the MATLAB Runtime without Java takes about 0.5-1 GB; a node of Eiger (256 GB) fits the
-  default `CPU_PERCENTAGE`.
+- Memory: a process of the MATLAB Runtime without Java takes about 0.5-1 GB; a node of Eiger (256 GB) fits
+  `CPU_PERCENTAGE=50`, i.e. one job per core of its 256 hardware threads.
 
 ## Files
 
