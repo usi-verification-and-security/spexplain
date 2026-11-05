@@ -1,0 +1,89 @@
+extracting ladybird/plain_zero ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 64/5017 [00:00<00:37, 130.35it/s]
+  150 px
+extracting ladybird/plain_min ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:00<00:35, 140.28it/s]Extracting global explanation:   3%|▎         | 128/5017 [00:00<00:35, 138.77it/s]
+  690 px
+extracting ladybird/plain_mean ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:00<00:35, 140.16it/s]Extracting global explanation:   3%|▎         | 128/5017 [00:00<00:34, 140.65it/s]
+  650 px
+extracting ladybird/convad ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:03<04:12, 19.60it/s]Extracting global explanation:   3%|▎         | 128/5017 [00:06<04:22, 18.61it/s]
+  820 px
+extracting peacock/plain_zero ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:01<01:45, 47.08it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:02<01:54, 42.62it/s]Extracting global explanation:   4%|▍         | 192/5017 [00:04<01:54, 42.24it/s]
+  1850 px
+extracting peacock/plain_min ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:01<01:49, 45.13it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:02<01:53, 43.02it/s]Extracting global explanation:   4%|▍         | 193/5017 [00:04<02:01, 39.78it/s]Extracting global explanation:   5%|▌         | 257/5017 [00:06<02:14, 35.39it/s]Extracting global explanation:   6%|▋         | 320/5017 [00:08<02:10, 36.10it/s]
+  2630 px
+extracting peacock/plain_mean ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:01<02:01, 40.92it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:03<02:07, 38.47it/s]Extracting global explanation:   4%|▍         | 192/5017 [00:05<02:07, 37.89it/s]
+  1890 px
+extracting peacock/convad ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:01<01:17, 63.75it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:02<01:17, 63.44it/s]Extracting global explanation:   4%|▍         | 193/5017 [00:03<01:15, 63.54it/s]Extracting global explanation:   5%|▌         | 257/5017 [00:04<01:15, 63.35it/s]Extracting global explanation:   6%|▋         | 321/5017 [00:05<01:13, 63.50it/s]Extracting global explanation:   8%|▊         | 385/5017 [00:06<01:12, 63.54it/s]Extracting global explanation:   9%|▉         | 449/5017 [00:07<01:11, 63.70it/s]Extracting global explanation:  10%|█         | 512/5017 [00:08<01:10, 63.60it/s]
+  5070 px
+extracting dog/plain_zero ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:00<00:37, 130.92it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:05<04:08, 19.68it/s]Extracting global explanation:   4%|▍         | 193/5017 [00:06<02:30, 32.07it/s]Extracting global explanation:   5%|▌         | 257/5017 [00:06<01:44, 45.67it/s]Extracting global explanation:   6%|▋         | 321/5017 [00:07<01:19, 59.31it/s]Extracting global explanation:   8%|▊         | 384/5017 [00:07<01:32, 49.86it/s]
+  3290 px
+extracting dog/plain_min ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:00<00:49, 99.35it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:01<00:42, 116.27it/s]Extracting global explanation:   4%|▍         | 193/5017 [00:01<00:39, 123.25it/s]Extracting global explanation:   5%|▌         | 257/5017 [00:02<00:37, 127.26it/s]Extracting global explanation:   6%|▋         | 321/5017 [00:02<00:36, 128.18it/s]Extracting global explanation:   8%|▊         | 385/5017 [00:03<00:35, 129.57it/s]Extracting global explanation:   9%|▉         | 449/5017 [00:03<00:35, 128.95it/s]Extracting global explanation:  10%|█         | 513/5017 [00:04<00:34, 128.96it/s]Extracting global explanation:  12%|█▏        | 577/5017 [00:04<00:34, 129.80it/s]Extracting global explanation:  13%|█▎        | 640/5017 [00:05<00:34, 126.81it/s]
+  5820 px
+extracting dog/plain_mean ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:00<00:37, 131.25it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:00<00:37, 128.99it/s]Extracting global explanation:   4%|▍         | 193/5017 [00:01<00:37, 128.64it/s]Extracting global explanation:   5%|▌         | 257/5017 [00:02<00:37, 126.81it/s]Extracting global explanation:   6%|▋         | 321/5017 [00:02<00:37, 125.21it/s]Extracting global explanation:   8%|▊         | 385/5017 [00:03<00:37, 122.90it/s]Extracting global explanation:   9%|▉         | 449/5017 [00:03<00:37, 123.12it/s]Extracting global explanation:  10%|█         | 513/5017 [00:04<00:36, 124.75it/s]Extracting global explanation:  12%|█▏        | 577/5017 [00:04<00:35, 125.86it/s]Extracting global explanation:  13%|█▎        | 640/5017 [00:05<00:34, 125.61it/s]
+  5870 px
+extracting dog/convad ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:01<01:25, 57.62it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:02<01:23, 58.84it/s]Extracting global explanation:   4%|▍         | 193/5017 [00:03<01:21, 59.38it/s]Extracting global explanation:   5%|▌         | 257/5017 [00:04<01:20, 59.37it/s]Extracting global explanation:   6%|▋         | 321/5017 [00:05<01:19, 59.07it/s]Extracting global explanation:   8%|▊         | 384/5017 [00:06<01:18, 59.13it/s]
+  3650 px
+extracting starfish/plain_zero ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:00<00:40, 122.78it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:01<00:40, 120.17it/s]Extracting global explanation:   4%|▍         | 193/5017 [00:01<00:39, 122.32it/s]Extracting global explanation:   5%|▌         | 257/5017 [00:02<00:39, 120.19it/s]Extracting global explanation:   6%|▋         | 321/5017 [00:02<00:38, 121.21it/s]Extracting global explanation:   8%|▊         | 384/5017 [00:03<00:38, 119.63it/s]
+  3780 px
+extracting starfish/plain_min ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:00<00:36, 136.82it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:00<00:35, 136.37it/s]Extracting global explanation:   4%|▍         | 193/5017 [00:01<00:35, 134.82it/s]Extracting global explanation:   5%|▌         | 257/5017 [00:01<00:35, 134.32it/s]Extracting global explanation:   6%|▋         | 321/5017 [00:02<00:35, 134.02it/s]Extracting global explanation:   8%|▊         | 385/5017 [00:02<00:34, 133.61it/s]Extracting global explanation:   9%|▉         | 449/5017 [00:03<00:34, 133.53it/s]Extracting global explanation:  10%|█         | 513/5017 [00:03<00:33, 133.46it/s]Extracting global explanation:  12%|█▏        | 577/5017 [00:04<00:33, 133.30it/s]Extracting global explanation:  13%|█▎        | 641/5017 [00:04<00:32, 132.61it/s]Extracting global explanation:  14%|█▍        | 705/5017 [00:05<00:32, 132.29it/s]Extracting global explanation:  15%|█▌        | 769/5017 [00:05<00:32, 132.51it/s]Extracting global explanation:  17%|█▋        | 832/5017 [00:06<00:31, 133.10it/s]
+  7920 px
+extracting starfish/plain_mean ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:00<00:51, 96.46it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:01<00:43, 112.18it/s]Extracting global explanation:   4%|▍         | 193/5017 [00:01<00:40, 118.62it/s]Extracting global explanation:   5%|▌         | 257/5017 [00:02<00:38, 122.88it/s]Extracting global explanation:   6%|▋         | 321/5017 [00:02<00:37, 125.72it/s]Extracting global explanation:   8%|▊         | 384/5017 [00:03<00:37, 122.55it/s]
+  3680 px
+extracting starfish/convad ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:00<01:13, 67.47it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:01<01:10, 69.48it/s]Extracting global explanation:   4%|▍         | 193/5017 [00:02<01:08, 70.02it/s]Extracting global explanation:   5%|▌         | 257/5017 [00:03<01:07, 70.33it/s]Extracting global explanation:   6%|▋         | 321/5017 [00:04<01:06, 70.45it/s]Extracting global explanation:   8%|▊         | 385/5017 [00:05<01:05, 70.66it/s]Extracting global explanation:   9%|▉         | 449/5017 [00:06<01:04, 70.74it/s]Extracting global explanation:  10%|█         | 513/5017 [00:07<01:03, 70.82it/s]Extracting global explanation:  12%|█▏        | 577/5017 [00:08<01:02, 70.79it/s]Extracting global explanation:  13%|█▎        | 641/5017 [00:09<01:01, 70.84it/s]Extracting global explanation:  14%|█▍        | 704/5017 [00:09<01:01, 70.44it/s]
+  6920 px
+extracting lizard/plain_zero ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:00<00:35, 140.72it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:00<00:34, 139.82it/s]Extracting global explanation:   4%|▍         | 193/5017 [00:01<00:35, 137.69it/s]Extracting global explanation:   5%|▌         | 256/5017 [00:01<00:34, 137.72it/s]
+  2220 px
+extracting lizard/plain_min ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:00<00:34, 142.40it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:00<00:34, 142.88it/s]Extracting global explanation:   4%|▍         | 193/5017 [00:01<00:33, 142.66it/s]Extracting global explanation:   5%|▌         | 257/5017 [00:01<00:33, 143.25it/s]Extracting global explanation:   6%|▋         | 321/5017 [00:02<00:32, 143.37it/s]Extracting global explanation:   8%|▊         | 384/5017 [00:02<00:32, 142.89it/s]
+  3820 px
+extracting lizard/plain_mean ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:00<00:34, 141.53it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:00<00:34, 142.91it/s]Extracting global explanation:   4%|▍         | 193/5017 [00:01<00:33, 142.97it/s]Extracting global explanation:   5%|▌         | 256/5017 [00:01<00:33, 142.26it/s]
+  2400 px
+extracting lizard/convad ...
+Extracting global explanation:   0%|          | 0/5017 [00:00<?, ?it/s]Extracting global explanation:   1%|▏         | 65/5017 [00:00<01:10, 70.28it/s]Extracting global explanation:   3%|▎         | 129/5017 [00:01<01:09, 70.35it/s]Extracting global explanation:   4%|▍         | 193/5017 [00:02<01:08, 70.37it/s]Extracting global explanation:   5%|▌         | 257/5017 [00:03<01:07, 70.24it/s]Extracting global explanation:   6%|▋         | 321/5017 [00:04<01:06, 70.30it/s]Extracting global explanation:   8%|▊         | 385/5017 [00:05<01:05, 70.47it/s]Extracting global explanation:   9%|▉         | 448/5017 [00:06<01:05, 70.13it/s]
+  4170 px
+
+=== fair robustness: MSPS pasted onto backgrounds, clean model ===
+image      method           px  own conf  retained
+ladybird   plain_zero      150    0.2619      0.12
+ladybird   plain_min       690    0.4627      0.47
+ladybird   plain_mean      650    0.3593      0.29
+ladybird   convad          820    0.4759      0.76
+peacock    plain_zero     1850    0.3620      0.35
+peacock    plain_min      2630    0.9432      0.59
+peacock    plain_mean     1890    0.3187      0.35
+peacock    convad         5070    0.7832      0.76
+dog        plain_zero     3290    0.0925      0.24
+dog        plain_min      5820    0.2832      0.59
+dog        plain_mean     5870    0.3081      0.47
+dog        convad         3650    0.1606      0.53
+starfish   plain_zero     3780    0.4088      0.18
+starfish   plain_min      7920    0.6756      0.35
+starfish   plain_mean     3680    0.2701      0.12
+starfish   convad         6920    0.4712      0.47
+lizard     plain_zero     2220    0.2048      0.76
+lizard     plain_min      3820    0.6348      0.53
+lizard     plain_mean     2400    0.1958      0.65
+lizard     convad         4170    0.4901      0.71
+
+=== mean over images ===
+plain_zero   px= 2258.0 retained=0.329
+plain_min    px= 4176.0 retained=0.506
+plain_mean   px= 2898.0 retained=0.376
+convad       px= 4126.0 retained=0.647

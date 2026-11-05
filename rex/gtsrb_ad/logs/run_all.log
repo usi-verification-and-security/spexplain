@@ -1,0 +1,42 @@
+############ gtsrb_a ############
+rex exit=0 ; explanations:
+100
+gtsrb_a: 3 hidden layers, sizes [1568, 2304, 64] (total 3936)
+  mean deactive/sample 2613.4 (66.4%)   mean active/sample 1322.6
+  per-layer deactive means: [1273.3, 1340.2, 0.0]
+  wrote gtsrb_a_ad_actives.txt, gtsrb_a_ad_deactives.txt, gtsrb_a_ad_meta.json
+
+############ gtsrb_b ############
+rex exit=0 ; explanations:
+100
+gtsrb_b: 4 hidden layers, sizes [2700, 4056, 512, 128] (total 7396)
+  mean deactive/sample 4609.2 (62.3%)   mean active/sample 2786.8
+  per-layer deactive means: [2178.5, 2377.0, 53.8, 0.0]
+  wrote gtsrb_b_ad_actives.txt, gtsrb_b_ad_deactives.txt, gtsrb_b_ad_meta.json
+
+############ gtsrb_c ############
+rex exit=0 ; explanations:
+100
+gtsrb_c: 3 hidden layers, sizes [3600, 5408, 128] (total 9136)
+  mean deactive/sample 6856.3 (75.0%)   mean active/sample 2279.7
+  per-layer deactive means: [3138.9, 3717.4, 0.0]
+  wrote gtsrb_c_ad_actives.txt, gtsrb_c_ad_deactives.txt, gtsrb_c_ad_meta.json
+
+############ gtsrb_d ############
+rex exit=0 ; explanations:
+100
+gtsrb_d: 3 hidden layers, sizes [10800, 4056, 96] (total 14952)
+  mean deactive/sample 12188.2 (81.5%)   mean active/sample 2763.8
+  per-layer deactive means: [9511.0, 2677.2, 0.0]
+  wrote gtsrb_d_ad_actives.txt, gtsrb_d_ad_deactives.txt, gtsrb_d_ad_meta.json
+
+############ gtsrb_e ############
+rex exit=0 ; explanations:
+100
+gtsrb_e: 4 hidden layers, sizes [3920, 6912, 4000, 128] (total 14960)
+  mean deactive/sample 8231.0 (55.0%)   mean active/sample 6729.0
+  per-layer deactive means: [3147.6, 3935.0, 1148.4, 0.0]
+  wrote gtsrb_e_ad_actives.txt, gtsrb_e_ad_deactives.txt, gtsrb_e_ad_meta.json
+
+./run_all.sh: line 17: labbaf/Documents/rex/neuron_activations: No such file or directory
+./run_all.sh: line 18: NA: unbound variable

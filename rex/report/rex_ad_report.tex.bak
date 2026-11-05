@@ -1,0 +1,538 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{enumitem}
+\emergencystretch=1.5em
+\setlist{itemsep=2pt,parsep=0pt,topsep=3pt}
+
+\newcommand{\rex}{\textsc{ReX}}
+\newcommand{\convad}{\textsc{ConvAD}}
+\newcommand{\verix}{\textsc{VeriX}}
+\newcommand{\msps}{\textsc{msps}}
+\newcommand{\ad}{\textsc{AD}}
+
+\title{\vspace{-1.5em}\bfseries \rex{}, Activation--Deactivation,\\
+and SMT-based Explanation\vspace{-0.5em}}
+% \author{  }
+\date{ }
+
+\begin{document}
+\maketitle
+\vspace{-1em}
+
+\section{What \rex{} means by an explanation}
+
+\subsection*{The base notion}
+
+Let $\vec V$ be Boolean variables in correspondence with the pixels of an image
+$x$, where $v_i = 1$ means pixel $p_i$ keeps its original value and $v_i = 0$
+means it is replaced by a masking value; let $O$ record whether the masked image
+still classifies as $N(x)$. A subset $\vec V_{\mathrm{exp}}$ is an
+\emph{explanation} when
+
+\begin{itemize}[leftmargin=1.2em]
+\item[\textsc{exim}1.] $(M, \vec u_0) \models [\vec V_{\mathrm{exp}} = 1](O = 1)$
+--- setting those pixels to their original values is sufficient to retain the
+classification; and
+\item[\textsc{exim}2.] $\vec V_{\mathrm{exp}}$ is minimal: no strict subset
+satisfies \textsc{exim}1.
+\end{itemize}
+
+\noindent
+This is the \emph{minimal sufficient pixel set} (\msps{}), grounded in
+Halpern--Pearl actual causality rather than in gradients or surrogate models. An
+\msps{} need not be intelligible to a human: it reports what the model accepts as
+belonging to a class, which is often not what a person would point at.
+
+Two caveats matter later. \rex{} approximates sufficient responsibility to build
+its ranking, so \textsc{exim}2 is \emph{approximated}, not certified --- \rex{}
+does not prove subset-minimality. And \textsc{exim}1 is a statement about
+\emph{one} input, the one where the complement equals the masking value.
+
+\subsection*{The family}
+
+Kelly and Chockler split the single notion into four, which is useful because
+``minimal and sufficient'' alone admits degenerate answers:
+
+\begin{itemize}[leftmargin=1.2em]
+\item \textbf{Sufficient} --- a set of components that justifies the
+classifier's output: present them alone and the class is retained.
+\item \textbf{Necessary} --- the minimal components \emph{required} for the
+classification: remove them and the class changes. Sufficiency and necessity are
+distinct, and an explanation can be one without being the other.
+\item \textbf{$\delta$-complete} --- an explanation whose confidence meets a
+threshold, rather than merely preserving the arg-max.
+\item \textbf{$1$-complete} --- the limiting case: an explanation reaching the
+same confidence as the model on the original image.
+\end{itemize}
+
+\noindent
+The completeness notions are the practically important addition. A minimal
+explanation can be minimal and still worthless --- the 20-pixel ladybird
+``explanation'' in Section~4 carries $1.4\%$ confidence. In the tool this appears
+as $\gamma$, a multiplicative factor on the model's confidence on the original
+input, so that $\gamma = 0.5$ demands an explanation reaching half the original
+confidence and $\gamma = 0$ demands nothing beyond the correct class. Every
+number reported later is indexed by $\gamma$.
+
+The authors' claim is that these give logic-comparable rigour while remaining
+computable by a black-box algorithm: roughly 6\,s per ResNet image, with no
+model internals, gradients, or monotonicity assumptions.
+
+\section{Activation--Deactivation}
+
+\subsection*{The problem it solves}
+
+Perturbation-based explainability replaces the features it removes with a
+\emph{masking value}, and the resulting mutants are frequently
+out-of-distribution. The masking value is not neutral: if it carries meaning for
+the model, the observed behaviour need not reflect behaviour on the real input.
+Chanchal et al.\ show the choice materially changes the explanation, and that no
+masking value is consistently best across models or datasets.
+
+\ad{} removes the choice. Instead of giving masked features some value, it
+\emph{switches off the parts of the model that would have read them}. The
+information is not replaced; it is prevented from propagating.
+
+\subsection*{The framework}
+
+For layer $i$, the \emph{position function} $\mathrm{pos}_i(z^{(i)}_{ab})$ maps a
+position in the intermediate representation back to the set of previous-layer
+positions feeding it. The \emph{position-attribution function} measures how much
+of that support survives a mask $M_i$:
+\[
+\Phi_i\!\left(z^{(i)}_{ab}, M_i\right)
+= \frac{1}{\left|\mathrm{pos}_i(z^{(i)}_{ab})\right|}
+\sum_{\mathrm{pos}_i(z^{(i)}_{ab})} \mathbf{1}\!\left(M_i[k,l] > 0\right)
+\;\in [0,1].
+\]
+A threshold $\tau$ turns this into the next mask,
+$M'_i[a,b] = \mathbf{1}(\Phi_i > \tau)$; at $\tau=0$ only fully masked regions
+are deactivated. The \ad{} output at a \emph{checkpoint} after layer $N^{(i)}$ is
+\[
+O^{(i)} = N^{(i)}\!\left(z^{(i)}\right) \odot M'_i .
+\]
+Checkpoints are not every layer --- only those immediately before a resizing
+operation, or before an operation that averages or converts data containing
+deactivated values.
+
+\subsection*{\convad{}}
+
+The CNN instantiation propagates the mask by convolving it with a
+\emph{mean-value kernel} (a matrix of ones normalised by its size) shaped like
+the real kernel. The result gives the unmasked fraction at each position;
+thresholding yields the next mask; activations whose entire receptive field was
+masked are zeroed. Two checkpoint cases: shape-preserving between convolutions
+(one checkpoint), and dimensionality-altering (two more, before and after ---
+with the mask padded by $1$s or $0$s for additive procedures, or truncated for
+subtractive ones).
+
+Writing $N'$ for the instrumented model and $\mathbf{b}_1$ for the all-ones
+mask, the key guarantee is
+\[
+\forall x,\quad N(x) = N'(x, \mathbf{b}_1). \tag{Thm.~4.1}
+\]
+On an empty mask, instrumented and original models are identical. This is the
+formal difference from LayerMask (Balasubramanian and Feizi, ICCV 2023), which
+offers no such guarantee and can disagree with the original model even when
+nothing is masked.
+
+\subsection*{Limitations the authors state}
+
+\begin{itemize}[leftmargin=1.2em]
+\item \textbf{Leakage.} $\tau$ is a threshold, so edge cases cannot be separated
+cleanly: a convolution window straddling masked and unmasked regions; a window
+covering both features and padding; and non-contiguous perturbations, where a
+window overlaps several at once and no correct deactivation exists.
+% \item \textbf{White-box.} The algorithm is identical across CNNs, but
+% instrumenting a model needs its internals. \ad{} is model-agnostic \emph{within
+% an architecture}, not black-box --- which costs it \rex{}'s main practical
+% selling point.
+% \item \textbf{CNN-only.} Transformers are future work.
+\end{itemize}
+
+\subsection*{Evaluation}
+
+Three models (RegNetY-12GF, ResNet-50, EfficientNet-V2), three datasets
+(ImageNet-1k, ImageNet-v2, PASCAL-VOC), 150 random validation images each;
+explanations from \rex{}, \textsc{lime} and \textsc{grad-cam}, all reduced to a
+common notion via the \rex{} extraction algorithm. Throughout $\tau=0$ --- the
+strictest setting, which the authors note disadvantages their own method --- and
+$\gamma \in \{0, 0.1, 0.3, 0.5, 0.7, 0.9\}$.
+
+Robustness $\beta$ is the proportion of a background set $K$ in which inserting
+the explanation still yields the original class ($K_1$ solid colours, $K_2$
+other-class images, 100 each). Headline results: \convad{} is $30$--$40\%$
+better on average robustness and up to $22\%$ better on transferability, while
+matching the best methods on redundancy. There is \emph{no consistent best
+masking value} across models or datasets. Overlap analysis shows masking
+strategies resemble each other (\textsc{dice} $0.56$--$0.78$) but not \convad{}
+(max $0.2$--$0.47$), so \convad{} finds different explanations rather than
+supersets.
+
+\section{\rex{} explanations vs.\ abductive explanations}
+
+\subsection*{The two definitions}
+
+Recall \textsc{exim}1: the complement is filled with \emph{one} masking value
+$m$, and the test is
+\[
+N(x_A \oplus m_B) = N(x),
+\qquad B = \Theta(x) \setminus A .
+\]
+\verix{} instead quantifies universally over an $\varepsilon$-ball:
+\[
+\forall x_B'.\;\; \left\lVert x_B - x_B' \right\rVert_p \le \varepsilon
+\;\Rightarrow\; \left| f(x) - f(x') \right| \le \delta,
+\tag{$*$}
+\]
+and calls the explanation \emph{optimal} when in addition every retained feature
+admits a counterexample --- i.e.\ none is redundant.
+
+In the vocabulary of space explanations, a formula $\varphi$ with
+$\forall x.\, \varphi(x) \Rightarrow \kappa(x) = c$ has impact space
+$\mathcal{F}_\varphi = \{x \mid \varphi(x)\}$. An abductive explanation
+$\varphi_X := \bigwedge_{i \in X} x_i = s_i$ leaves the complement free over the
+whole domain, so its impact space is a line, prism or hyperrectangle of positive
+volume. By contrast:
+
+\begin{quote}
+\textbf{The impact space of a \rex{} \msps{} is a single point} --- the one
+completion where $B = m$. It entails nothing about any other point of
+$\mathcal{F}$.
+\end{quote}
+
+So a \rex{} explanation is \emph{not} a space explanation, and minimality does
+not repair this. The two are not stronger and weaker versions of one thing; they
+quantify differently.
+
+\begin{center}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+& \textbf{\rex{} \msps{}} & \textbf{Abductive / \verix{}} \\
+\midrule
+Complement $B$   & one masking value $m$      & universally quantified \\
+Impact space     & a single point             & positive-volume region \\
+Guarantee        & empirical                  & provable (sound+complete oracle) \\
+Minimality       & approximated               & optimal, by construction \\
+Model access     & black-box                  & white-box (SMT / \textsc{Marabou}) \\
+Cost             & seconds, $\sim\!10^4$ passes & $O(d \cdot P(f))$, $P(f)$ NP-complete \\
+Tolerance        & $\gamma$ (relative conf.)  & $\delta$ (absolute) \\
+Traversal        & responsibility map         & sensitivity with $T(\chi)=0$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{Two bridges}
+
+\textbf{Robustness estimates the universal quantifier.} Measuring $\beta$ by
+pasting an \msps{} onto $K$ backgrounds is a Monte-Carlo approximation of
+exactly the $\forall$ in $(*)$, with $B$ ranging over sampled completions rather
+than an $\varepsilon$-ball. An explanation with $\beta = 1$ over \emph{all}
+completions would be an abductive explanation. So $\beta$ reads as distance from
+abductive validity --- which is how the numbers in the next section should be
+interpreted.
+
+\textbf{Three answers to one question.} What do you do with the features left
+out?
+\begin{itemize}[leftmargin=1.2em]
+\item \rex{}, \textsc{lime}, \textsc{shap}: substitute a value --- a \emph{point estimate}.
+\item Abductive / \verix{} / space explanations: universally quantify --- a \emph{region}.
+\item \ad{}: assign nothing; \emph{delete the computation} that would have read them.
+\end{itemize}
+The third is genuinely distinct, and is what makes \ad{} interesting from a
+formal-methods standpoint rather than just another saliency method. The o.o.d.\
+critique motivating \ad{} is precisely the observation that a point estimate is
+an arbitrary, semantically loaded choice --- the pathology universal
+quantification exists to exclude.
+
+\section{What I measured}
+
+\rex{} v0.4.1 on ResNet-50 and RegNetY-12GF with the authors' instrumented
+models, five ImageNet images ($224\times224 = 50{,}176$ px). Five defects in the
+released tool needed repair before any non-$224\times224$ image would process.
+
+\textbf{Thm.~4.1 holds exactly.} $N(x)$ against $N'(x,\mathbf{b}_1)$ over the
+logit vector: max absolute difference $0.000$.
+
+\textbf{The o.o.d.\ problem is real.} Keeping only a central $80\times80$ patch
+of the ladybird image:
+
+\begin{center}
+\small
+\begin{tabular}{@{}lc@{}}
+\toprule
+Condition & Confidence in original class \\
+\midrule
+Full image                       & $0.4138$ \\
+Complement occluded with black   & $\mathbf{0.4276}$ \\
+Complement deactivated (\convad{}) & $0.0987$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+Occluding to black \emph{raised} confidence above the unmasked image: absence of
+evidence was read as evidence for the class. This is how \rex{} produces a
+20-pixel ``explanation'' at $\gamma=0$, and a concrete instance of what $(*)$
+exists to exclude.
+
+\textbf{Sizes} (mean over 5 images, px out of 50{,}176, ResNet-50):
+
+\begin{center}
+\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+$\gamma$ & zero & min & mean & \convad{} \\
+\midrule
+$0.0$ & $\mathbf{1284}$ & $3018$ & $1666$ & $1794$ \\
+$0.5$ & $\mathbf{2258}$ & $4176$ & $2898$ & $4126$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+\convad{} does \emph{not} give the smallest explanations, and that is the point:
+black occlusion wins on size precisely by exploiting the artefact above. Size
+alone is a misleading quality metric.
+
+\textbf{Robustness, re-measured.} \rex{}'s built-in analysis is degenerate for
+\ad{} --- it calls the script's own prediction function, which deactivates
+everything outside the mask, so the background it claims to test against is
+invisible to the model. It returned exactly $1.0$ in all twelve \convad{} runs
+against a mean of $0.10$ for masking. That figure is an artefact and should not
+be quoted. Re-scoring every \msps{} on the \emph{unmodified} ResNet-50 with a
+common protocol (17 backgrounds: 8 solid, 5 dataset images, 4 noise fields):
+
+\begin{center}
+\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Method & Mean size (px) & Retention $\beta$ \\
+\midrule
+plain, zero & $2258$ & $0.329$ \\
+plain, mean & $2898$ & $0.376$ \\
+plain, min  & $4176$ & $0.506$ \\
+\convad{}   & $4126$ & $\mathbf{0.647}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+Size-controlled: \convad{} vs \texttt{min} at essentially equal size ($4126$ vs
+$4176$) gives $0.647$ vs $0.506$, a $28\%$ relative gain --- consistent with the
+paper's $30$--$40\%$. Read through the bridge above: \emph{no} \rex{}
+explanation under any strategy approaches $\beta=1$, so none is an abductive
+explanation, though \convad{}'s are measurably nearer. Qualitatively,
+occlusion-based \msps{} often select background artefacts (flowers beside a
+peacock, rock beside a starfish) where \convad{} selects the object.
+
+\emph{Caveat:} 5 images, one architecture. Enough to corroborate direction, not
+to independently validate the paper's 150-image claims.
+
+\section{Does \ad{} transfer to fully-connected networks?}
+
+\subsection*{Why the published algorithm is vacuous}
+
+\ad{}'s content is the position function: the receptive field of an output cell.
+In a fully-connected layer every neuron reads every input, so
+$\mathrm{pos}_i(z^{(i)}_a)$ is the whole previous layer and
+\[
+\Phi_i\!\left(z^{(i)}_a, M_i\right)
+= \frac{\left|\{k : M_i[k] > 0\}\right|}{\left|M_i\right|}
+\]
+is \emph{the same scalar for every neuron} --- the global unmasked fraction. At
+$\tau=0$ no neuron is deactivated until the entire input is masked, at which
+point all are. \ad{} as published is a no-op on an MLP.
+
+There is a second point. At the \emph{first} layer \ad{} and zero-masking
+already coincide: $Wx = W_A x_A + W_B x_B$, so with zero bias, deleting $B$'s
+contribution \emph{is} setting $x_B = 0$ (the authors' ResNet code says exactly
+this). All of \ad{}'s value therefore lies in layers $\ge 2$, and consists in
+protecting spatial structure across depth. An MLP has none: past layer one every
+neuron mixes everything.
+
+\subsection*{Three analogues}
+
+\begin{enumerate}[leftmargin=1.5em,label=(\roman*)]
+\item \textbf{Weight-mass attribution.} Replace the mean-value kernel with
+actual weight magnitudes,
+$\Phi(z_a, M) = \sum_{i \notin M} |W_{ai}| \big/ \sum_i |W_{ai}|$, deactivating
+when $\Phi < \tau$. This restores a meaningful ``this neuron is mostly looking
+at things that aren't there''. Note $\tau=0$ is the degenerate case here, so
+unlike in \convad{} the threshold becomes mandatory --- an unexplored direction
+the paper itself flags.
+
+\item \textbf{Neuron-level ablation.} Compute per-neuron relevance mass from the
+masked features (one $|W|$ propagation pass, or an LRP-style attribution) and
+zero the units dominated by them. ``Ablate the sub-network that reads $B$'' ---
+closer in spirit to \ad{} than (i).
+
+\item \textbf{Fixed activation pattern, column deletion.} For a ReLU net, fix
+the active-ReLU set induced by the \emph{original} input. On that region the
+network is affine, $f(x) = W_{\mathrm{eff}} x + b_{\mathrm{eff}}$, and
+deactivating $B$ is exactly
+$W_{\mathrm{eff},A}\, x_A + b_{\mathrm{eff}}$ --- deleting columns of an
+explicit matrix.
+\end{enumerate}
+
+\noindent
+\textbf{(iii) is the one to pursue.} It alone both preserves \ad{}'s defining
+property (removal, not substitution) and carries a guarantee: the Thm.~4.1
+analogue is trivial, since the all-ones mask deletes no columns. It is also
+\emph{linear}, hence free in an SMT encoding --- no ITE terms, no case splits ---
+which is what makes the next section possible. Its cost: the affine restriction
+holds only inside one activation region, so the guarantee is local by
+construction. That is a real limitation, but no worse than the linear
+relaxations already standard in NN verification.
+
+\section{Using \ad{} in an SMT pipeline}
+
+The pipeline encodes the network as $\psi_{\mathcal{M}}$, domains as
+$\psi_{\mathcal{D}}$, the negated class as $\neg\psi_c$, so
+$\psi \equiv \psi_{\mathcal{M}} \wedge \psi_{\mathcal{D}} \wedge \neg\psi_c$ is
+satisfiable while $\varphi_s \wedge \psi$ is unsatisfiable for
+$\varphi_s \equiv x=s$; explanation weakens $\varphi_s$ while preserving
+unsatisfiability, via Craig interpolation or unsat cores. The two complaints ---
+slow, and formulas too complicated --- are different problems, and \ad{}
+addresses them by different mechanisms.
+
+\begin{center}
+\small
+\begin{tabular}{@{}clll@{}}
+\toprule
+& \textbf{Use of \ad{}} & \textbf{Targets} & \textbf{Soundness} \\
+\midrule
+1 & traversal / partition heuristic & speed + size   & unaffected \\
+2 & seed for guess-and-check        & speed          & unaffected \\
+3 & restrict interpolant support    & readability    & unaffected \\
+4 & prune the encoding itself       & speed (large)  & \textbf{proves $N'$, not $N$} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{1. Traversal heuristic}
+
+\verix{} ranks features by sensitivity under $T(\chi)=0$ --- deletion, i.e.\
+occlusion, i.e.\ exactly what \ad{} discredits. Substitute an \ad{}-based
+ranking,
+$\mathrm{sens}_{\ad{}}(\chi_i) = f(x) - f_{\ad{}}(x, M = \Theta\setminus i)$, or
+simply the \rex{} responsibility map computed under \convad{}, which the tool
+already exposes as a ranked list. Better ordering means genuinely irrelevant
+features are tested first, absorbed early, and never reach the explanation ---
+giving both a smaller $A$ and fewer solver calls returning ``must keep''.
+Soundness is untouched: order is only a heuristic, the guarantee comes from the
+oracle. In the interpolation setting the analogue is the choice of
+$\varphi_A$ vs $\varphi_B$.
+
+\subsection*{2. \ad{}-seeded guess-and-check}
+
+Run \rex{}+\convad{} black-box (seconds) for a candidate $X_0$, then ask one
+question: is $\varphi_{X_0} \wedge \psi$ unsatisfiable?
+
+\begin{itemize}[leftmargin=1.2em]
+\item \textsc{unsat} --- $X_0$ is a verified abductive explanation, in \emph{one}
+query instead of $d$.
+\item \textsc{sat} --- the counterexample names a feature being exploited; add it
+and repeat.
+\end{itemize}
+
+\noindent
+Minimality, if needed, is recovered afterwards by a shrinking loop. The reason to
+seed with \ad{} rather than occlusion is quantitative: a zero-masking \msps{} is
+fitted to one point of $B$'s domain and will usually fail a universally
+quantified check, and each failure is a wasted expensive query. The retention
+figures ($0.647$ vs $0.329$) estimate first-shot success rate directly ---
+roughly twice as many \ad{} candidates should survive, hence roughly half the
+refinement rounds.
+
+\subsection*{3. Restricting interpolant support}
+
+The readability complaint is that interpolants are conjunctions of arbitrary
+linear combinations $\sum_i \alpha_i x_i \le \beta$ over all $d$ features. The
+survey already notes that if a space explanation splits as
+$\varphi_A \wedge \varphi_B$, then for $I = \mathit{Itp}(\varphi_A, \varphi_B
+\wedge \psi)$ the formula $I \wedge \varphi_B$ is a weaker space explanation ---
+so interpolation can be focused on features appearing only in $\varphi_A$.
+\ad{} supplies a principled choice of that subset, cutting the interpolant from
+$O(10^4$--$10^5)$ to $O(10^3)$ features. The qualitative evidence matters here:
+occlusion-based saliency would hand the interpolator scattered background
+artefacts; \convad{} gives coherent regions of the object.
+
+\subsection*{4. Pruning the encoding}
+
+Under a committed mask, \convad{} makes an identifiable set of neurons
+identically zero. Those can be dropped from $\psi_{\mathcal{M}}$ outright: no
+ITE term, no ReLU case split. Since ReLU splits are the source of exponential
+blow-up, this is potentially the largest saving of the four.
+
+The caveat is essential: Thm.~4.1 guarantees $N = N'$ \emph{only} on the
+all-ones mask; under any real mask they differ by construction. Pruning
+therefore proves a property of $N'$, not $N$. Two ways to stay sound: use $N'$
+for \emph{search} only and confirm the final candidate on $N$ (i.e.\ the loop
+above); or state the result about $N'$ deliberately --- defensible on the \ad{}
+paper's own terms, since it argues $N'$ is the more faithful object, but a
+formal-methods audience will reasonably object.
+
+\subsection*{Obstacles}
+
+\begin{itemize}[leftmargin=1.2em]
+\item \textbf{\convad{} is CNN-only.} If the target networks are the
+fully-connected models typical of this literature, construction~(iii) above is a
+prerequisite, not plumbing.
+\item \textbf{Scale.} SMT explanations run at $d \approx 784$; \rex{}/\ad{} at
+$50{,}176$. The win grows with $d$, so on small networks the \rex{} run may cost
+more than the solver calls it saves. Worth measuring before committing.
+\item \textbf{Granularity.} \rex{} reasons over boxes, SMT over individual
+features. Not purely an obstacle --- the box hierarchy suits coarse-to-fine
+verification.
+\end{itemize}
+
+\section{Bottom line}
+
+\ad{} identifies a real and under-appreciated confound and removes it by
+construction rather than by a better heuristic. Thm.~4.1 gives it a footing
+LayerMask lacks, and the gains survive an independent, size-controlled
+re-evaluation. The mean-value-kernel trick is simple enough to port to a new
+architecture in a day.
+
+Against that: $\tau=0$ everywhere, so the framework's only hyperparameter is
+entirely unexplored; leakage is acknowledged but never quantified; the
+evaluation rests on proxy metrics, as the authors concede; and white-box
+instrumentation costs \rex{} its black-box selling point. The reported
+robustness also depends on \emph{which} prediction function computes it --- a
+subtlety that, as the measurements above show, can invert the conclusion if
+handled carelessly.
+
+For the SMT work the useful framing is this. \ad{} does not produce abductive
+explanations and does not claim to; its contribution is a better notion of
+\emph{feature removal}, which any perturbation method can adopt. It makes the
+point-estimate answer strictly better without making it a region answer --- and
+the gap between $\beta = 0.647$ and $\beta = 1$ is exactly the gap that
+universal quantification closes.
+
+\section*{The papers}
+
+\begin{itemize}[leftmargin=1.2em]
+\item \textbf{\rex{}} --- Chockler, Kelly, Kroening, Sun, \emph{Causal Explanations
+for Image Classifiers}, JAIR 86 (2026), arXiv:2411.08875. Defines the notion of
+explanation and gives a black-box algorithm computing it.
+\item \textbf{Taxonomy} --- Kelly, Chockler, \emph{Sufficient, Necessary and
+Complete Causal Explanations}, arXiv:2507.23497. Splits that notion into a
+family; see Section~1.
+\item \textbf{\ad{}} --- Chanchal, Kelly, Chockler, \emph{Activation--Deactivation},
+arXiv:2510.01038v2. The subject of most of what follows.
+\end{itemize}
+
+\noindent
+Also referenced: \verix{} (Wu, Wu, Barrett, arXiv:2212.01051); the FM~2026 survey
+\emph{Formally Explaining Neural Network Classification}; and \emph{Space
+Explanations}, arXiv:2511.22498.
+
+\end{document}

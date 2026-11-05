@@ -1,0 +1,23 @@
+[rex]
+# fixed seed so the plain/AD comparison is run on the same random partitions
+seed = 42
+gpu = true
+batch_size = 64
+
+[rex.visual]
+progress_bar = false
+
+[causal]
+tree_depth = 10
+iters = 20
+min_box_size = 10
+
+[causal.distribution]
+distribution = 'uniform'
+
+[explanation]
+chunk_size = 10
+
+[explanation.evaluation]
+normalise_curves = true
+insertion_step = 100

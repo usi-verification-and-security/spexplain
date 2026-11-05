@@ -1,0 +1,89 @@
+=== ladybird / resnet_plain_zero_g0.0 ===
+  area 20px (0.04%) conf 0.0135 rob 0.0 ins 0.995 del 0.095 28.6s
+=== ladybird / resnet_plain_min_g0.0 ===
+  area 510px (1.02%) conf 0.0308 rob 0.0 ins 0.833 del 0.078 31.8s
+=== ladybird / resnet_plain_mean_g0.0 ===
+  area 600px (1.20%) conf 0.1208 rob 0.0 ins 0.904 del 0.078 32.1s
+=== ladybird / resnet_convad_g0.0 ===
+  area 640px (1.28%) conf 0.046 rob 1.0 ins 0.726 del 0.060 59.3s
+=== ladybird / resnet_plain_zero_g0.5 ===
+  area 150px (0.30%) conf 0.2619 rob 0.0 ins 0.995 del 0.095 28.5s
+=== ladybird / resnet_plain_min_g0.5 ===
+  area 690px (1.38%) conf 0.3396 rob 0.046875 ins 0.833 del 0.078 34.5s
+=== ladybird / resnet_plain_mean_g0.5 ===
+  area 650px (1.30%) conf 0.2818 rob 0.0 ins 0.904 del 0.078 35.6s
+=== ladybird / resnet_convad_g0.5 ===
+  area 820px (1.63%) conf 0.2116 rob 1.0 ins 0.726 del 0.060 65.6s
+=== peacock / resnet_plain_zero_g0.0 ===
+  area 530px (1.06%) conf 0.0221 rob 0.0 ins 1.143 del 0.534 30.3s
+=== peacock / resnet_plain_min_g0.0 ===
+  area 1960px (3.91%) conf 0.0246 rob 0.0078125 ins 1.152 del 0.391 31.3s
+=== peacock / resnet_plain_mean_g0.0 ===
+  area 480px (0.96%) conf 0.0209 rob 0.0 ins 1.145 del 0.531 29.5s
+=== peacock / resnet_convad_g0.0 ===
+  area 1340px (2.67%) conf 0.0396 rob 1.0 ins 1.128 del 0.271 56.9s
+=== peacock / resnet_plain_zero_g0.5 ===
+  area 1850px (3.69%) conf 0.362 rob 0.0 ins 1.143 del 0.534 29.4s
+=== peacock / resnet_plain_min_g0.5 ===
+  area 2630px (5.24%) conf 0.3164 rob 0.0078125 ins 1.152 del 0.391 31.0s
+=== peacock / resnet_plain_mean_g0.5 ===
+  area 1890px (3.77%) conf 0.3201 rob 0.0078125 ins 1.145 del 0.531 45.5s
+=== peacock / resnet_convad_g0.5 ===
+  area 5070px (10.10%) conf 0.4314 rob 1.0 ins 1.128 del 0.271 61.1s
+=== dog / resnet_plain_zero_g0.0 ===
+  area 1610px (3.21%) conf 0.0217 rob 0.0 ins 2.139 del 0.509 30.0s
+=== dog / resnet_plain_min_g0.0 ===
+  area 4900px (9.77%) conf 0.0506 rob 0.0 ins 1.674 del 0.391 29.9s
+=== dog / resnet_plain_mean_g0.0 ===
+  area 2830px (5.64%) conf 0.012 rob 0.0 ins 1.758 del 0.445 28.8s
+=== dog / resnet_convad_g0.0 ===
+  area 1460px (2.91%) conf 0.0072 rob 1.0 ins 1.703 del 0.421 54.6s
+=== dog / resnet_plain_zero_g0.5 ===
+  area 3290px (6.56%) conf 0.0925 rob 0.0 ins 2.139 del 0.509 30.2s
+=== dog / resnet_plain_min_g0.5 ===
+  area 5820px (11.60%) conf 0.0761 rob 0.015625 ins 1.674 del 0.391 31.1s
+=== dog / resnet_plain_mean_g0.5 ===
+  area 5870px (11.70%) conf 0.079 rob 0.09375 ins 1.758 del 0.445 31.0s
+=== dog / resnet_convad_g0.5 ===
+  area 3650px (7.27%) conf 0.088 rob 1.0 ins 1.703 del 0.421 57.0s
+=== starfish / resnet_plain_zero_g0.0 ===
+  area 3490px (6.96%) conf 0.1024 rob 0.0 ins 0.822 del 0.590 31.0s
+=== starfish / resnet_plain_min_g0.0 ===
+  area 7250px (14.45%) conf 0.077 rob 0.0 ins 0.807 del 0.468 31.3s
+=== starfish / resnet_plain_mean_g0.0 ===
+  area 3520px (7.02%) conf 0.0942 rob 0.0 ins 0.834 del 0.593 30.4s
+=== starfish / resnet_convad_g0.0 ===
+  area 4200px (8.37%) conf 0.0571 rob 1.0 ins 0.706 del 0.327 54.3s
+=== starfish / resnet_plain_zero_g0.5 ===
+  area 3780px (7.53%) conf 0.4088 rob 0.0 ins 0.822 del 0.590 31.1s
+=== starfish / resnet_plain_min_g0.5 ===
+  area 7920px (15.78%) conf 0.2312 rob 0.0 ins 0.807 del 0.468 31.7s
+=== starfish / resnet_plain_mean_g0.5 ===
+  area 3680px (7.33%) conf 0.2763 rob 0.0 ins 0.834 del 0.593 30.4s
+=== starfish / resnet_convad_g0.5 ===
+  area 6920px (13.79%) conf 0.2479 rob 1.0 ins 0.706 del 0.327 128.7s
+=== lizard / resnet_plain_zero_g0.0 ===
+  area 770px (1.53%) conf 0.0418 rob 0.0 ins 0.930 del 0.571 68.4s
+=== lizard / resnet_plain_min_g0.0 ===
+  area 470px (0.94%) conf 0.0301 rob 0.0 ins 1.169 del 0.431 64.5s
+=== lizard / resnet_plain_mean_g0.0 ===
+  area 900px (1.79%) conf 0.0979 rob 0.0234375 ins 0.794 del 0.540 158.2s
+=== lizard / resnet_convad_g0.0 ===
+  area 1330px (2.65%) conf 0.0582 rob 1.0 ins 1.178 del 0.410 53.3s
+=== lizard / resnet_plain_zero_g0.5 ===
+  area 2220px (4.42%) conf 0.2048 rob 1.0 ins 0.930 del 0.571 34.8s
+=== lizard / resnet_plain_min_g0.5 ===
+  area 3820px (7.61%) conf 0.2095 rob 0.015625 ins 1.169 del 0.431 33.6s
+=== lizard / resnet_plain_mean_g0.5 ===
+  area 2400px (4.78%) conf 0.2121 rob 1.0 ins 0.794 del 0.540 30.1s
+=== lizard / resnet_convad_g0.5 ===
+  area 4170px (8.31%) conf 0.2341 rob 1.0 ins 1.178 del 0.410 61.2s
+=== ladybird / regnet_plain_zero_g0.0 ===
+  area 120px (0.24%) conf 0.1415 rob 0.9921875 ins 1.023 del 0.044 83.8s
+=== ladybird / regnet_convad_g0.0 ===
+  area 520px (1.04%) conf 0.0307 rob 1.0 ins 0.934 del 0.031 186.3s
+=== peacock / regnet_plain_zero_g0.0 ===
+  area 170px (0.34%) conf 0.0081 rob 0.0 ins 0.991 del 0.708 70.8s
+=== peacock / regnet_convad_g0.0 ===
+  area 790px (1.57%) conf 0.0097 rob 1.0 ins 0.948 del 0.475 500.1s
+wrote results.csv

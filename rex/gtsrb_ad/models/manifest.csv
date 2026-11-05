@@ -1,0 +1,6 @@
+name,arch,tokens,in_channels,side,n_classes,relu_neurons,params,test_acc,onnx_rel_diff
+gtsrb_a,c8s2k5-c16-p-f64-fc,c8s2k5 c16 p f64,3,32,43,3936,41499,0.855,1.27e-05
+gtsrb_b,c12s2k4-c24-p-c32-p-f128-fc,c12s2k4 c24 p c32 p f128,3,32,43,7396,32207,0.8324,1.48e-05
+gtsrb_c,c16s2k4-c32-p-f128-fc,c16s2k4 c32 p f128,3,32,43,9136,158555,0.8814,1.07e-05
+gtsrb_d,c12-p-c24-p-f96-fc,c12 p c24 p f96,3,32,43,14952,90163,0.8624,3.32e-05
+gtsrb_e,c20s2k5-c48-c40-p-f128-fc,c20s2k5 c48 c40 p f128,3,32,43,14960,161203,0.9164,2.79e-05

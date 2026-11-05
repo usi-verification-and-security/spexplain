@@ -1,0 +1,197 @@
+Benchmark:   gtsrb (cnn-bench)
+Models:      NS1 NAB1 NS2 NAB2 NS3 NAB3 NS4 NAB4
+Dataset:     gtsrb_s100_scaled.csv
+Experiments: aweak_bstrong
+Variants:    hybrid_heuristics
+Max samples: 1
+Timeout per: 2m
+Timeout all: 23:55:00
+
+Variants: hybrid-adversarial hybrid-rex-active hybrid-rex-deactive hybrid-random hybrid-negative hybrid-positive
+
+Model: ../models/gtsrb/cnn-bench/NS1.onnx
+Dataset: ../datasets/gtsrb/gtsrb_s100_scaled.csv
+Input bounds: [0,1] for all 3072 features
+Output directories:
+	../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-adversarial
+	../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-rex-active
+	../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-rex-deactive
+	../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-random
+	../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-negative
+	../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-positive
+
+Model: ../models/gtsrb/cnn-bench/NAB1.onnx
+Dataset: ../datasets/gtsrb/gtsrb_s100_scaled.csv
+Input bounds: [0,1] for all 3072 features
+Output directories:
+	../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-adversarial
+	../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-rex-active
+	../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-rex-deactive
+	../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-random
+	../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-negative
+	../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-positive
+
+Model: ../models/gtsrb/cnn-bench/NS2.onnx
+Dataset: ../datasets/gtsrb/gtsrb_s100_scaled.csv
+Input bounds: [0,1] for all 3072 features
+Output directories:
+	../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-adversarial
+	../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-rex-active
+	../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-rex-deactive
+	../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-random
+	../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-negative
+	../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-positive
+
+Model: ../models/gtsrb/cnn-bench/NAB2.onnx
+Dataset: ../datasets/gtsrb/gtsrb_s100_scaled.csv
+Input bounds: [0,1] for all 3072 features
+Output directories:
+	../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-adversarial
+	../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-rex-active
+	../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-rex-deactive
+	../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-random
+	../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-negative
+	../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-positive
+
+Model: ../models/gtsrb/cnn-bench/NS3.onnx
+Dataset: ../datasets/gtsrb/gtsrb_s100_scaled.csv
+Input bounds: [0,1] for all 3072 features
+Output directories:
+	../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-adversarial
+	../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-rex-active
+	../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-rex-deactive
+	../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-random
+	../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-negative
+	../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-positive
+
+Model: ../models/gtsrb/cnn-bench/NAB3.onnx
+Dataset: ../datasets/gtsrb/gtsrb_s100_scaled.csv
+Input bounds: [0,1] for all 3072 features
+Output directories:
+	../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-adversarial
+	../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-rex-active
+	../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-rex-deactive
+	../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-random
+	../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-negative
+	../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-positive
+
+Model: ../models/gtsrb/cnn-bench/NS4.onnx
+Dataset: ../datasets/gtsrb/gtsrb_s100_scaled.csv
+Input bounds: [0,1] for all 3072 features
+Output directories:
+	../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-adversarial
+	../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-rex-active
+	../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-rex-deactive
+	../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-random
+	../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-negative
+	../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-positive
+
+Model: ../models/gtsrb/cnn-bench/NAB4.onnx
+Dataset: ../datasets/gtsrb/gtsrb_s100_scaled.csv
+Input bounds: [0,1] for all 3072 features
+Output directories:
+	../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-adversarial
+	../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-rex-active
+	../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-rex-deactive
+	../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-random
+	../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-negative
+	../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-positive
+
+Running in the background: ../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-random/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-random/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-positive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-random/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS1/s100_scaled/hybrid-positive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-positive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-random/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB1/s100_scaled/hybrid-positive/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-random/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-positive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-random/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-random/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS2/s100_scaled/hybrid-positive/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-positive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-random/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-random/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-random/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB2/s100_scaled/hybrid-positive/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-positive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS3/s100_scaled/hybrid-positive/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-random/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-positive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-random/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB3/s100_scaled/hybrid-positive/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-random/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-positive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-random/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NS4/s100_scaled/hybrid-positive/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-random/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-adversarial/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-rex-active/itp_aweak_bstrong
+Running in the background: ../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-positive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-rex-deactive/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-random/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-negative/itp_aweak_bstrong
+Finished: ../explanations/gtsrb/cnn-bench/NAB4/s100_scaled/hybrid-positive/itp_aweak_bstrong
+
+Success.

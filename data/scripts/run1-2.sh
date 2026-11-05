@@ -67,6 +67,23 @@ activations="${activations%.*}.txt"
     done
 }
 
+## Variant options may name a per-model file with placeholders (see the hybrid-* variants):
+## {data} = the data directory, {type} = the model's path under models/ (e.g. gtsrb/cnn-bench),
+## {model} = the model's file name without extension.
+model_rel="${MODEL#*models/}"
+data_dir="${MODEL%models/"$model_rel"}"
+data_dir="${data_dir%/}"
+[[ -z $data_dir ]] && data_dir=.
+model_type=$(dirname "$model_rel")
+model_name=$(basename "$model_rel")
+model_name="${model_name%.*}"
+for options_var in VAR_OPTIONS OPTIONS; do
+    declare -n lOPTIONS=$options_var
+    lOPTIONS="${lOPTIONS//\{data\}/$data_dir}"
+    lOPTIONS="${lOPTIONS//\{type\}/$model_type}"
+    lOPTIONS="${lOPTIONS//\{model\}/$model_name}"
+done
+
 declare -a options
 options=(
     --format=smtlib2

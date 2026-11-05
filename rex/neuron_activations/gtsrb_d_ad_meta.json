@@ -1,0 +1,52 @@
+{
+  "model": "gtsrb_d",
+  "arch": "c12-p-c24-p-f96-fc",
+  "tau": 0.0,
+  "include_non_relu": false,
+  "layers_recorded": [
+    "Conv2d",
+    "Conv2d",
+    "Linear"
+  ],
+  "spexplain_compatible": true,
+  "n_hidden_layers": 3,
+  "hidden_shapes": [
+    [
+      12,
+      30,
+      30
+    ],
+    [
+      24,
+      13,
+      13
+    ],
+    [
+      96
+    ]
+  ],
+  "hidden_sizes": [
+    10800,
+    4056,
+    96
+  ],
+  "total_relu_neurons": 14952,
+  "n_samples": 100,
+  "mean_active_per_layer": [
+    1289.04,
+    1378.8,
+    96.0
+  ],
+  "mean_deactive_per_layer": [
+    9510.96,
+    2677.2,
+    0.0
+  ],
+  "mean_active_total": 2763.84,
+  "mean_deactive_total": 12188.16,
+  "frac_deactive": 0.8151524879614768,
+  "files": {
+    "actives": "gtsrb_d_ad_actives.txt",
+    "deactives": "gtsrb_d_ad_deactives.txt"
+  }
+}

@@ -1,0 +1,16 @@
+# serializer version: 1
+# name: test_calculate_responsibility[Distribution.BetaBinomial-dist_args1]
+  -3633057951247225726
+# ---
+# name: test_calculate_responsibility[Distribution.BetaBinomial-dist_args2]
+  8480519785864250671
+# ---
+# name: test_calculate_responsibility[Distribution.BetaBinomial-dist_args3]
+  6932982638073047957
+# ---
+# name: test_calculate_responsibility[Distribution.BetaBinomial-dist_args4]
+  6562521352264037746
+# ---
+# name: test_calculate_responsibility[Distribution.Uniform-dist_args0]
+  8874470543826447200
+# ---

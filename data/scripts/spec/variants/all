@@ -4,7 +4,18 @@ VARIANT_NAMES=(
     fix-all
     hybrid
     fix-all-no-nvars
+    hybrid-adversarial
+    hybrid-rex-active
+    hybrid-rex-deactive
+    hybrid-random
+    hybrid-negative
+    hybrid-positive
 )
+
+## The hybrid-* variants are 'hybrid' with a fixed neuron-activations file per heuristic.
+## run1-2.sh replaces {data} (the data directory), {type} (the model's path under models/,
+## e.g. gtsrb/cnn-bench) and {model} (the model's file name without extension).
+HYBRID_OPTIONS='--prefer-default-sample-neuron-activations all --fix-default-sample-neuron-activations none --encoding-relu-lower-bounds false --input-fix-sample-neuron-activations='
 
 VARIANT_OPTIONS=(
     '--prefer-default-sample-neuron-activations none --fix-default-sample-neuron-activations none --encoding-relu-lower-bounds false'
@@ -12,5 +23,10 @@ VARIANT_OPTIONS=(
     '--prefer-default-sample-neuron-activations all --fix-default-sample-neuron-activations all --encoding-relu-lower-bounds false'
     "--prefer-default-sample-neuron-activations all --fix-default-sample-neuron-activations none --encoding-relu-lower-bounds false --input-fix-sample-neuron-activations=\"$INPUT_FIX_SAMPLE_NEURON_ACTIVATIONS\""
     '--prefer-default-sample-neuron-activations all --fix-default-sample-neuron-activations all --encoding-relu-lower-bounds false --allow-neuron-vars-in-explanations false --allow-neuron-vars-in-explanations false'
-
+    "$HYBRID_OPTIONS"'"{data}/neuron_activations/{type}/{model}.txt"'
+    "$HYBRID_OPTIONS"'"{data}/../rex/cnn_bench_ad/neuron_activations/{model}_ad_actives.txt"'
+    "$HYBRID_OPTIONS"'"{data}/../rex/cnn_bench_ad/neuron_activations/{model}_ad_deactives.txt"'
+    "$HYBRID_OPTIONS"'"{data}/activations/{type}/random/{model}.txt"'
+    "$HYBRID_OPTIONS"'"{data}/activations/{type}/negative/{model}.txt"'
+    "$HYBRID_OPTIONS"'"{data}/activations/{type}/positive/{model}.txt"'
 )

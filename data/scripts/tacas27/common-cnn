@@ -176,8 +176,9 @@ printf "Timeout all: %s\n\n" "$TIMEOUT_ALL"
 export VARIANTS_SPEC
 
 ## The timeout goes after WRAPPER, so that under sbatch it bounds the work on
-## the compute node rather than the submission itself
-$WRAPPER "${TIMEOUT_CMD[@]}" "$RUN_SCRIPT" "${ARGS[@]}" "$EXPERIMENTS_SPEC" "${OPTS[@]}"
+## the compute node rather than the submission itself.
+## Run with the current bash ($BASH), not the script's '#!/bin/bash', which is bash 3.2 on macOS.
+$WRAPPER "${TIMEOUT_CMD[@]}" "$BASH" "$RUN_SCRIPT" "${ARGS[@]}" "$EXPERIMENTS_SPEC" "${OPTS[@]}"
 status=$?
 
 (( $status == 124 )) && {

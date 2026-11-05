@@ -215,7 +215,8 @@ function run1 {
     (( $DRY_RUN )) && return 0
 
     ##+ allow running multiple variants
-    SRC_EXPERIMENT=$src_experiment "$SCRIPTS_DIR/run1-2.sh" "$MODEL" "$DATASET" "$experiment_strategies" $experiment $MAX_SAMPLES
+    ## $BASH rather than the script's '#!/bin/bash', which is bash 3.2 on macOS
+    SRC_EXPERIMENT=$src_experiment "$BASH" "$SCRIPTS_DIR/run1-2.sh" "$MODEL" "$DATASET" "$experiment_strategies" $experiment $MAX_SAMPLES
 
     case $? in
     0)

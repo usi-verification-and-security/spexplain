@@ -1,0 +1,9 @@
+## Hybrid mode with the neuron-fixing heuristics and their baselines (see spec/variants/all)
+VARIANT_NAMES=(
+    hybrid-adversarial
+    hybrid-rex-active
+    hybrid-rex-deactive
+    hybrid-random
+    hybrid-negative
+    hybrid-positive
+)

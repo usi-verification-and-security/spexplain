@@ -1,0 +1,88 @@
+
+=== gtsrb_a  c8s2k5-c16-p-f64-fc ===
+  ReLU neurons 3,936   params 41,499
+    epoch 1/12  test acc 0.4027
+    epoch 2/12  test acc 0.6620
+    epoch 3/12  test acc 0.7303
+    epoch 4/12  test acc 0.7982
+    epoch 5/12  test acc 0.8192
+    epoch 6/12  test acc 0.8249
+    epoch 7/12  test acc 0.8452
+    epoch 8/12  test acc 0.8390
+    epoch 9/12  test acc 0.8391
+    epoch 10/12  test acc 0.8507
+    epoch 11/12  test acc 0.8502
+    epoch 12/12  test acc 0.8550
+  acc 0.8550   onnx max rel diff 1.27e-05
+
+=== gtsrb_b  c12s2k4-c24-p-c32-p-f128-fc ===
+  ReLU neurons 7,396   params 32,207
+    epoch 1/12  test acc 0.2780
+    epoch 2/12  test acc 0.5709
+    epoch 3/12  test acc 0.6853
+    epoch 4/12  test acc 0.7251
+    epoch 5/12  test acc 0.7754
+    epoch 6/12  test acc 0.8101
+    epoch 7/12  test acc 0.8126
+    epoch 8/12  test acc 0.8120
+    epoch 9/12  test acc 0.8189
+    epoch 10/12  test acc 0.8252
+    epoch 11/12  test acc 0.8394
+    epoch 12/12  test acc 0.8324
+  acc 0.8324   onnx max rel diff 1.48e-05
+
+=== gtsrb_c  c16s2k4-c32-p-f128-fc ===
+  ReLU neurons 9,136   params 158,555
+    epoch 1/12  test acc 0.6002
+    epoch 2/12  test acc 0.7895
+    epoch 3/12  test acc 0.8220
+    epoch 4/12  test acc 0.8474
+    epoch 5/12  test acc 0.8622
+    epoch 6/12  test acc 0.8736
+    epoch 7/12  test acc 0.8724
+    epoch 8/12  test acc 0.8628
+    epoch 9/12  test acc 0.8793
+    epoch 10/12  test acc 0.8712
+    epoch 11/12  test acc 0.8736
+    epoch 12/12  test acc 0.8814
+  acc 0.8814   onnx max rel diff 1.07e-05
+
+=== gtsrb_d  c12-p-c24-p-f96-fc ===
+  ReLU neurons 14,952   params 90,163
+    epoch 1/12  test acc 0.4931
+    epoch 2/12  test acc 0.7078
+    epoch 3/12  test acc 0.7634
+    epoch 4/12  test acc 0.8124
+    epoch 5/12  test acc 0.8277
+    epoch 6/12  test acc 0.8342
+    epoch 7/12  test acc 0.8394
+    epoch 8/12  test acc 0.8491
+    epoch 9/12  test acc 0.8489
+    epoch 10/12  test acc 0.8553
+    epoch 11/12  test acc 0.8593
+    epoch 12/12  test acc 0.8624
+  acc 0.8624   onnx max rel diff 3.32e-05
+
+=== gtsrb_e  c20s2k5-c48-c40-p-f128-fc ===
+  ReLU neurons 14,960   params 161,203
+    epoch 1/12  test acc 0.7449
+    epoch 2/12  test acc 0.8357
+    epoch 3/12  test acc 0.8794
+    epoch 4/12  test acc 0.8957
+    epoch 5/12  test acc 0.8972
+    epoch 6/12  test acc 0.8929
+    epoch 7/12  test acc 0.9059
+    epoch 8/12  test acc 0.9059
+    epoch 9/12  test acc 0.9064
+    epoch 10/12  test acc 0.8922
+    epoch 11/12  test acc 0.8935
+    epoch 12/12  test acc 0.9164
+  acc 0.9164   onnx max rel diff 2.79e-05
+  wrote 100 samples -> gtsrb_test_s100.csv
+
+wrote /Users/labbaf/Documents/rex/gtsrb_ad/models/manifest.csv
+  gtsrb_a   c8s2k5-c16-p-f64-fc            relu=  3936 acc=0.855
+  gtsrb_b   c12s2k4-c24-p-c32-p-f128-fc    relu=  7396 acc=0.8324
+  gtsrb_c   c16s2k4-c32-p-f128-fc          relu=  9136 acc=0.8814
+  gtsrb_d   c12-p-c24-p-f96-fc             relu= 14952 acc=0.8624
+  gtsrb_e   c20s2k5-c48-c40-p-f128-fc      relu= 14960 acc=0.9164
