@@ -259,11 +259,43 @@ WRAPPER=~/srun_commands/sbatch.sh ./runme.sh run full --resume
 # only some jobs, e.g. rerun mnist 200x hybrid
 FILTER='^mnist/200x[0-9]+/hybrid/' ./runme.sh run full
 
-# the full run on Eiger split into batches that run at the same time, by disjoint FILTERs;
-# resubmit each with the same FILTER and --resume
+# what remains of the previous run: its finished, failed and remaining jobs
+./runme.sh run full --resume -n
+
+# the full run on Eiger as batches of whole models, one node each, all at the same time;
+# first only print the batches and their time limits
+WRAPPER=~/srun_commands/sbatch.sh ./runme_distributed.sh run full -n
+WRAPPER=~/srun_commands/sbatch.sh ./runme_distributed.sh run full
+# what remains, then resubmit the batches with remaining jobs
+WRAPPER=~/srun_commands/sbatch.sh ./runme_distributed.sh run full --resume -n
+WRAPPER=~/srun_commands/sbatch.sh ./runme_distributed.sh run full --resume
+
+# or batches by hand, by disjoint FILTERs; resubmit each with the same FILTER and --resume
 FILTER='^(heart_attack|obesity|loan)/' WRAPPER=~/srun_commands/sbatch.sh ./runme.sh run full
 FILTER='^(mnist|cifar|gtsrb)/' WRAPPER=~/srun_commands/sbatch.sh ./runme.sh run full
 ```
+
+`--resume` does not rerun the failed jobs (GNU parallel skips every job of the joblog), only those that
+did not finish, e.g. killed at the time limit, from scratch; `--resume -n` lists both.
+
+`runme_distributed.sh` (`run`, `run-verix-plus`) packs whole models into batches that fill a node
+(`NPROC=256` hardware threads, `CPU_PERCENTAGE=50`, i.e. 128 jobs at once), each submitted through `WRAPPER`
+with its own time limit as `TIME` (`HH:MM:SS`, e.g. for `sbatch -t`): its worst case, where every explanation
+times out (the longest job, or with more jobs than slots, their total over the slots plus the longest job),
+plus `TIME_MARGIN=10`%, at most `NODE_TIME_LIMIT=24h` (e.g. `30m` with `DEBUG=1` for the debug partition).
+- A batch takes models up to `BATCH_TIME_TARGET=25`% of `NODE_TIME_LIMIT` (6h), more only with a model whose
+  worst case alone is over it, so that more, shorter batches run at the same time (`100` packs to the limit).
+- The batches go to the index `data/logs/runme/<mode>/distributed-<action>.txt`, with the reserved node-hours.
+  `--resume` resubmits only the batches of the index with remaining jobs.
+- E.g. `run long` makes 9 batches of up to ~6h (41 node-hours reserved; a batch per model would reserve 613),
+  `run full` 18 (300; 2,910) and `run-verix-plus full` 3; in `full`, the batches are a single wave of the
+  longest jobs, of up to 24h.
+- The jobs whose worst case alone is over the limit are listed by id, and their batches capped to it
+  (`36.7h, capped to 24:00:00`): `heart_attack/50x1/{naive,fix-all}/ucore_*` of `full` (33h 20m), which
+  cannot finish within 24h if every explanation times out (they are killed with the batch, and `--resume`
+  restarts them from scratch). Those over it only with the margin are counted, by model: those of gtsrb
+  in `full` (23h 20m).
+- `FILTER` there selects the models (the batches run all their jobs); `LOG_DIR` is not allowed.
 
 With `FILTER`, the job list and the joblog go to a subdirectory of the log directory named after it
 (e.g. `data/logs/runme/full/filter-mnist_cifar_gtsrb/`, with the regex in `filter.txt`), so batches by FILTER can

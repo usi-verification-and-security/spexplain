@@ -59,8 +59,10 @@
 ## (data/datasets/mode_sample_maps.csv) and their neuron activations are made by make_mode_datasets.py.
 ##
 ## Options:
-##   --resume  run: skip the jobs that already finished in the previous run of the same mode
-##   -n        dry run - only print the jobs and the worst-case estimate
+##   --resume  run: skip the jobs of the previous run of the same mode (in its joblog: finished, or failed)
+##   -n        dry run - only print the jobs and the worst-case estimate; with --resume, the state of the previous
+##             run of run: its finished, failed and remaining jobs
+##   -l        only list the jobs with their worst-case seconds, longest first (for runme_distributed.sh)
 ##   -h        display this help and exit
 ##
 ## Env. variables (all optional):
@@ -82,7 +84,8 @@
 ##   VERIX_DIR         run-verix-plus: VeriX-plus (default: ~/VeriX-plus)
 ##   VERIX_ORDER       run-verix-plus: the traversal order of VeriX-plus (default: random,
 ##                     as in the original experiments; e.g. bounds)
-##   WRAPPER           if set, submit this script through it (e.g. sbatch.sh) instead of running it
+##   WRAPPER           if set, submit this script through it (e.g. sbatch.sh) instead of running it;
+##                     runme_distributed.sh submits a whole mode as batches of whole models that fill the nodes
 
 (( ${BASH_VERSINFO[0]} >= 4 )) || {
     printf "Bash >= 4 is required, got %s. Run it e.g. with /opt/homebrew/bin/bash.\n" "$BASH_VERSION" >&2
@@ -127,6 +130,9 @@ for arg; do
         ;;
     -n)
         DRY_RUN=1
+        ;;
+    -l)
+        LIST_JOBS=1
         ;;
     -h|--help)
         usage 0
@@ -194,6 +200,15 @@ function dataset_dir {
     printf "%s" "${dataset#${name}_}"
 }
 
+## <n samples> <timeout per> -> the worst-case seconds of a job of the action, if every explanation times out:
+## spexplain stops each explanation by itself (--time-limit-per), VeriX-plus is killed at the timeout
+function job_worst_secs {
+    local n_samples=$1
+    local timeout_secs=$(to_secs $2)
+
+    printf "%d" $(( $n_samples * $timeout_secs ))
+}
+
 ## Prints a job of make_jobs: <worst-case secs> <job id> <timeout per> <model> <dataset> <variant>
 ## <experiment> <strategies> <samples> <benchmark idx> <width> <depth> <variant idx>
 function print_job {
@@ -230,7 +245,7 @@ function make_jobs {
 
             ## The first line is the header
             n_samples=$(( $(awk 'END { print NR }' "$dataset") - 1 ))
-            worst_secs=$(( $n_samples * $(to_secs $timeout_per) ))
+            worst_secs=$(job_worst_secs $n_samples $timeout_per)
 
             for depth in $(model_depths $name); do
                 model_id=${width}x$depth
@@ -270,7 +285,7 @@ function make_jobs {
                         job_worst_secs=$worst_secs
                         is_ucore_experiment $experiment && {
                             job_timeout_per=$(mode_ucore_timeout_per)
-                            job_worst_secs=$(( $n_samples * $(to_secs $job_timeout_per) ))
+                            job_worst_secs=$(job_worst_secs $n_samples $job_timeout_per)
                         }
 
                         print_job $job_worst_secs "$job_id" $job_timeout_per "$model" "$dataset" \
@@ -314,7 +329,7 @@ function make_cnn_jobs {
 
         ## The first line is the header
         n_samples=$(( $(awk 'END { print NR }' "$dataset") - 1 ))
-        worst_secs=$(( $n_samples * $(to_secs $timeout_per) ))
+        worst_secs=$(job_worst_secs $n_samples $timeout_per)
 
         for fidx in ${!CNN_FAMILIES[@]}; do
             family=${CNN_FAMILIES[$fidx]}
@@ -357,6 +372,11 @@ N_JOBS=$(wc -l <"$JOBS_TMP")
 (( $N_JOBS )) || {
     printf "Nothing to run.\n" >&2
     exit 1
+}
+
+[[ $LIST_JOBS == 1 ]] && {
+    cut -f1-2 "$JOBS_TMP"
+    exit 0
 }
 
 if [[ -z $CPUS ]]; then
@@ -542,6 +562,45 @@ function filter_dir_name {
     printf "filter-%s" "$name"
 }
 
+## <log dir> -> the state of the previous run in it, by its joblog, where Seq is the line in jobs.txt:
+## the finished jobs, the failed ones (which --resume does not rerun), and the remaining ones
+## (not started, or killed with the whole run, e.g. at the time limit of the allocation)
+function print_resume_state {
+    local log_dir="$1"
+    local joblog="$log_dir/joblog.txt"
+
+    [[ -e $log_dir/jobs.txt ]] || {
+        printf "No previous run in %s\n" "$log_dir"
+        printf "Finished:  0\nFailed:    0\nRemaining: %d\n" $N_JOBS
+        return 0
+    }
+    cmp -s "$JOBS_TMP" "$log_dir/jobs.txt" || {
+        printf "Cannot resume: the jobs differ from those of the previous run in %s\n" "$log_dir/jobs.txt" >&2
+        exit 1
+    }
+
+    printf "DRY RUN - the state of the previous run in %s:\n" "$log_dir"
+    ## <state> <job id>, in the order of jobs.txt
+    local states=$(awk -F'\t' '
+        NR == FNR { if (FNR > 1) state[$1] = ($7 == 0 && $8 == 0) ? "finished" : "failed"; next }
+        { print (FNR in state ? state[FNR] : "remaining") "\t" $2 }
+    ' "$joblog" "$log_dir/jobs.txt" 2>/dev/null || cut -f2 "$log_dir/jobs.txt" | sed 's/^/remaining\t/')
+
+    local n_finished=$(grep -c '^finished' <<<"$states")
+    local n_failed=$(grep -c '^failed' <<<"$states")
+    local n_remaining=$(grep -c '^remaining' <<<"$states")
+    printf "Finished:  %d\n" $n_finished
+    printf "Failed:    %d" $n_failed
+    (( $n_failed )) && printf " (--resume does not rerun them: GNU parallel skips every job of the joblog)"
+    printf "\nRemaining: %d" $n_remaining
+    (( $n_remaining )) && printf " (not started or killed; --resume runs them, from scratch)"
+    printf "\n"
+
+    (( $n_failed )) && printf "\nFailed jobs:\n%s\n" "$(grep '^failed' <<<"$states" | cut -f2 | sed 's/^/  /')"
+    (( $n_remaining )) && printf "\nRemaining jobs:\n%s\n" "$(grep '^remaining' <<<"$states" | cut -f2 | sed 's/^/  /')"
+    return 0
+}
+
 ## Runs all jobs in one GNU parallel queue, with the job list and the joblog in <log dir>
 function run_jobs {
     local log_dir="$1"
@@ -550,6 +609,10 @@ function run_jobs {
     [[ -z $LOG_DIR && -n $FILTER ]] && log_dir+="/$(filter_dir_name "$log_dir")"
 
     [[ $DRY_RUN == 1 ]] && {
+        (( $RESUME )) && {
+            print_resume_state "$log_dir"
+            exit 0
+        }
         printf "DRY RUN - the longest jobs, in the order they would start:\n"
         cut -f2-3,9 "$JOBS_TMP" | head -20 | column -t
         (( $N_JOBS > 20 )) && printf "... (%d more)\n" $(( $N_JOBS - 20 ))
