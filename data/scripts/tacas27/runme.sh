@@ -215,12 +215,17 @@ function dataset_dir {
 }
 
 ## <n samples> <timeout per> -> the worst-case seconds of a job of the action, if every explanation times out:
-## spexplain stops each explanation by itself (--time-limit-per), VeriX-plus is killed at the timeout
+## spexplain stops each explanation by itself (--time-limit-per), VeriX-plus is killed at the timeout,
+## CORA also runs the warm-up (one more explanation) and starts the MATLAB Runtime (see cora/cora1.sh)
 function job_worst_secs {
     local n_samples=$1
     local timeout_secs=$(to_secs $2)
 
-    printf "%d" $(( $n_samples * $timeout_secs ))
+    if [[ $ACTION == run-cora ]]; then
+        printf "%d" $(( ($n_samples + 1)*$timeout_secs + 300 ))
+    else
+        printf "%d" $(( $n_samples * $timeout_secs ))
+    fi
 }
 
 ## Prints a job of make_jobs: <worst-case secs> <job id> <timeout per> <model> <dataset> <variant>
