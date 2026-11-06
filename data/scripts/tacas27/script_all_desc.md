@@ -258,7 +258,18 @@ WRAPPER=~/srun_commands/sbatch.sh ./runme.sh run full --resume
 
 # only some jobs, e.g. rerun mnist 200x hybrid
 FILTER='^mnist/200x[0-9]+/hybrid/' ./runme.sh run full
+
+# the full run on Eiger split into batches that run at the same time, by disjoint FILTERs;
+# resubmit each with the same FILTER and --resume
+FILTER='^(heart_attack|obesity|loan)/' WRAPPER=~/srun_commands/sbatch.sh ./runme.sh run full
+FILTER='^(mnist|cifar|gtsrb)/' WRAPPER=~/srun_commands/sbatch.sh ./runme.sh run full
 ```
+
+With `FILTER`, the job list and the joblog go to a subdirectory of the log directory named after it
+(e.g. `data/logs/runme/full/filter-mnist_cifar_gtsrb/`, with the regex in `filter.txt`), so batches by FILTER can
+run at the same time, of any action, and each can be resumed. In a shared log directory (e.g. the same explicit
+`LOG_DIR`), the job lists and the joblogs of the instances would overwrite each other: jobs would be skipped
+or run twice, without an error.
 
 ## Unsat cores of interpolants
 

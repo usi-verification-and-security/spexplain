@@ -69,7 +69,10 @@
 ##   EXPERIMENTS_SPEC  experiments collection of 'everything' (default: plain_itp)
 ##   VARIANTS_SPEC     variants collection of 'everything' (default: tacas27)
 ##   FILTER            regex over '<name>/<width>x<idx>/<variant>/<experiment>' job identifiers
-##   LOG_DIR           directory for the job list and the joblog (default: data/logs/runme/<mode>)
+##   LOG_DIR           directory for the job list and the joblog (default: data/logs/runme/<mode>, and with
+##                     FILTER its subdirectory named after it, e.g. filter-mnist_50x1 with the regex in filter.txt,
+##                     so that batches by FILTER running at the same time have their own joblog and --resume);
+##                     if set, it must differ between instances running at the same time
 ##   STATS_DIR         collect-stats, plot-performance: directory of the stats files (default: ./stats)
 ##   STATS_FILTER      collect-stats: regex over the job identifiers of the jobs to collect
 ##                     (default in modes.sh: naive/guide-all/fix-all/hybrid, itp_* experiments)
@@ -523,9 +526,28 @@ function action_run {
     run_jobs "${LOG_DIR:-$DATA_DIR/logs/runme/$MODE}"
 }
 
+## <log dir> -> the name of its subdirectory for FILTER: the regex with the other characters than [A-Za-z0-9.-]
+## replaced by '_', e.g. '^mnist/50x[13]/' -> filter-mnist_50x_13; with a hash of the regex if the name is long,
+## or if it is already used by another regex (its filter.txt)
+function filter_dir_name {
+    local log_dir="$1"
+    local name=$(sed 's/[^A-Za-z0-9.-]\+/_/g; s/^_//; s/_$//' <<<"$FILTER")
+    local hash=$(printf %s "$FILTER" | md5sum | cut -c1-8)
+
+    if (( ${#name} > 60 )); then
+        name="${name:0:50}-$hash"
+    elif [[ -r $log_dir/filter-$name/filter.txt && $(<"$log_dir/filter-$name/filter.txt") != "$FILTER" ]]; then
+        name+="-$hash"
+    fi
+    printf "filter-%s" "$name"
+}
+
 ## Runs all jobs in one GNU parallel queue, with the job list and the joblog in <log dir>
 function run_jobs {
     local log_dir="$1"
+    ## Batches by FILTER (e.g. running at the same time on a cluster) each have their own job list and joblog,
+    ## named after the FILTER, and --resume with the same FILTER finds them
+    [[ -z $LOG_DIR && -n $FILTER ]] && log_dir+="/$(filter_dir_name "$log_dir")"
 
     [[ $DRY_RUN == 1 ]] && {
         printf "DRY RUN - the longest jobs, in the order they would start:\n"
@@ -536,6 +558,7 @@ function run_jobs {
 
     local joblog="$log_dir/joblog.txt"
     mkdir -p "$log_dir" || exit 1
+    [[ -z $LOG_DIR && -n $FILTER ]] && printf "%s\n" "$FILTER" >"$log_dir/filter.txt"
 
     local parallel_opts=(--jobs $SLOTS --line-buffer --colsep '\t' --joblog "$joblog")
 
