@@ -278,7 +278,7 @@ FILTER='^(mnist|cifar|gtsrb)/' WRAPPER=~/srun_commands/sbatch.sh ./runme.sh run 
 `--resume` does not rerun the failed jobs (GNU parallel skips every job of the joblog), only those that
 did not finish, e.g. killed at the time limit, from scratch; `--resume -n` lists both.
 
-`runme_distributed.sh` (`run`, `run-verix-plus`) packs whole models into batches that fill a node
+`runme_distributed.sh` (`run`, `run-verix-plus`, `run-cora`) packs whole models into batches that fill a node
 (`NPROC=256` hardware threads, `CPU_PERCENTAGE=50`, i.e. 128 jobs at once), each submitted through `WRAPPER`
 with its own time limit as `TIME` (`HH:MM:SS`, e.g. for `sbatch -t`): its worst case, where every explanation
 times out (the longest job, or with more jobs than slots, their total over the slots plus the longest job),
@@ -557,8 +557,9 @@ per explanation, and with the perturbations epsilon 1, 0.05 and 0.005.
 
 ```bash
 ./runme.sh run-cora <mode> [--resume] [-n]
-# on CSCS Eiger, in the image docker/tacas27-cora (see its README.md; the wrapper is an example)
-ENV=cora-matlab CPU_PERCENTAGE=50 WRAPPER=~/slurm/sbatch.sh ./runme.sh run-cora <mode> [--resume]
+# on CSCS Eiger, in the image docker/tacas27-cora (see its README.md; the wrapper is an example),
+# as batches of whole models (see runme_distributed.sh; CPU_PERCENTAGE=50 is its default)
+ENV=cora-matlab WRAPPER=~/slurm/sbatch.sh ./runme_distributed.sh run-cora <mode> [--resume] [-n]
 ```
 
 `run-cora` computes the explanations of CORA (`neuralNetwork/explain`, https://github.com/TUMcps/CORA,

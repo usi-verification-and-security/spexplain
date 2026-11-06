@@ -72,14 +72,23 @@ In the SpExplAIn checkout (branch `tacas27-cora`):
 cd data/scripts/tacas27
 # a short test in the debug partition first
 DEBUG=1 ENV=cora-matlab CPU_PERCENTAGE=50 WRAPPER=~/slurm/sbatch.sh FILTER='^mnist/50x1/' ./runme.sh run-cora smoke
-# all; resubmit with --resume after the 24h limit
-ENV=cora-matlab CPU_PERCENTAGE=50 WRAPPER=~/slurm/sbatch.sh ./runme.sh run-cora full
+# all, as batches of whole models that fill the nodes, each with its time limit (TIME);
+# first only print the batches
+ENV=cora-matlab WRAPPER=~/slurm/sbatch.sh ./runme_distributed.sh run-cora full -n
+ENV=cora-matlab WRAPPER=~/slurm/sbatch.sh ./runme_distributed.sh run-cora full
+# what remains, then resubmit the batches with remaining jobs
+ENV=cora-matlab WRAPPER=~/slurm/sbatch.sh ./runme_distributed.sh run-cora full --resume -n
+ENV=cora-matlab WRAPPER=~/slurm/sbatch.sh ./runme_distributed.sh run-cora full --resume
 ```
 
 `~/slurm/sbatch.sh` is only an example: `WRAPPER` is whatever script in your home on the cluster submits
 the command by Slurm (`sbatch`), e.g. in the environment `ENV` of the Container Engine (`--environment`).
-Batches by disjoint `FILTER`s can run at the same time: each gets its own log directory (see `LOG_DIR`
-in `runme.sh`); resubmit each with the same `FILTER` and `--resume`.
+`runme_distributed.sh` (see its help, `-h`) passes the time limit of each batch to `WRAPPER` as `TIME`
+(`HH:MM:SS`, for `sbatch -t`); its defaults `NPROC=256`, `CPU_PERCENTAGE=50` and `NODE_TIME_LIMIT=24h`
+are those of Eiger, and a batch takes up to `BATCH_TIME_TARGET=25`% of the limit, so that more, shorter batches
+run at the same time. Batches by hand, by disjoint `FILTER`s with `runme.sh`, can also run at the same time:
+each gets its own log directory (see `LOG_DIR` in `runme.sh`); resubmit each with the same `FILTER`
+and `--resume`.
 
 The image sets `CORA_BIN` and `MCR_ROOT`, so `cora/cora1.sh` uses the compiled application.
 It also sets `AGREE_TO_MATLAB_RUNTIME_LICENSE=yes`, without which the MATLAB Runtime of the base image does not
@@ -87,4 +96,5 @@ start: building and running the image accepts the MATLAB Runtime license
 (`/opt/matlabruntime/R2026a/matlabruntime_license_agreement.pdf` in the image).
 Each process of the MATLAB Runtime (without Java) takes about 0.5–1 GB of memory, so a node (256 GB) fits
 one job per core: `CPU_PERCENTAGE=50` of its 256 hardware threads, as in the commands above
+(the default of `runme_distributed.sh`)
 (each CORA job runs on its own core, see `cora/cora1.sh`).

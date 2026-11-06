@@ -7,7 +7,7 @@
 ##
 ## USAGE: WRAPPER=<script> ./runme_distributed.sh <action> <mode> [--resume] [-n] [-h]
 ##
-## Actions: run, run-verix-plus (see runme.sh)
+## Actions: run, run-verix-plus, run-cora (see runme.sh)
 ##
 ## A batch is runme.sh with FILTER='^(<name>/<model id>|...)/', e.g. '^(gtsrb/50x1|mnist/NAB1)/', so it has its own
 ## log directory (see LOG_DIR in runme.sh), and the time limit TIME (HH:MM:SS) for the wrapper (e.g. sbatch -t).
@@ -49,7 +49,7 @@ function usage {
     [[ -n $1 ]] && exit $1
 }
 
-DISTRIBUTED_ACTIONS=(run run-verix-plus)
+DISTRIBUTED_ACTIONS=(run run-verix-plus run-cora)
 
 ACTION=
 MODE=
