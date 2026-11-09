@@ -75,6 +75,16 @@ def _interpret_inequality(l,v):
         return sum(res,[]) # must flatten one level
     elif l[0] == 'not':
         assert len(l) == 2
+        # A negated conjunction is a disjunction and a negated equality is a disequality: not convex
+        if l[1][0] == 'and':
+            if len(l[1]) != 2:
+                raise ValueError('Non-convex explanation (negated conjunction) is not supported: %s' % str(l))
+            return _interpret_inequality(['not', l[1][1]],v)
+        if l[1][0] == 'not':
+            assert len(l[1]) == 2
+            return _interpret_inequality(l[1][1],v)
+        if l[1][0] == '=':
+            raise ValueError('Non-convex explanation (negated equality) is not supported: %s' % str(l))
         return [-x for x in _interpret_inequality(l[1],v)]
     elif l[0] == '<=':
         assert len(l) == 3
