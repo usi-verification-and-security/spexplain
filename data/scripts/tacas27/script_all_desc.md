@@ -333,7 +333,7 @@ interpolant is computed in the same run, then reduced), i.e. ITP+ucore min of th
 ```
 
 The tools are fast in different ways, so next to the run times this measures how much the explanations
-relax the sample: `relaxed_features.py` on the explanations of `run-verix-plus` and of ours as in Fig. 8
+relax the sample: `relaxed_features.py` on the explanations of `run-verix-plus`, `run-cora` and of ours as in Fig. 8
 (naive, guide-all, fix-all, hybrid; `itp_aweak_bstrong`), one table per benchmark and width,
 `data/output/<mode>/table-relaxed_<name>[200].{csv,tex}`, and all of them in `data/output/<mode>/table-relaxed.pdf`
 (if `pdflatex` is available; `tables_relaxed.tex`).
@@ -359,7 +359,7 @@ relax the sample: `relaxed_features.py` on the explanations of `run-verix-plus` 
 - The tables give, per configuration: `Conv.` the convex explanations of all of them without the timeouts (%),
   and the means over the convex ones: `Rel.` the relaxed features (%), `Diam.` the Linf diameter, and
   `[Inner, Outer]` the widths (% of [0,1]); the outer width is `n/a` (`-` in the CSV) where not computed.
-- VeriX-plus (and CORA) relax a feature only within ±ε of the sample, ours within the whole domain.
+- VeriX-plus and CORA relax a feature only within ±ε of the sample, ours within the whole domain.
 - Only the convex explanations are measured, exactly, by linear programming (scipy, HiGHS) on the parsed
   explanations (floating point, an outer width below 1e-6 counts as fixed; the syntactic equalities are exact).
   The others are counted (the columns `Convex`, `Non-convex` in the CSV, `Conv.` in the LaTeX table): disjunctions such as `(not (and ...))`, `ite` (e.g. the inlined unfixed neurons of

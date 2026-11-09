@@ -38,7 +38,7 @@
 ##                  and runme_ucore.sh (Fig. 10, heart_attack):
 ##                  data/output/<mode>/* (after run and run-verix-plus)
 ##   relaxed-features
-##                  the relaxed features of the mode's explanations of run-verix-plus and of ours as in Fig. 8
+##                  the relaxed features of the mode's explanations of run-verix-plus, run-cora and of ours as in Fig. 8
 ##                  (naive/guide-all/fix-all/hybrid, itp_aweak_bstrong), with relaxed_features.py:
 ##                  the features not fixed to the value of the sample, the mean Linf diameter and inner and
 ##                  outer widths of the features within [0,1] (of the largest Linf ball around the sample, of
@@ -1013,8 +1013,8 @@ function action_interpret {
 ## relaxed-features
 
 ## The other tools, of run-<tool> (their results in the variant <tool>), with their labels in the tables
-RELAXED_TOOLS=(verix)
-declare -A RELAXED_TOOL_LABELS=([verix]=VeriX+)
+RELAXED_TOOLS=(verix cora)
+declare -A RELAXED_TOOL_LABELS=([verix]=VeriX+ [cora]=CORA)
 ## Ours, as in Fig. 8 (plot_compare_with_sota.py)
 RELAXED_OURS_VARIANTS=(naive guide-all fix-all hybrid)
 RELAXED_OURS_EXPERIMENT=itp_aweak_bstrong
@@ -1114,7 +1114,7 @@ function action_relaxed_features {
     relaxed_tasks >"$tasks"
     local n_tasks=$(wc -l <"$tasks")
     (( $n_tasks )) || {
-        printf "No explanations of run-verix-plus or of ours (as in Fig. 8) in the mode.\n" >&2
+        printf "No explanations of run-verix-plus, run-cora or of ours (as in Fig. 8) in the mode.\n" >&2
         rm -f "$tasks"
         exit 1
     }
