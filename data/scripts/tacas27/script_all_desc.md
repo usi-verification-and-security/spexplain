@@ -4,7 +4,7 @@
 ./runme.sh <action> <mode> [--resume] [-n] [-h]
 ```
 
-Actions: `run`, `collect-stats`, `plot-performance`, `interpret`, `run-verix-plus`.
+Actions: `run`, `collect-stats`, `plot-performance`, `interpret`, `run-verix-plus`, `relaxed-features`.
 Modes: `smoke`, `short`, `long`, `full`. Both are required.
 
 `runme.sh` runs the `plain_itp` experiments with the `tacas27` variants on the
@@ -325,6 +325,56 @@ interpolant is computed in the same run, then reduced), i.e. ITP+ucore min of th
   `STATS_FILTER=.`, it collects them with the `ucore_itp` experiments collection (`UCORE_EXPERIMENTS_SPEC`),
   as the last rows of the heart_attack 50x1 tables, so the header keeps the timeout of the
   itp experiments. `plot-performance` leaves them out of the plots (they are only in the CSV).
+
+## Relaxed features
+
+```bash
+./runme.sh relaxed-features <mode> [-n]
+```
+
+The tools are fast in different ways, so next to the run times this measures how much the explanations
+relax the sample: `relaxed_features.py` on the explanations of `run-verix-plus` and of ours as in Fig. 8
+(naive, guide-all, fix-all, hybrid; `itp_aweak_bstrong`), one table per benchmark and width,
+`data/output/<mode>/table-relaxed_<name>[200].{csv,tex}`.
+
+- A feature is relaxed if the explanation (within the domains [0,1]) contains points that differ in it,
+  i.e. it is not fixed to the value of the sample.
+- How far each feature can move, as widths within [0,1], per feature (the means over all the features, the
+  fixed ones count as 0), like an inscribed and a circumscribed figure:
+  - inner: the axis-parallel segment through the sample within the explanation (only the feature changes,
+    the others stay at the sample);
+  - outer: the projection of the explanation (the others may change too); the projections form its bounding box.
+
+  Inner ≤ outer, and they coincide for the interval explanations (VeriX-plus, CORA); for ours, the outer
+  width overstates how freely the features vary together (e.g. a few dense constraints over the mnist pixels
+  let every pixel range over [0,1] if the others compensate), and the gap shows the freedom that is only joint.
+- The Linf diameter: of the largest Linf ball of the sample within the explanation (the cube of the sample ±t
+  in all the features, within [0,1]), as the mean width of its features as above, i.e. the robustness of the
+  explanation. It is 0 if any feature is fixed (most of the explanations of VeriX-plus and CORA), and one tight
+  direction limits it in all the features, so it is small for ours. Per feature, diameter ≤ inner ≤ outer.
+  The widths and the diameter are clipped to [0,1], so a feature at the bound of its domain counts only one
+  side: for the ε-box of CORA, they are below 2ε where the sample has such features (mnist, with ~82% of the
+  pixels at 0 or 1: about 1.2ε).
+- The tables give, per configuration: `Conv.` the convex explanations of all of them without the timeouts (%),
+  and the means over the convex ones: `Rel.` the relaxed features (%), `Diam.` the Linf diameter, and
+  `[Inner, Outer]` the widths (% of [0,1]); the outer width is `n/a` (`-` in the CSV) where not computed.
+- VeriX-plus (and CORA) relax a feature only within ±ε of the sample, ours within the whole domain.
+- Only the convex explanations are measured, exactly, by linear programming (scipy, HiGHS) on the parsed
+  explanations (floating point, an outer width below 1e-6 counts as fixed; the syntactic equalities are exact).
+  The others are counted (the columns `Convex`, `Non-convex` in the CSV, `Conv.` in the LaTeX table): disjunctions such as `(not (and ...))`, `ite` (e.g. the inlined unfixed neurons of
+  fix-all-no-vars), and the explanations with neuron variables `l<k>_n<j>` that do not fix them.
+- The neuron variables (fix-all and hybrid of the deeper models) need the model (`--model`, NNet only): an
+  explanation is convex if it implies the activation condition of the sample for every neuron that it depends on
+  (as the engine adds for the fixed ones), layer by layer; the neurons are then substituted numerically as the
+  linear functions of the inputs that they are (without the blow-up of inlining their terms). `spexplain interpret`
+  does the same with `--model` (`interpret/neurons.py`), and fails on the non-convex explanations.
+- The outer widths of the non-interval explanations (ours) need two LPs per feature (about 30 s per mnist
+  explanation), so only of the models of `OUTER_FILTER` (default: the tabular benchmarks and mnist 50x1, 50x4;
+  empty: none); the counts need one LP per explanation and per neuron, the inner widths and the Linf diameter
+  none. The results per explanation file are kept in
+  `<STATS_DIR>/<mode>/relaxed/` (default `./stats`) until the explanations or `relaxed_features.py` change.
+- Requirements: numpy, scipy and pyparsing (as for `interpret`, in the image `docker/tacas27`).
+- If some explanation files fail, the tables are written without them (and the action reports the failures).
 
 ## Collecting the stats
 
