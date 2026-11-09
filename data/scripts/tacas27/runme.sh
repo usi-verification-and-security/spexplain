@@ -31,6 +31,17 @@
 ##                  runme_methodes.sh (Fig. 6, heart_attack and loan)
 ##                  and runme_ucore.sh (Fig. 10, heart_attack):
 ##                  data/output/<mode>/* (after run and run-verix-plus)
+##   relaxed-features
+##                  the relaxed features of the mode's explanations of run-verix-plus and of ours as in Fig. 8
+##                  (naive/guide-all/fix-all/hybrid, itp_aweak_bstrong), with relaxed_features.py:
+##                  the features not fixed to the value of the sample, the mean Linf diameter and inner and
+##                  outer widths of the features within [0,1] (of the largest Linf ball around the sample, of
+##                  the axis-parallel segments through the sample, of the projections),
+##                  of the convex explanations, with the counts of the convex and the non-convex ones,
+##                  as data/output/<mode>/table-relaxed_<name>[200].{csv,tex} (see table_relaxed.py);
+##                  the outer widths of the non-interval explanations (ours) only of the models of OUTER_FILTER;
+##                  the results per explanation are kept in <STATS_DIR>/<mode>/relaxed/ (until they or
+##                  relaxed_features.py change)
 ##
 ## Modes (see ./modes.sh):
 ##   In every mode but smoke, run also runs the unsat cores of interpolants 'itp aweak, bstrong; ucore min'
@@ -75,7 +86,7 @@
 ##                     FILTER its subdirectory named after it, e.g. filter-mnist_50x1 with the regex in filter.txt,
 ##                     so that batches by FILTER running at the same time have their own joblog and --resume);
 ##                     if set, it must differ between instances running at the same time
-##   STATS_DIR         collect-stats, plot-performance: directory of the stats files (default: ./stats)
+##   STATS_DIR         collect-stats, plot-performance, relaxed-features: directory of the stats files (default: ./stats)
 ##   STATS_FILTER      collect-stats: regex over the job identifiers of the jobs to collect
 ##                     (default in modes.sh: naive/guide-all/fix-all/hybrid, itp_* experiments)
 ##   PYTHON            plot-performance: Python with matplotlib and pandas
@@ -84,6 +95,9 @@
 ##   VERIX_DIR         run-verix-plus: VeriX-plus (default: ~/VeriX-plus)
 ##   VERIX_ORDER       run-verix-plus: the traversal order of VeriX-plus (default: random,
 ##                     as in the original experiments; e.g. bounds)
+##   OUTER_FILTER      relaxed-features: regex over '<name>/<width>x<idx>/' of the models whose non-interval
+##                     explanations (ours) get the outer widths, by two linear programs per feature; empty: none
+##                     (default: '^(heart_attack|obesity|loan)/|^mnist/50x[14]/')
 ##   WRAPPER           if set, submit this script through it (e.g. sbatch.sh) instead of running it;
 ##                     runme_distributed.sh submits a whole mode as batches of whole models that fill the nodes
 
@@ -118,7 +132,7 @@ export PYTHON
 
 source "$TACAS_DIR/modes.sh"
 
-ACTIONS=(run collect-stats plot-performance interpret run-verix-plus)
+ACTIONS=(run collect-stats plot-performance interpret run-verix-plus relaxed-features)
 
 ACTION=
 MODE=
@@ -951,6 +965,163 @@ function action_interpret {
 }
 
 ########################################################################
+## relaxed-features
+
+## The other tools, of run-<tool> (their results in the variant <tool>), with their labels in the tables
+RELAXED_TOOLS=(verix)
+declare -A RELAXED_TOOL_LABELS=([verix]=VeriX+)
+## Ours, as in Fig. 8 (plot_compare_with_sota.py)
+RELAXED_OURS_VARIANTS=(naive guide-all fix-all hybrid)
+RELAXED_OURS_EXPERIMENT=itp_aweak_bstrong
+
+## Prints the explanations of the mode to analyze, one per line:
+## <name> <width> <depth> <tool label> <configuration> <phi file> <dataset> <model> <cache file> <outer: 0/1>
+function relaxed_tasks {
+    local relaxed_dir=${STATS_DIR:-$PWD/stats}/$MODE/relaxed
+    local outer_filter=${OUTER_FILTER-'^(heart_attack|obesity|loan)/|^mnist/50x[14]/'}
+    local width i name dataset depth model_id model dir tool experiment variant phi outer
+    for width in ${WIDTHS[@]}; do
+        set_mode_for_width $width || continue
+
+        for i in ${!NAMES[@]}; do
+            name=${NAMES[$i]}
+            mode_includes_benchmark $name || continue
+            dataset=$(mode_dataset $name)
+            [[ -r $dataset ]] || continue
+
+            for depth in $(model_depths $name); do
+                model_id=${width}x$depth
+                model="$DATA_DIR/models/$name/${name}_$model_id.nnet"
+                dir="$name/$model_id/$(dataset_dir $name "$dataset")"
+
+                for tool in ${RELAXED_TOOLS[@]}; do
+                    for experiment in ${VERIX_EXPERIMENTS[@]}; do
+                        [[ -n $FILTER && ! $name/$model_id/$tool/$experiment =~ $FILTER ]] && continue
+                        phi="$DATA_DIR/explanations/$dir/$tool/$experiment.phi.txt"
+                        [[ -s $phi ]] || continue
+                        ## e.g. eps5 -> 5%; the interval explanations always get the outer widths
+                        printf "%s\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%d\n" $name $width $depth \
+                            ${RELAXED_TOOL_LABELS[$tool]} ${experiment#eps}% "$phi" "$dataset" "$model" \
+                            "$relaxed_dir/$dir/$tool/$experiment.txt" 0
+                    done
+                done
+
+                outer=0
+                [[ -n $outer_filter && $name/$model_id/ =~ $outer_filter ]] && outer=1
+                for variant in ${RELAXED_OURS_VARIANTS[@]}; do
+                    experiment=$RELAXED_OURS_EXPERIMENT
+                    [[ -n $FILTER && ! $name/$model_id/$variant/$experiment =~ $FILTER ]] && continue
+                    phi="$DATA_DIR/explanations/$dir/$variant/$experiment.phi.txt"
+                    [[ -s $phi ]] || continue
+                    printf "%s\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%d\n" $name $width $depth Ours $variant "$phi" "$dataset" \
+                        "$model" "$relaxed_dir/$dir/$variant/$experiment$( (( $outer )) && printf .outer ).txt" $outer
+                done
+            done
+        done
+    done
+}
+
+## Whether the cache file of relaxed_features.py is newer than the explanations and the script
+function relaxed_cached {
+    local phi="$1"
+    local cache="$2"
+
+    [[ -s $cache && $cache -nt $phi && $cache -nt $SCRIPTS_DIR/tacas27/relaxed_features.py ]]
+}
+export -f relaxed_cached
+
+## One explanation file: relaxed_features.py into the cache file, unless it is up to date
+function relaxed_one {
+    local phi="$1"
+    local dataset="$2"
+    local model="$3"
+    local cache="$4"
+    local outer=$5
+
+    relaxed_cached "$phi" "$cache" && return 0
+
+    ## The model, for the explanations with neuron variables
+    local opts=(--model "$model")
+    (( $outer )) && opts+=(--outer)
+    mkdir -p "$(dirname "$cache")" || return 1
+    "$PYTHON" "$SCRIPTS_DIR/tacas27/relaxed_features.py" "$phi" "$dataset" "${opts[@]}" >"$cache.tmp" || {
+        rm -f "$cache.tmp"
+        printf "relaxed_features.py failed: %s\n" "$phi" >&2
+        return 1
+    }
+    mv "$cache.tmp" "$cache"
+    printf "Done: %s\n" "${phi#$DATA_DIR/explanations/}"
+}
+export -f relaxed_one
+
+function action_relaxed_features {
+    local output_dir=$DATA_DIR/output/$MODE
+
+    "$PYTHON" -c 'import numpy, scipy, pyparsing' 2>/dev/null || {
+        printf "%s lacks numpy, scipy or pyparsing (as for spexplain interpret); set PYTHON to a Python that has them.\n" "$PYTHON" >&2
+        exit 1
+    }
+
+    local tasks=$(mktemp)
+    relaxed_tasks >"$tasks"
+    local n_tasks=$(wc -l <"$tasks")
+    (( $n_tasks )) || {
+        printf "No explanations of run-verix-plus or of ours (as in Fig. 8) in the mode.\n" >&2
+        rm -f "$tasks"
+        exit 1
+    }
+    local n_todo=$(while IFS=$'\t' read -r _ _ _ _ _ phi _ _ cache _; do
+        relaxed_cached "$phi" "$cache" || echo
+    done <"$tasks" | wc -l)
+
+    printf "Explanation files: %d (%d to analyze, %d with the outer widths)\nParallel:    %d jobs at once\nTables:      %s\n\n" \
+        $n_tasks $n_todo $(awk -F'\t' '$10' "$tasks" | wc -l) $SLOTS "$output_dir/table-relaxed_*"
+
+    [[ $DRY_RUN == 1 ]] && {
+        printf "DRY RUN - the explanation files:\n"
+        cut -f4,5,6,10 "$tasks" | sed "s|$DATA_DIR/explanations/||" | column -t
+        rm -f "$tasks"
+        exit 0
+    }
+
+    ## The tables are written also if some explanation files failed, without them
+    local failed=0
+    cut -f6-10 "$tasks" | parallel --jobs $SLOTS --colsep '\t' --halt never relaxed_one {1} {2} {3} {4} {5} || failed=1
+
+    ## One CSV per benchmark and width: the means over the convex explanations, and the counts of the explanations
+    ## without the timeouts (the non-convex ones are only counted, see relaxed_features.py)
+    local name width csv
+    while IFS=$'\t' read -r name width; do
+        csv="$output_dir/table-relaxed_${name}$( (( $width == 50 )) || printf %s $width ).csv"
+        {
+            printf "Model Size,Tool,Configuration,Convex,Non-convex,Relaxed [%%],Linf diameter [%%],Inner [%%],Outer [%%]\n"
+            awk -F'\t' -v name=$name -v width=$width '$1 == name && $2 == width' "$tasks" |
+            while IFS=$'\t' read -r _ _ depth tool config _ _ _ cache _; do
+                [[ -s $cache ]] || continue
+                awk -v prefix="$depth,$tool,$config" '
+                    $6 == "nonconvex" || $6 == "nomodel" { nonconvex++; next }
+                    $6 != "convex" { next }
+                    { n++; relaxed += $1/$2; diameter += $3; inner += $4; if ($5 == "-") no_outer = 1; else outer += $5 }
+                    END {
+                        if (!n) { printf "%s,0,%d,-,-,-,-\n", prefix, nonconvex; exit }
+                        printf "%s,%d,%d,%.1f,%.3g,%.1f,%s\n", prefix, n, nonconvex, 100*relaxed/n, 100*diameter/n,
+                            100*inner/n, no_outer ? "-" : sprintf("%.1f", 100*outer/n)
+                    }' "$cache"
+            done
+        } >"$csv"
+        printf "%s\n" "$csv"
+    done < <(cut -f1,2 "$tasks" | awk '!seen[$0]++')
+    rm -f "$tasks"
+
+    "$PYTHON" "$TACAS_DIR/table_relaxed.py" "$output_dir" || exit 1
+    (( $failed )) && {
+        printf "\nSome explanation files failed, see above; the tables are without them.\n" >&2
+        exit 1
+    }
+    exit 0
+}
+
+########################################################################
 ## run-verix-plus
 
 ## Returns 1 unless VeriX-plus can run as in the original experiments: installed, with Marabou without Gurobi
@@ -1007,5 +1178,8 @@ interpret)
     ;;
 run-verix-plus)
     action_run_verix_plus
+    ;;
+relaxed-features)
+    action_relaxed_features
     ;;
 esac
