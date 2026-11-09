@@ -72,7 +72,7 @@ class Config:
 def interpret(explanation, config, sample):
     """Yields the points of the explanation of the sample with the minimal, the inverted minimal, or the maximal
     norm, one for each kind, each as soon as it is computed."""
-    A, B = formula.parse(explanation, sample.size)
+    A, B = formula.parse(explanation, sample.size, sample, getattr(config, 'network', None))
 
     for kind in config.kinds:
         if formula.is_interval(A):

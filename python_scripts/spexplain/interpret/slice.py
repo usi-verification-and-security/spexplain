@@ -44,5 +44,5 @@ def fixed_values(config, sample):
 
 def interpret(explanation, config, sample):
     """The constraints A x <= B of the slice; the features outside of the slice have zero columns."""
-    A, B = formula.parse(explanation, sample.size)
+    A, B = formula.parse(explanation, sample.size, sample, getattr(config, 'network', None))
     return formula.substitute(A, B, fixed_values(config, sample))

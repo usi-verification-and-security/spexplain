@@ -207,7 +207,8 @@ def make_parser():
                         help='CSV file with the domains of the features in the real units (columns Min, Max, '
                              'optionally Var, Feature), only for the outputs of fspace and mathexpr')
     parser.add_argument('--model', metavar='<nn_model_fn>',
-                        help='the classifier in the NNet format, for the decision regions of fspace')
+                        help='the classifier in the NNet format, for the decision regions of fspace, '
+                             'and for the explanations with neuron variables')
     #+ extend or replace by a CSV file with the classes, as for --visualization-domains
     parser.add_argument('--class-labels', metavar='<label>[,<label>]...',
                         help="labels of all the classes (default: from the header of the dataset separated by '|', "
@@ -393,18 +394,26 @@ def main(args):
         # The names from the dataset, unless given by the domains
         visualization_config.names = domains.names if domains else dataset.feature_names
 
-    if not fspace_visualization:
-        for opt in ('model', 'class_labels'):
-            if getattr(opts, opt) is not None:
-                warn(f'Option --{opt.replace("_", "-")} is ignored without the visualization fspace')
-                setattr(opts, opt, None)
+    if not fspace_visualization and opts.class_labels is not None:
+        warn('Option --class-labels is ignored without the visualization fspace')
+        opts.class_labels = None
     model = None
+    # The hidden layers of the model, for the explanations with neuron variables (see formula.parse)
+    network = None
     if opts.model is not None:
+        if not dataset:
+            raise Error('Option --model requires the dataset')
         from ..model import Model
         model = Model(opts.model)
         if model.n_inputs() != dataset.n_features():
             raise Error(f'The number of the inputs of the model ({model.n_inputs()}) does not match the number '
                         f'of the features of the dataset ({dataset.n_features()})')
+        from .neurons import Network
+        network = Network(model)
+    if extraction:
+        extraction_config.network = network
+    if visualization:
+        visualization_config.network = network
     if fspace_visualization:
         # All the classes: of the model, otherwise given by the header of the dataset, otherwise the expected ones
         n_expected_classes = int(dataset.labels.max()) + 1 if len(dataset) else 0
@@ -540,7 +549,7 @@ def main(args):
             elif use_samples_only:
                 point = sample
             elif mathexpr_visualization:
-                A, B = formula.parse(explanations[idx], dataset.n_features())
+                A, B = formula.parse(explanations[idx], dataset.n_features(), sample, network)
 
             # print(f'{idx}: norm {np.linalg.norm(point):.6g}')
 
@@ -557,7 +566,7 @@ def main(args):
                     elif extraction:
                         file_points = points
                     else:
-                        file_points = [formula.to_point(exps[idx], dataset.n_features())]
+                        file_points = [formula.to_point(exps[idx], dataset.n_features(), sample, network)]
                     panels += zip(titles, file_points)
                 # The sample first, or in between the points
                 if not opts.exclude_samples:

@@ -26,10 +26,101 @@ def parse_vars(args, n_vars, technique):
     return sorted(indices)
 
 
-def parse(explanation, n_vars):
-    """Parse the explanation into constraints A x <= B."""
-    parsed_ineq = parse_smt2.parse_and_interpret(explanation, make_variables(n_vars))
-    return -parsed_ineq[:, :-1], parsed_ineq[:, -1]
+class NonConvexError(Error):
+    """The explanation is not convex: not a conjunction of linear constraints over the inputs,
+    or with a neuron variable that it does not fix."""
+
+
+class MissingModelError(Error):
+    """The explanation has neuron variables, which need the model."""
+
+
+_NEURON_VAR = re.compile(r'l(\d+)_n(\d+)')
+_ATOMS = ('<=', '>=', '=')
+_NUMBER = re.compile(r'[-+]?[0-9.]+')
+
+
+def _check_convex(tree):
+    """Fail unless the parsed explanation is a conjunction of (negated) linear atoms."""
+    if not isinstance(tree, list) or not tree:
+        raise NonConvexError(f'The explanation is not convex: not a constraint: {tree}')
+    op = tree[0]
+    if op == 'and':
+        for arg in tree[1:]:
+            _check_convex(arg)
+    elif op in _ATOMS:
+        pass
+    elif op == 'not' and len(tree) == 2 and isinstance(tree[1], list) and tree[1]:
+        arg = tree[1]
+        if arg[0] in ('<=', '>='):
+            pass
+        elif arg[0] in ('and', 'not') and len(arg) == 2:
+            _check_convex(['not', arg[1]] if arg[0] == 'and' else arg[1])
+        else:
+            raise NonConvexError(f'The explanation is not convex: negated {arg[0]}')
+    else:
+        raise NonConvexError(f'The explanation is not convex: {op}')
+
+
+def _symbols(tree, acc):
+    if isinstance(tree, list):
+        for t in tree[1:]:
+            _symbols(t, acc)
+    elif not _NUMBER.fullmatch(tree):
+        acc.add(tree)
+    return acc
+
+
+def neuron_var(var):
+    """(layer, node from 0) of a neuron variable l<layer>_n<node from 1> (as in the engine), otherwise None."""
+    m = _NEURON_VAR.fullmatch(var)
+    return (int(m[1]), int(m[2]) - 1) if m else None
+
+
+def neuron_var_name(layer, node):
+    return f'l{layer}_n{node + 1}'
+
+
+def parse(explanation, n_vars, sample=None, network=None):
+    """Parse the explanation into constraints A x <= B.
+
+    It has to be convex (NonConvexError). Its neuron variables, if any, need the network
+    (neurons.Network, otherwise MissingModelError) and the sample: they are substituted (see neurons.py).
+    """
+    tree = parse_smt2.parse(explanation)
+    if len(tree) != 1:
+        raise Error(f'Invalid explanation: {explanation[:100]}')
+    tree = tree[0]
+    _check_convex(tree)
+
+    variables = make_variables(n_vars)
+    input_vars = set(variables)
+    neurons = set()
+    for var in _symbols(tree, set()):
+        if var in input_vars:
+            continue
+        kj = neuron_var(var)
+        if kj is None:
+            raise Error(f'Unknown variable in the explanation: {var}')
+        neurons.add(kj)
+    neurons = sorted(neurons)
+    if neurons:
+        if network is None or sample is None:
+            raise MissingModelError('The explanation has neuron variables: it needs the model (--model)')
+        variables += [neuron_var_name(*kj) for kj in neurons]
+
+    try:
+        parsed_ineq = parse_smt2.interpret([tree], variables)
+    except ValueError as e:
+        # E.g. a non-linear term, or ite
+        msg = str(e)
+        raise NonConvexError(f'The explanation is not convex: {msg if len(msg) <= 200 else msg[:200] + " ..."}')
+    A, B = -parsed_ineq[:, :-1], parsed_ineq[:, -1]
+    if neurons:
+        # Only then needs scipy
+        from . import neurons as neurons_
+        A, B = neurons_.substitute(A, B, n_vars, neurons, network, sample)
+    return A, B
 
 
 def _row_key(row, b):
@@ -100,9 +191,9 @@ def interval_bounds(A, B):
     return lower, upper
 
 
-def to_point(explanation, n_vars):
+def to_point(explanation, n_vars, sample=None, network=None):
     """The point if the explanation fixes all variables, otherwise fail."""
-    A, B = parse(explanation, n_vars)
+    A, B = parse(explanation, n_vars, sample, network)
     if is_interval(A):
         lower, upper = interval_bounds(A, B)
         if np.array_equal(lower, upper):
