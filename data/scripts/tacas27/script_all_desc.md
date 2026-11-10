@@ -335,7 +335,8 @@ interpolant is computed in the same run, then reduced), i.e. ITP+ucore min of th
 The tools are fast in different ways, so next to the run times this measures how much the explanations
 relax the sample: `relaxed_features.py` on the explanations of `run-verix-plus` and of ours as in Fig. 8
 (naive, guide-all, fix-all, hybrid; `itp_aweak_bstrong`), one table per benchmark and width,
-`data/output/<mode>/table-relaxed_<name>[200].{csv,tex}`.
+`data/output/<mode>/table-relaxed_<name>[200].{csv,tex}`, and all of them in `data/output/<mode>/table-relaxed.pdf`
+(if `pdflatex` is available; `tables_relaxed.tex`).
 
 - A feature is relaxed if the explanation (within the domains [0,1]) contains points that differ in it,
   i.e. it is not fixed to the value of the sample.
