@@ -38,7 +38,8 @@
 ##                  outer widths of the features within [0,1] (of the largest Linf ball around the sample, of
 ##                  the axis-parallel segments through the sample, of the projections),
 ##                  of the convex explanations, with the counts of the convex and the non-convex ones,
-##                  as data/output/<mode>/table-relaxed_<name>[200].{csv,tex} (see table_relaxed.py);
+##                  as data/output/<mode>/table-relaxed_<name>[200].{csv,tex} (see table_relaxed.py),
+##                  all of them in data/output/<mode>/table-relaxed.pdf (if pdflatex, tables_relaxed.tex);
 ##                  the outer widths of the non-interval explanations (ours) only of the models of OUTER_FILTER;
 ##                  the results per explanation are kept in <STATS_DIR>/<mode>/relaxed/ (until they or
 ##                  relaxed_features.py change)
@@ -1120,6 +1121,17 @@ function action_relaxed_features {
     rm -f "$tasks"
 
     "$PYTHON" "$TACAS_DIR/table_relaxed.py" "$output_dir" || exit 1
+
+    ## All the tables in one PDF, if pdflatex is available (as in the image docker/tacas27)
+    if command -v pdflatex >/dev/null; then
+        ( cd "$output_dir" && pdflatex -interaction=nonstopmode -halt-on-error -jobname=table-relaxed \
+            -output-directory="$output_dir" "\\def\\mode{$MODE}\\input{$TACAS_DIR/tables_relaxed.tex}" >/dev/null ) &&
+            rm -f "$output_dir"/table-relaxed.{aux,log} &&
+            printf "%s\n" "$output_dir/table-relaxed.pdf" ||
+            printf "pdflatex failed, see %s\n" "$output_dir/table-relaxed.log" >&2
+    else
+        printf "No pdflatex: the tables are not compiled into %s\n" "$output_dir/table-relaxed.pdf" >&2
+    fi
     (( $failed )) && {
         printf "\nSome explanation files failed, see above; the tables are without them.\n" >&2
         exit 1

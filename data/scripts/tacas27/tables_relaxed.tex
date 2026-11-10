@@ -1,0 +1,33 @@
+% All the tables of the relaxed features (see table_relaxed.py) in one PDF: those that exist of
+% table-relaxed_<name>[200].tex in the current directory (or \outdir), with the mode in the title (\mode).
+% Normally by runme.sh relaxed-features <mode>, into data/output/<mode>/table-relaxed.pdf;
+% by hand (one run): cd data/output/<mode> && pdflatex <path>/tables_relaxed.tex
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,landscape,margin=1.5cm]{geometry}
+\usepackage{booktabs}
+\usepackage{adjustbox}
+\usepackage{pgffor}
+
+\providecommand\outdir{.}
+\providecommand\mode{}
+
+\begin{document}
+\section*{Relaxed features\ifx\mode\empty\else: \mode\fi}
+Per configuration: Conv.: the convex explanations of all (without the timeouts) [\%]; of the convex ones:
+Rel.: the relaxed features [\%]; Diam.: the mean $L_\infty$ diameter (of the largest $L_\infty$ ball around the
+sample within the explanation); [Inner, Outer]: the mean widths of the features (of the axis-parallel segments
+through the sample; of the projections), n/a if not computed; all as \% of $[0,1]$, clipped to it (a feature at
+the bound of its domain counts only one side, e.g.\ an $\varepsilon$-box of MNIST gives about $1.2\varepsilon$, not
+$2\varepsilon$); per feature, Diam.\ $\le$ Inner $\le$ Outer.
+
+\foreach \name in {heart_attack,obesity,loan,mnist,gtsrb,cifar}{%
+  \foreach \width in {,200}{%
+    \edef\file{\outdir/table-relaxed_\name\width.tex}%
+    \IfFileExists{\file}{%
+      \subsection*{\texttt{\detokenize\expandafter{\name}}\width}
+      \begin{adjustbox}{max width=\linewidth}\input{\file}\end{adjustbox}
+    }{}%
+  }%
+}
+\end{document}
