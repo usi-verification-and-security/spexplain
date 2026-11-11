@@ -83,6 +83,10 @@ def read_explanations(path, indices):
         return {idx: line.strip() for idx, line in enumerate(f, start=1) if idx in wanted}
 
 
+class _NoValidExplanation(Exception):
+    """None of the explanations of the sample remains valid (all are not convex or invalid)."""
+
+
 def warn(msg):
     print(f'spexplain: warning: {msg}', file=sys.stderr)
 
@@ -487,6 +491,7 @@ def main(args):
 
     selected = set(indices)
     outs = []
+    n_nonconvex = 0
     try:
         # Line-buffered, so that each explanation is written as soon as it is computed
         outs = [open(file, 'w', buffering=1) for file in outputs_explanations]
@@ -506,111 +511,148 @@ def main(args):
                 info(f'skipped ({INVALID_EXPLANATION})')
                 continue
 
-            sample = dataset.get_sample(idx) if dataset else None
+            # A non-convex explanation is skipped as invalid: the error happens before anything of the sample
+            # is written or saved
+            try:
+                sample = dataset.get_sample(idx) if dataset else None
 
-            # The titles of the steps of the sample: the kinds of norm, or the extractions of more explanations files
-            steps = []
-            if extraction and not use_samples_only:
-                if not multiple:
-                    steps = extraction_config.kinds if extraction[0] == 'norm' else []
-                elif pixel_visualization:
-                    steps = [t for titles, is_invalid in zip(point_titles, invalid) if not is_invalid for t in titles]
-                else:
-                    steps = [label for label, is_invalid in zip(labels, invalid) if not is_invalid]
-
-            def report_step(title):
-                # Only if there are more steps
-                if len(steps) > 1:
-                    info(f'{title} ... ', end='', flush=True)
-
-            # An extracted point or the sample, a segment, otherwise the constraints of an explanation
-            point = None
-            segment = None
-            if extraction and not multiple and not use_samples_only:
-                result = extraction_module.interpret(explanations[idx], extraction_config, sample)
-                if extraction[0] == 'norm':
-                    # The points of the kinds, a single one for mathexpr, each written as soon as it is computed
-                    points = []
-                    for i, p in enumerate(with_progress(result, steps, report_step)):
-                        points.append(p)
-                        # No outputs when only visualizing
-                        if outs:
-                            outs[i].write(formula.from_point(p) + '\n')
-                    point = points[0]
-                elif extraction[0] == 'slice':
-                    # The features outside of the slice are fixed to the sample
-                    A, B = formula.fix(*result, extraction_module.fixed_values(extraction_config, sample))
-                    for out in outs:
-                        out.write(formula.from_constraints(A, B) + '\n')
-                else:
-                    segment = result
-                    A, B = formula.segment_constraints(*segment)
-                    for out in outs:
-                        out.write(formula.from_constraints(A, B) + '\n')
-            elif use_samples_only:
-                point = sample
-            elif mathexpr_visualization:
-                A, B = formula.parse(explanations[idx], dataset.n_features(), sample, network)
-
-            # print(f'{idx}: norm {np.linalg.norm(point):.6g}')
-
-            if pixel_visualization:
-                # The points of the explanations, the invalid ones are empty
-                panels = []
-                for titles, exps, is_invalid in zip(point_titles, explanations_list, invalid):
-                    if is_invalid:
-                        panels += [(f'{title} ({INVALID_EXPLANATION})', None) for title in titles]
-                        continue
-                    if extraction and multiple:
-                        file_points = list(with_progress(
-                            extraction_module.interpret(exps[idx], extraction_config, sample), titles, report_step))
-                    elif extraction:
-                        file_points = points
+                # The titles of the steps of the sample: the kinds of norm, or the extractions of more explanations files
+                steps = []
+                if extraction and not use_samples_only:
+                    if not multiple:
+                        steps = extraction_config.kinds if extraction[0] == 'norm' else []
+                    elif pixel_visualization:
+                        steps = [t for titles, is_invalid in zip(point_titles, invalid) if not is_invalid for t in titles]
                     else:
-                        file_points = [formula.to_point(exps[idx], dataset.n_features(), sample, network)]
-                    panels += zip(titles, file_points)
-                # The sample first, or in between the points
-                if not opts.exclude_samples:
-                    panels.insert(len(panels) // 2 if visualization_config.center else 0, (f'sample {idx}', sample))
-                pixel.save(panels, output_file(output_visualization, idx), show=opts.show)
-            elif fspace_visualization:
-                from . import region2d
-                from . import slice as slice_
-                # The label, the vertices of the slice of the explanation, the diameter, and whether it is invalid
-                series = []
-                for label, exps, is_invalid in zip(labels, explanations_list, invalid):
-                    if is_invalid:
-                        series.append((label, None, None, True))
-                        continue
-                    if extraction:
-                        report_step(label)
-                    A2, B2 = slice_.interpret(exps[idx], visualization_config, sample)
-                    vertices = region2d.vertices(A2[:, visualization_config.var_indices], B2)
-                    diameter = None
-                    if extraction and extraction[0] == 'diam':
-                        diameter = segment if not multiple else extraction_module.interpret(
-                            exps[idx], extraction_config, sample)
-                    series.append((label, vertices, diameter, False))
-                fspace.save(series, sample, visualization_config, output_file(output_visualization, idx),
-                            title=fspace.caption(idx, dataset.labels[idx - 1], sample, visualization_config),
-                            show=opts.show)
-            elif mathexpr_visualization:
-                if point is not None:
-                    expr = mathexpr.expression(point, point, visualization_config)
-                elif visualization_config.param:
-                    if segment is None:
-                        segment = mathexpr.segment_endpoints(A, B)
-                    expr = mathexpr.parametric_expression(*segment, visualization_config)
-                else:
-                    expr = mathexpr.explicit_expression(A, B, visualization_config)
-                mathexpr.save(expr, output_file(output_visualization, idx), show=opts.show)
+                        steps = [label for label, is_invalid in zip(labels, invalid) if not is_invalid]
 
-            invalid_labels = [label for label, is_invalid in zip(labels, invalid) if is_invalid]
-            info(f'done ({INVALID_EXPLANATION}: {", ".join(invalid_labels)})' if invalid_labels else 'done')
+                def report_step(title):
+                    # Only if there are more steps
+                    if len(steps) > 1:
+                        info(f'{title} ... ', end='', flush=True)
+
+                # An extracted point or the sample, a segment, otherwise the constraints of an explanation
+                point = None
+                segment = None
+                if extraction and not multiple and not use_samples_only:
+                    result = extraction_module.interpret(explanations[idx], extraction_config, sample)
+                    if extraction[0] == 'norm':
+                        # The points of the kinds, a single one for mathexpr, each written as soon as it is computed
+                        points = []
+                        for i, p in enumerate(with_progress(result, steps, report_step)):
+                            points.append(p)
+                            # No outputs when only visualizing
+                            if outs:
+                                outs[i].write(formula.from_point(p) + '\n')
+                        point = points[0]
+                    elif extraction[0] == 'slice':
+                        # The features outside of the slice are fixed to the sample
+                        A, B = formula.fix(*result, extraction_module.fixed_values(extraction_config, sample))
+                        for out in outs:
+                            out.write(formula.from_constraints(A, B) + '\n')
+                    else:
+                        segment = result
+                        A, B = formula.segment_constraints(*segment)
+                        for out in outs:
+                            out.write(formula.from_constraints(A, B) + '\n')
+                elif use_samples_only:
+                    point = sample
+                elif mathexpr_visualization:
+                    A, B = formula.parse(explanations[idx], dataset.n_features(), sample, network)
+
+                # print(f'{idx}: norm {np.linalg.norm(point):.6g}')
+
+                if pixel_visualization:
+                    # The points of the explanations, the invalid ones are empty
+                    panels = []
+                    for i, (titles, exps, is_invalid) in enumerate(zip(point_titles, explanations_list, invalid)):
+                        if is_invalid:
+                            panels += [(f'{title} ({INVALID_EXPLANATION})', None) for title in titles]
+                            continue
+                        if extraction and multiple:
+                            try:
+                                file_points = list(with_progress(
+                                    extraction_module.interpret(exps[idx], extraction_config, sample), titles,
+                                    report_step))
+                            except formula.NonConvexError as e:
+                                # Skipped as invalid
+                                warn(f'sample {idx}: {labels[i]}: {e}')
+                                n_nonconvex += 1
+                                invalid[i] = True
+                                panels += [(f'{title} ({INVALID_EXPLANATION})', None) for title in titles]
+                                continue
+                        elif extraction:
+                            file_points = points
+                        else:
+                            file_points = [formula.to_point(exps[idx], dataset.n_features(), sample, network)]
+                        panels += zip(titles, file_points)
+                    if all(invalid):
+                        raise _NoValidExplanation
+                    # The sample first, or in between the points
+                    if not opts.exclude_samples:
+                        panels.insert(len(panels) // 2 if visualization_config.center else 0, (f'sample {idx}', sample))
+                    pixel.save(panels, output_file(output_visualization, idx), show=opts.show)
+                elif fspace_visualization:
+                    from . import region2d
+                    from . import slice as slice_
+                    # The label, the vertices of the slice of the explanation, the diameter, and whether it is invalid
+                    series = []
+                    for i, (label, exps, is_invalid) in enumerate(zip(labels, explanations_list, invalid)):
+                        if is_invalid:
+                            series.append((label, None, None, True))
+                            continue
+                        if extraction:
+                            report_step(label)
+                        try:
+                            A2, B2 = slice_.interpret(exps[idx], visualization_config, sample)
+                            vertices = region2d.vertices(A2[:, visualization_config.var_indices], B2)
+                            diameter = None
+                            if extraction and extraction[0] == 'diam':
+                                diameter = segment if not multiple else extraction_module.interpret(
+                                    exps[idx], extraction_config, sample)
+                        except formula.NonConvexError as e:
+                            # A single explanation is skipped with the whole sample
+                            if not multiple:
+                                raise
+                            # Skipped as invalid
+                            warn(f'sample {idx}: {label}: {e}')
+                            n_nonconvex += 1
+                            invalid[i] = True
+                            series.append((label, None, None, True))
+                            continue
+                        series.append((label, vertices, diameter, False))
+                    if all(invalid):
+                        raise _NoValidExplanation
+                    fspace.save(series, sample, visualization_config, output_file(output_visualization, idx),
+                                title=fspace.caption(idx, dataset.labels[idx - 1], sample, visualization_config),
+                                show=opts.show)
+                elif mathexpr_visualization:
+                    if point is not None:
+                        expr = mathexpr.expression(point, point, visualization_config)
+                    elif visualization_config.param:
+                        if segment is None:
+                            segment = mathexpr.segment_endpoints(A, B)
+                        expr = mathexpr.parametric_expression(*segment, visualization_config)
+                    else:
+                        expr = mathexpr.explicit_expression(A, B, visualization_config)
+                    mathexpr.save(expr, output_file(output_visualization, idx), show=opts.show)
+
+                invalid_labels = [label for label, is_invalid in zip(labels, invalid) if is_invalid]
+                info(f'done ({INVALID_EXPLANATION}: {", ".join(invalid_labels)})' if invalid_labels else 'done')
+            except formula.NonConvexError as e:
+                for out in outs:
+                    out.write(INVALID_EXPLANATION + '\n')
+                info('skipped (not convex)', flush=True)
+                warn(f'sample {idx}: {e}')
+                n_nonconvex += 1
+            except _NoValidExplanation:
+                info('skipped (none convex or valid)', flush=True)
     finally:
         for out in outs:
             out.close()
 
+    if n_nonconvex:
+        warn(f'Skipped {n_nonconvex} non-convex explanations')
     info('\nDone.')
 
     return 0
