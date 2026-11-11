@@ -8,7 +8,7 @@ option(ENABLE_MARABOU "Enable Marabou verifier" OFF)
 include(FetchContent)
 
 # Git revisions (branches, tags or commits) of the dependencies
-set(OPENSMT_GIT_TAG origin/spexplain CACHE STRING "Git revision of OpenSMT")
+set(OPENSMT_GIT_TAG c868bff3a2bc6c887b02f276b7374813b15e154b CACHE STRING "Git revision of OpenSMT")
 set(MARABOU_GIT_TAG origin/spexplain CACHE STRING "Git revision of Marabou")
 
 # A shallow clone is not possible with a commit

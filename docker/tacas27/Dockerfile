@@ -91,7 +91,7 @@ RUN \
     git clone https://github.com/usi-verification-and-security/$PROJECT.git --branch $SPEXPLAIN_GIT_TAG --depth 1
 WORKDIR $HOME/$PROJECT
 # The Git revisions (branches, tags or commits) of the dependencies
-ARG OPENSMT_GIT_TAG=195762e8eeb3c5d611fa0aa01a9217e766f2cf5a
+ARG OPENSMT_GIT_TAG=c868bff3a2bc6c887b02f276b7374813b15e154b
 ARG MARABOU_GIT_TAG=4dc5e53e5bec22a15b4cfe6b558c02bd15ee14a9
 RUN \
     export CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) && \
