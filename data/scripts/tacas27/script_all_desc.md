@@ -363,8 +363,10 @@ relax the sample: `relaxed_features.py` on the explanations of `run-verix-plus` 
   explanations (floating point, an outer width below 1e-6 counts as fixed; the syntactic equalities are exact).
   The others are counted (the columns `Convex`, `Non-convex` in the CSV, `Conv.` in the LaTeX table): disjunctions such as `(not (and ...))`, `ite` (e.g. the inlined unfixed neurons of
   fix-all-no-vars), and the explanations with neuron variables `l<k>_n<j>` that do not fix them.
-- The neuron variables (fix-all and hybrid of the deeper models) need the model (`--model`, NNet only): an
-  explanation is convex if it implies the activation condition of the sample for every neuron that it depends on
+- The neuron variables (fix-all and hybrid of the deeper models) that the explanation defines, by equalities
+  `(= l<k>_n<j> ...)` or by the constraints annotated with `(! ... :neuron l<k>_n<j>)`, are eliminated; the others
+  (all of them in the current explanations) need the model (`--model`, NNet only), otherwise they are their ReLUs,
+  i.e. not convex: an explanation is convex if it implies the activation condition of the sample for every neuron that it depends on
   (as the engine adds for the fixed ones), layer by layer; the neurons are then substituted numerically as the
   linear functions of the inputs that they are (without the blow-up of inlining their terms). `spexplain interpret`
   does the same with `--model` (`interpret/neurons.py`), and fails on the non-convex explanations.

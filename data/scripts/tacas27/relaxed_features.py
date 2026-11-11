@@ -12,8 +12,8 @@
 ##
 ## Only of the convex explanations, i.e. the conjunctions of linear constraints over the inputs: the others
 ## (disjunctions, ite, ...) are only counted. The neuron variables l<k>_n<j> (the activation of the neuron j of
-## the hidden layer k) need the model: the explanation is convex if it implies the activation condition (in the
-## sample) of each neuron that it depends on (as for the neurons fixed by the engine), and then the neurons are
+## the hidden layer k) that the explanation defines (by equalities) are eliminated; the others need the model: the
+## explanation is convex if it implies the activation condition (in the sample) of each neuron that it depends on (as for the neurons fixed by the engine), and then the neurons are
 ## substituted as the linear functions of the inputs that they are; otherwise it is not convex (e.g. with unfixed
 ## neurons). The explanations are parsed as by spexplain interpret (formula.parse, see interpret/neurons.py).
 ##
@@ -33,7 +33,8 @@
 ##                   the interval ones always)
 ## Prints a line per explanation: <relaxed features> <features> <Linf diameter> <mean inner width>
 ## <mean outer width> <kind>,
-## the kind is convex, nonconvex, nomodel (with neuron variables, but without the model), or timeout ('<null>');
+## the kind is convex, nonconvex, nomodel (with neuron variables that it does not define, but without the model),
+## or timeout ('<null>');
 ## the numbers are '-' if not computed
 
 import sys
@@ -165,10 +166,11 @@ def analyze(explanation, sample, network, with_outer):
         raise RuntimeError('the sample is outside the domains [0,1]')
     try:
         A, B = formula.parse(explanation, n_vars, sample, network)
-    except NonConvexError:
-        return 'nonconvex', None, None, None, None
+    # A missing model is also not convex (the undefined neuron variables are their ReLUs), only reported apart
     except MissingModelError:
         return 'nomodel', None, None, None, None
+    except NonConvexError:
+        return 'nonconvex', None, None, None, None
 
     # The interval explanations (also with the equalities of the fixed features) directly
     if formula.is_interval(A):
