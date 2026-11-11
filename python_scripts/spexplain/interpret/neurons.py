@@ -2,7 +2,8 @@
 # as in the engine): an explanation that fixes all the neurons that it depends on (implies their activation
 # conditions in the sample, as the engine adds them for the fixed neurons) is convex, and its neuron variables are
 # the linear functions of the inputs of the activation pattern of the sample; they are substituted numerically,
-# layer by layer (without the blow-up of inlining the terms)
+# layer by layer (without the blow-up of inlining the terms); only of the neuron variables that the explanation does
+# not define (see formula.parse)
 
 import numpy as np
 import scipy.optimize

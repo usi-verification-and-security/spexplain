@@ -31,8 +31,9 @@ class NonConvexError(Error):
     or with a neuron variable that it does not fix."""
 
 
-class MissingModelError(Error):
-    """The explanation has neuron variables, which need the model."""
+class MissingModelError(NonConvexError):
+    """The explanation has neuron variables that it does not define: without the model, they are their ReLUs,
+    so it is not convex."""
 
 
 _NEURON_VAR = re.compile(r'l(\d+)_n(\d+)')
@@ -62,6 +63,51 @@ def _check_convex(tree):
         raise NonConvexError(f'The explanation is not convex: {op}')
 
 
+def _strip_annotations(tree, marked):
+    """The tree without the annotations (! <term> <attribute>...); collects the neuron variables of the attributes
+    :neuron <var> into marked."""
+    if not isinstance(tree, list):
+        return tree
+    if tree and tree[0] == '!':
+        if len(tree) < 2:
+            raise Error(f'Invalid annotation: {tree}')
+        attrs = tree[2:]
+        for key, value in zip(attrs, attrs[1:]):
+            if key == ':neuron' and isinstance(value, str):
+                marked.add(value)
+        return _strip_annotations(tree[1], marked)
+    return [_strip_annotations(t, marked) for t in tree]
+
+
+def _defined_by_equality(tree, acc):
+    """The neuron variables v of the conjuncts (= v <term>) or (= <term> v)."""
+    if tree[0] == 'and':
+        for arg in tree[1:]:
+            _defined_by_equality(arg, acc)
+    elif tree[0] == '=':
+        acc.update(v for v in tree[1:] if isinstance(v, str) and neuron_var(v))
+    return acc
+
+
+def _eliminate(A, B, columns, names):
+    """Eliminate the variables of the columns by the equalities (pairs of opposite rows) of A z <= B."""
+    for col in columns:
+        pairs = [(i, j) for i, j in equalities(A, B).items() if A[i, col] != 0]
+        if not pairs:
+            raise Error(f'The neuron variable {names[col]} is defined only by inequalities: not supported yet')
+        i, j = max(pairs, key=lambda ij: abs(A[ij[0], col]))
+        row, b = A[i].copy(), B[i]
+        factors = A[:, col] / row[col]
+        A -= np.outer(factors, row)
+        B -= factors * b
+        A[:, col] = 0
+    # The constraints without variables left
+    constant = ~A.any(axis=1)
+    if np.any(B[constant] < -1e-9 * np.maximum(1, np.abs(B[constant]))):
+        raise Error('The explanation is empty after the elimination of the neuron variables')
+    return A[~constant], B[~constant]
+
+
 def _symbols(tree, acc):
     if isinstance(tree, list):
         for t in tree[1:]:
@@ -84,13 +130,19 @@ def neuron_var_name(layer, node):
 def parse(explanation, n_vars, sample=None, network=None):
     """Parse the explanation into constraints A x <= B.
 
-    It has to be convex (NonConvexError). Its neuron variables, if any, need the network
-    (neurons.Network, otherwise MissingModelError) and the sample: they are substituted (see neurons.py).
+    It has to be convex (NonConvexError). Its neuron variables l<k>_n<j>, if any:
+    - those that it defines, by an equality (= l<k>_n<j> <term>) or by the constraints annotated with
+      (! <constraint> :neuron l<k>_n<j>), are eliminated by their equalities (only by inequalities is not supported
+      yet), without the model;
+    - the others are the ReLUs of the model: without the network (neurons.Network) and the sample, they make the
+      explanation not convex (MissingModelError); with them, it is convex if it implies their activations in the
+      sample (up to the rounding), and they are substituted (see neurons.py).
     """
     tree = parse_smt2.parse(explanation)
     if len(tree) != 1:
         raise Error(f'Invalid explanation: {explanation[:100]}')
-    tree = tree[0]
+    marked = set()
+    tree = _strip_annotations(tree[0], marked)
     _check_convex(tree)
 
     variables = make_variables(n_vars)
@@ -104,10 +156,14 @@ def parse(explanation, n_vars, sample=None, network=None):
             raise Error(f'Unknown variable in the explanation: {var}')
         neurons.add(kj)
     neurons = sorted(neurons)
-    if neurons:
-        if network is None or sample is None:
-            raise MissingModelError('The explanation has neuron variables: it needs the model (--model)')
-        variables += [neuron_var_name(*kj) for kj in neurons]
+    defined = {neuron_var(v) for v in marked | _defined_by_equality(tree, set()) if neuron_var(v)}
+    undefined = [kj for kj in neurons if kj not in defined]
+    if undefined and (network is None or sample is None):
+        names = ' '.join(neuron_var_name(*kj) for kj in undefined[:5]) + (' ...' if len(undefined) > 5 else '')
+        raise MissingModelError(f'The explanation is not convex: it does not define the neuron variables {names}, '
+                                'which are thus their ReLUs (with the model, --model, it can be convex if it '
+                                'implies their activations)')
+    variables += [neuron_var_name(*kj) for kj in neurons]
 
     try:
         parsed_ineq = parse_smt2.interpret([tree], variables)
@@ -117,9 +173,14 @@ def parse(explanation, n_vars, sample=None, network=None):
         raise NonConvexError(f'The explanation is not convex: {msg if len(msg) <= 200 else msg[:200] + " ..."}')
     A, B = -parsed_ineq[:, :-1], parsed_ineq[:, -1]
     if neurons:
+        column = {kj: n_vars + i for i, kj in enumerate(neurons)}
+        A, B = _eliminate(A.astype(float), B.astype(float), [column[kj] for kj in neurons if kj in defined],
+                          variables)
+        A = A[:, list(range(n_vars)) + [column[kj] for kj in undefined]]
+    if undefined:
         # Only then needs scipy
         from . import neurons as neurons_
-        A, B = neurons_.substitute(A, B, n_vars, neurons, network, sample)
+        A, B = neurons_.substitute(A, B, n_vars, undefined, network, sample)
     return A, B
 
 

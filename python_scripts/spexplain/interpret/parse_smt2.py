@@ -109,7 +109,8 @@ def _make_parser():
     LP = pp.Literal("(").suppress()
     RP = pp.Literal(")").suppress()
 
-    chars = pp.alphanums + '_<>=.+-*/' 
+    # Also the annotations (! <term> :<keyword> [<value>]...), see formula.parse
+    chars = pp.alphanums + '_<>=.+-*/!:' 
     String = pp.Word(chars)
 
     SExpr = pp.Forward()

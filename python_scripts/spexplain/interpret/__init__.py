@@ -208,7 +208,8 @@ def make_parser():
                              'optionally Var, Feature), only for the outputs of fspace and mathexpr')
     parser.add_argument('--model', metavar='<nn_model_fn>',
                         help='the classifier in the NNet format, for the decision regions of fspace, '
-                             'and for the explanations with neuron variables')
+                             'and for the explanations with neuron variables that they do not define '
+                             '(otherwise they are their ReLUs, not convex)')
     #+ extend or replace by a CSV file with the classes, as for --visualization-domains
     parser.add_argument('--class-labels', metavar='<label>[,<label>]...',
                         help="labels of all the classes (default: from the header of the dataset separated by '|', "
