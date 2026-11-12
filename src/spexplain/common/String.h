@@ -4,7 +4,11 @@
 #include "Print.h"
 
 #include <algorithm>
+#include <array>
+#include <cassert>
 #include <cctype>
+#include <charconv>
+#include <cmath>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -55,6 +59,17 @@ constexpr std::string_view rtrim(std::string_view sv) {
 
 constexpr std::string_view trim(std::string_view sv) {
     return rtrim(ltrim(sv));
+}
+
+// The shortest decimal (in fixed notation) that converts back to the same value, i.e. exactly the decimals of the input
+// files (e.g. the network and the dataset), as long as they have at most 17 significant digits
+inline std::string floatToDecimalString(Float value) {
+    assert(std::isfinite(value));
+    // On the stack; enough for the fixed notation of any double (at most 327 characters, the smallest subnormal)
+    std::array<char, 330> str;
+    auto const [end, ec] = std::to_chars(str.data(), str.data() + str.size(), value, std::chars_format::fixed);
+    assert(ec == std::errc{});
+    return std::string(str.data(), end);
 }
 } // namespace spexplain
 

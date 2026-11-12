@@ -6,6 +6,7 @@
 #include <logics/LogicFactory.h>
 
 #include <spexplain/common/Macro.h>
+#include <spexplain/common/String.h>
 #include <spexplain/framework/explanation/ConjunctExplanation.h>
 #include <spexplain/framework/explanation/opensmt/FormulaExplanation.h>
 
@@ -270,10 +271,9 @@ void OpenSMTVerifier::printSmtLib2Query(std::ostream & os) const {
  */
 
 namespace { // Helper methods
-    //+ convert exactly: std::to_string rounds to 6 decimals, which also applies to the samples and to the weights,
-    // biases and bounds of the network, e.g. tight explanations may then not contain the original sample
+    // Exactly the decimals of the input files, cf. floatToDecimalString
     FastRational floatToRational(Float value) {
-        auto s = std::to_string(value);
+        auto s = spexplain::floatToDecimalString(value);
         char * rationalString;
         opensmt::stringToRational(rationalString, s.c_str());
         auto res = FastRational(rationalString);
