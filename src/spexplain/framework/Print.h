@@ -49,7 +49,12 @@ protected:
     Print(Print const &) = delete;
     Print & operator=(Print const &) = delete;
 
+    // The sink is always used as std::ostream &, so the ostream itself must ignore the writes: without a stream buffer,
+    // badbit is set and nothing is written (the default constructor of std::ostream is non-standard,
+    // e.g. in libc++ it does not initialize the stream)
     struct Absorb : std::ostream {
+        Absorb() : std::ostream{nullptr} {}
+
         std::ostream & operator<<(auto const &) { return *this; }
     };
 
