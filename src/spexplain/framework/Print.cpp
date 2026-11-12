@@ -8,6 +8,8 @@ namespace spexplain {
 Framework::Print::Print(Framework const & fw) : framework{fw} {
     auto const & conf = framework.getConfig();
 
+    // Even if quiet
+    warnOsPtr = &std::cerr;
     if (not conf.isQuiet()) { infoOsPtr = &std::cout; }
 
     if (ignoringExplanations()) {

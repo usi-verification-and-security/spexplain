@@ -18,11 +18,16 @@ public:
     void setStatsFileName(std::string_view fileName);
     void setTimesFileName(std::string_view fileName);
 
+    bool ignoringWarn() const { return ignoring(warnOsPtr); }
     bool ignoringInfo() const { return ignoring(infoOsPtr); }
     bool ignoringExplanations() const { return ignoring(explanationsOsPtr); }
     bool ignoringStats() const { return ignoring(statsOsPtr); }
     bool ignoringTimes() const { return ignoring(timesOsPtr); }
 
+    std::ostream & warn() const {
+        assert(warnOsPtr);
+        return *warnOsPtr;
+    }
     std::ostream & info() const {
         assert(infoOsPtr);
         return *infoOsPtr;
@@ -61,6 +66,7 @@ protected:
 
     static inline Absorb absorb{};
 
+    std::ostream * warnOsPtr{&absorb};
     std::ostream * infoOsPtr{&absorb};
     std::ostream * explanationsOsPtr{&absorb};
     std::ostream * statsOsPtr{&absorb};

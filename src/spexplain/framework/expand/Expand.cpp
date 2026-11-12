@@ -101,6 +101,7 @@ void Framework::Expand::setVerifier(std::unique_ptr<xai::verifiers::Verifier> vf
 Network::Dataset::SampleIndices Framework::Expand::makeSampleIndices(Network::Dataset const & data) const {
     auto indices = getSampleIndices(data);
     assert(indices.size() <= data.size());
+    std::size_t const filteredSize = indices.size();
 
     auto const & config = framework.getConfig();
 
@@ -121,6 +122,15 @@ Network::Dataset::SampleIndices Framework::Expand::makeSampleIndices(Network::Da
         auto const maxSamples = config.getMaxSamples();
         assert(maxSamples > 0);
         if (maxSamples < indices.size()) { indices.resize(maxSamples); }
+    }
+
+    // Shuffling only selects the samples, they are processed in the order of the dataset
+    if (config.shufflingSamples()) {
+        if (indices.size() == filteredSize) {
+            auto & cwarn = framework.getPrint().warn();
+            cwarn << "Warning: shuffling the samples has no effect: no samples are left out by -i or -n\n";
+        }
+        std::ranges::sort(indices);
     }
 
     return indices;
@@ -245,13 +255,28 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
     preprocessGroundModel(data);
     assertGroundModel();
 
-    //+ the explanations of the samples that are not processed (e.g. due to -i, -n or filtering) should be printed as
-    // invalidExplanationString instead of being skipped entirely, s.t. the explanations match the dataset
-    // (otherwise, e.g. `spexplain interpret` fails on the mismatch with the dataset);
-    // check that the scripts in data/scripts do not break after this change, in particular the statistics
-    // must distinguish such skipped samples from timeouts (e.g. if they treat every invalid explanation as a timeout)
+    std::size_t const size = data.size();
+    char const delim = config.getPrintingIntervalExplanationsDelim();
+
+    // The explanations and the runtimes match the dataset (otherwise, e.g. `spexplain interpret` fails on the mismatch
+    // with the dataset): the samples that are not processed (e.g. due to -i, -n or filtering) are printed as
+    // invalidExplanationString and skippedString, respectively, and are omitted in the statistics;
+    // prints the skipped samples before the sample idx, which is to be processed next (or is the end)
+    auto printSkippedBefore = [&, nextIdx = Sample::Idx{0}](Sample::Idx idx) mutable {
+        assert(idx >= nextIdx);
+        assert(idx <= size);
+        for (; nextIdx < idx; ++nextIdx) {
+            if (printingExplanations) { cexp << invalidExplanationString << delim << '\n'; }
+            if (printingTimes) { ctimes << skippedString << '\n'; }
+        }
+        ++nextIdx;
+    };
+
+    // Sorted, s.t. the outputs are in the order of the dataset
     Network::Dataset::SampleIndices const indices = makeSampleIndices(data);
     for (auto idx : indices) {
+        printSkippedBefore(idx);
+
         [[maybe_unused]]
         auto const start = startTimeF();
 
@@ -295,12 +320,9 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
             cinfo << "timeout";
             if (printingStats) {
                 printStatsHeadOf(data, idx);
-                cstats << "<timeout>\n";
+                cstats << timeoutString << '\n';
             }
-            if (printingExplanations) {
-                char const delim = config.getPrintingIntervalExplanationsDelim();
-                cexp << invalidExplanationString << delim << std::endl;
-            }
+            if (printingExplanations) { cexp << invalidExplanationString << delim << std::endl; }
         }
         cinfo << std::endl;
 
@@ -315,10 +337,14 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
             std::chrono::duration<double> const duration = finish - start;
             ctimes << std::setprecision(3) << duration.count();
         } else {
-            ctimes << invalidExplanationString;
+            ctimes << timeoutString;
         }
         ctimes << std::endl;
     }
+
+    printSkippedBefore(size);
+    if (printingExplanations) { cexp.flush(); }
+    if (printingTimes) { ctimes.flush(); }
 
     resetGroundModel();
 

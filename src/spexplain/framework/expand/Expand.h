@@ -37,6 +37,9 @@ public:
     using Strategies = std::vector<std::unique_ptr<Strategy>>;
 
     static constexpr char const * invalidExplanationString = "<null>";
+    // In the statistics and the runtimes of the samples
+    static constexpr char const * timeoutString = "<timeout>";
+    static constexpr char const * skippedString = "<skipped>";
 
     Expand(Framework &);
 

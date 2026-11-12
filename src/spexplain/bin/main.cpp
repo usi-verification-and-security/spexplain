@@ -162,7 +162,7 @@ void printUsage(char * const argv[], std::ostream & os = std::cout) {
     printUsageLongOptRow(os, "format", "smtlib2|intervals|bounds",
                          "Use one of the output explanation formats (default: smtlib2)");
     printUsageLongOptRow(os, "shuffle-samples");
-    printUsageOptRow(os, 'r', "", "Shuffle (randomize) samples");
+    printUsageOptRow(os, 'r', "", "Shuffle (randomize) the samples selected by -i or -n");
     printUsageLongOptRow(os, "max-samples");
     printUsageOptRow(os, 'n', "<int>", "Maximum no. samples to be processed");
     printUsageLongOptRow(os, "samples");
