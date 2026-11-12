@@ -559,9 +559,7 @@ per explanation, and with the perturbations epsilon 1, 0.05 and 0.005.
   datasets and timeouts.
 - `make_mode_datasets.py`: the mode datasets, the sample maps and their neuron activations
   (also of the CNN models).
-- `../run1.sh`: one FC job. It no longer passes `--quiet` by default, because `--quiet` segfaults
-  in some builds of the engine (`QUIET=1` turns it back on). So `.out.txt` holds a short
-  progress log; the explanations and stats are unchanged.
+- `../run1.sh`: one FC job (with `--quiet`).
 - `../cnn/run1.sh`: one CNN job, with the engine of `make onnx`.
 - `plot_fc_stats.py`, `plot_cnn_stats.py`, `ploting_utils.py`: the plots of `plot-performance`.
 - `plot_compare_with_verix_plus.py`: the comparison with VeriX+ (not run yet by `plot-performance`).
