@@ -7,6 +7,14 @@ of inequalities, and each row r = (r_1, ..., r_{N+1}) encodes an inequality: x_1
 import numpy as np
 import pyparsing as pp
 
+
+# A term that is not linear: with an if-then-else, or a product or a division of non-constant terms
+class NonLinearError(ValueError):
+    pass
+
+
+_LINEAR_OPS = ('+', '-', '*', '/')
+
 # Recursively interpret a list l of parsed linear terms in variables v, returns an array of shape (len(v) + 1), where 
 # the last element is the constant term, and the array encodes the linear combination in l, i.e.
 # r = _interpret_linear_term(l,v), then l is equivalent to sum_i r_i v_i, where the last element of v is the constant.
@@ -29,6 +37,11 @@ def _interpret_linear_term(l,v):
     else:
         assert type(l) is list, '%s is not a list' % str(l)
         assert len(l) >= 2
+        # Before the arguments, which e.g. of ite are not terms
+        if l[0] == 'ite':
+            raise NonLinearError('an if-then-else (ite) within a term, i.e. a case split (e.g. a ReLU)')
+        if l[0] not in _LINEAR_OPS:
+            raise ValueError('the operator %s within a term' % l[0])
         term1 = _interpret_linear_term(l[1],v)
         if len(l) == 3:
             term2 = _interpret_linear_term(l[2],v)
@@ -54,15 +67,19 @@ def _interpret_linear_term(l,v):
             elif _is_const(term2):
                 return term1 * term2[-1]
             else:
-                raise ValueError('%s is a nonlinear expression' % str(l))
+                raise NonLinearError('a non-linear product, of the terms in %s and in %s'
+                                     % (_term_vars(term1,v), _term_vars(term2,v)))
         elif l[0] == '/':
             # term2 should be a constant
             if _is_const(term2):
                 return term1 / term2[-1]
             else:
-                raise ValueError('%s is a nonlinear expression in division' % str(l))
-        else:
-            raise ValueError('Cannot interpret linear term %s' % str(l))
+                raise NonLinearError('a non-linear division, by a term in %s' % _term_vars(term2,v))
+
+# The variables of an interpreted term r (see _interpret_linear_term), for the messages
+def _term_vars(r,v,limit=5):
+    names = [v[i] for i in np.flatnonzero(r[:-1])]
+    return ' '.join(names[:limit]) + (' ...' if len(names) > limit else '')
 
 # Interpret a parsed inequality of the form ('<=',t1,t2), (not ('<=' ...)), ('=' ...), ('>=' ...). If ('and' ...) is encountered,
 # recurses into the tail of the expression.

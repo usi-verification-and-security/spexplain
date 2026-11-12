@@ -41,10 +41,15 @@ _ATOMS = ('<=', '>=', '=')
 _NUMBER = re.compile(r'[-+]?[0-9.]+')
 
 
+# The connectives that make an explanation not convex (in general)
+_NON_CONVEX = {'or': 'a disjunction (or)', 'ite': 'an if-then-else (ite), i.e. a case split', '=>':
+               'an implication (=>)', 'xor': 'a xor', 'distinct': 'a disequality (distinct)'}
+
+
 def _check_convex(tree):
     """Fail unless the parsed explanation is a conjunction of (negated) linear atoms."""
     if not isinstance(tree, list) or not tree:
-        raise NonConvexError(f'The explanation is not convex: not a constraint: {tree}')
+        raise Error(f'Invalid explanation: not a constraint: {tree}')
     op = tree[0]
     if op == 'and':
         for arg in tree[1:]:
@@ -57,10 +62,18 @@ def _check_convex(tree):
             pass
         elif arg[0] in ('and', 'not') and len(arg) == 2:
             _check_convex(['not', arg[1]] if arg[0] == 'and' else arg[1])
+        elif arg[0] == '=':
+            raise NonConvexError('The explanation is not convex: it has a disequality (negated =)')
+        elif arg[0] == 'and':
+            raise NonConvexError('The explanation is not convex: it has a negated conjunction, i.e. a disjunction')
+        elif arg[0] in _NON_CONVEX or arg[0] == 'not':
+            raise NonConvexError(f'The explanation is not convex: it has a negated {arg[0]}')
         else:
-            raise NonConvexError(f'The explanation is not convex: negated {arg[0]}')
+            raise Error(f'Unsupported explanation: it has a negated {arg[0]}')
+    elif op in _NON_CONVEX:
+        raise NonConvexError(f'The explanation is not convex: it has {_NON_CONVEX[op]}')
     else:
-        raise NonConvexError(f'The explanation is not convex: {op}')
+        raise Error(f'Unsupported explanation: it has the operator {op}')
 
 
 def _strip_annotations(tree, marked):
@@ -167,10 +180,10 @@ def parse(explanation, n_vars, sample=None, network=None):
 
     try:
         parsed_ineq = parse_smt2.interpret([tree], variables)
+    except parse_smt2.NonLinearError as e:
+        raise NonConvexError(f'The explanation is not convex: it has {e}')
     except ValueError as e:
-        # E.g. a non-linear term, or ite
-        msg = str(e)
-        raise NonConvexError(f'The explanation is not convex: {msg if len(msg) <= 200 else msg[:200] + " ..."}')
+        raise Error(f'Unsupported explanation: it has {e}')
     A, B = -parsed_ineq[:, :-1], parsed_ineq[:, -1]
     if neurons:
         column = {kj: n_vars + i for i, kj in enumerate(neurons)}
