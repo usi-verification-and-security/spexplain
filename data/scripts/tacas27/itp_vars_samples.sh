@@ -160,9 +160,10 @@ for idx in $MODEL_IDXS; do
                     >"$f.out.txt" 2>"$f.err.txt" ; } 2>"$f.time.txt"
                 code=$?
 
-                if (( code == 0 )) && [[ $(wc -l <"$f.phi.txt" | tr -d ' ') == 1 ]] && grep -q '^sample \[' "$f.stats.txt"; then
-                    cat "$f.phi.txt" >>"$tmp/phi"
-                    cat "$f.times.txt" >>"$tmp/times"
+                ## The engine writes all the samples (the others as skipped): take only sample k
+                if (( code == 0 )) && [[ $(wc -l <"$f.phi.txt" | tr -d ' ') == $n_samples ]] && grep -q '^sample \[' "$f.stats.txt"; then
+                    sed -n "${k}p" "$f.phi.txt" >>"$tmp/phi"
+                    sed -n "${k}p" "$f.times.txt" >>"$tmp/times"
                     awk 'p { print } /^-+$/ { p = 1 }' "$f.stats.txt" >>"$tmp/stats"
                     if grep -q '^<timeout>' "$f.stats.txt"; then
                         (( ++n_timeout ))

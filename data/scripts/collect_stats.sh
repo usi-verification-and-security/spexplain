@@ -302,7 +302,8 @@ for vidx in ${!VARIANTS[@]}; do
             perc_completed=$(sed -n 's/^.*#completed: \([^%]*\)%.*$/\1/p' <<<"$stats")
             nchecks=$(sed -n 's/^.*#checks: \(.*\)$/\1/p' <<<"$stats")
 
-            n_timeouts=$(grep -c '<null>' <"$times_file")
+            ## '<null>' in the times of older engines; the skipped samples ('<skipped>') are not counted
+            n_timeouts=$(grep -c -e '<timeout>' -e '<null>' <"$times_file")
             [[ $n_timeouts == $n_timeouts_stats ]] || {
                 printf "%s: encountered inconsistency: stats.n_timeouts != n_timeouts(times): %s != %s\n" $experiment_stem "$n_timeouts_stats" "$n_timeouts" >&2
                 cleanup 3
@@ -346,7 +347,7 @@ for vidx in ${!VARIANTS[@]}; do
             fi
 
             if [[ -n $timeout_per ]]; then
-                avg_par2=$(awk 'BEGIN{ sum=0; cnt=0; } /^[0-9.]/{ sum+=$1; cnt++; } /<null>/{ sum+=2*'$timeout_per'; cnt++; } END{ printf("'"$FORMAT_avg_par2"'\n", sum/cnt) }' <"$times_file")
+                avg_par2=$(awk 'BEGIN{ sum=0; cnt=0; } /^[0-9.]/{ sum+=$1; cnt++; } /<timeout>|<null>/{ sum+=2*'$timeout_per'; cnt++; } END{ printf("'"$FORMAT_avg_par2"'\n", sum/cnt) }' <"$times_file")
             else
                 avg_par2=X
             fi

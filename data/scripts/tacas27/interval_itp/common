@@ -540,7 +540,7 @@ for dataset in $DATASETS; do
                 HARD_TIMEOUT_S=$(( timeout_s + HARD_MARGIN_S ))
                 opts=(--quiet --format=smtlib2 -V $VERIFIER --time-limit-per=$(( timeout_s*1000 )) "${var_opts[@]}" "${input_opts[@]}")
                 {
-                    declare -p CMD model dataset_fn strategies opts src_phi HARD_TIMEOUT_S TIMEOUT_BIN name
+                    declare -p CMD model dataset_fn n_samples strategies opts src_phi HARD_TIMEOUT_S TIMEOUT_BIN name
                 } >"$chunk_dir/job.env"
 
                 n_todo=0

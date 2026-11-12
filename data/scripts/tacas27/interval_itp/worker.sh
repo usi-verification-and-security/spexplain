@@ -43,7 +43,9 @@ for attempt in 1 2; do
 
     case $code in
         0)
-            if [[ $(wc -l <"$f.phi.txt" 2>/dev/null | tr -d ' ') == 1 ]] && grep -q '^sample \[' "$f.stats.txt" 2>/dev/null; then
+            if [[ $(wc -l <"$f.phi.txt" 2>/dev/null | tr -d ' ') == $n_samples ]] && grep -q '^sample \[' "$f.stats.txt" 2>/dev/null; then
+                ## The engine writes all the samples (the others as skipped): keep only sample k
+                sed -i -n "${k}p" "$f.phi.txt" "$f.times.txt"
                 status=ok
             else
                 status="error:incomplete-output"
