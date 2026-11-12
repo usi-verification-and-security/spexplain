@@ -317,11 +317,7 @@ The file contains one line for each sample point,
 with `<null>` for the sample points that are not processed.
 With more kinds of points of `norm` (e.g., `norm min, inv`), each kind is written into its own file
 with the kind added to the name, also of the file given by `-e` (e.g., `out_min.txt` and `out_inv.txt`).
-Explanations `<null>` (e.g., when `explain` reached the time limit) are skipped.
-
-Note that `explain` currently writes the explanations only of the processed sample points,
-so with its options `-i`, `-n`, or `--filter-samples`, the explanations do not match the dataset
-and `interpret` fails; use `explain` on the whole dataset instead.
+Explanations `<null>` (e.g., when `explain` reached the time limit or did not process the sample point) are skipped.
 The visualizations are written into files, one per sample point,
 named according to the option `--output-visualization <file>`
 (default: `timg.png` for `pixel` and `tphi.tex` for `mathexpr`)
@@ -580,9 +576,12 @@ alternatively, in the form of intervals (`-I`) or bounds (`-B`).
 A subset of the sample points can be selected with the option `-i`,
 either a single sample point `<idx>`, or a range `[<idx>]-[<idx2>]`
 (indexed from 1, the bounds default to the first and the last sample point, respectively).
-Note that only the explanations of the processed sample points are written (`<null>` when reaching the time limit),
-so with `-i`, `-n`, or `--filter-samples`, the explanations do not correspond to all sample points of the dataset
-(see `interpret`).
+The output files of the explanations and of the run times (`--output-times`) contain one line for each sample point
+of the dataset.
+A sample point that is not processed (due to `-i`, `-n`, or `--filter-samples`) has the explanation `<null>`
+and the run time `<skipped>`, and is left out of the statistics (`-s`).
+A sample point that reaches the time limit has the explanation `<null>`, and `<timeout>` in the run times and the statistics.
+With `-r`, the sample points selected by `-i` or `-n` are random, but they are still processed in the order of the dataset.
 
 ### Examples
 
