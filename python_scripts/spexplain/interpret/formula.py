@@ -93,7 +93,7 @@ def _strip_annotations(tree, marked):
 
 
 def _defined_by_equality(tree, acc):
-    """The neuron variables v of the conjuncts (= v <term>) or (= <term> v)."""
+    """The neuron variables v of the conjuncts (= v <term>) or (= <term> v) (the explicit definitions)."""
     if tree[0] == 'and':
         for arg in tree[1:]:
             _defined_by_equality(arg, acc)
@@ -102,12 +102,26 @@ def _defined_by_equality(tree, acc):
     return acc
 
 
-def _eliminate(A, B, columns, names):
-    """Eliminate the variables of the columns by the equalities (pairs of opposite rows) of A z <= B."""
+def _defines(row, col, layers):
+    """Whether the row defines the neuron variable of the column: it is the only one of the highest layer in the row
+    (the network is feedforward, so a neuron depends only on the inputs and on the neurons of the previous layers).
+    layers: of the columns, 0 for the inputs."""
+    if row[col] == 0:
+        return False
+    row_layers = layers[row != 0]
+    return np.count_nonzero(row_layers == layers[col]) == 1 and layers[col] == row_layers.max()
+
+
+def _eliminate(A, B, columns, names, layers):
+    """Eliminate the variables of the columns by their definitions: the equalities (pairs of opposite rows) of
+    A z <= B that define them (see _defines), not e.g. the definitions of the neurons of the next layers."""
     for col in columns:
-        pairs = [(i, j) for i, j in equalities(A, B).items() if A[i, col] != 0]
+        pairs = [(i, j) for i, j in equalities(A, B).items() if _defines(A[i], col, layers)]
+        # Future work: the definitions by inequalities (e.g. the over-approximations of the ReLU)
         if not pairs:
-            raise Error(f'The neuron variable {names[col]} is defined only by inequalities: not supported yet')
+            raise Error(f'The neuron variable {names[col]} is not defined by an equality (where it is the only '
+                        'neuron variable of the highest layer); the definitions by inequalities (e.g. '
+                        'over-approximations) are not supported yet')
         i, j = max(pairs, key=lambda ij: abs(A[ij[0], col]))
         row, b = A[i].copy(), B[i]
         factors = A[:, col] / row[col]
@@ -145,8 +159,9 @@ def parse(explanation, n_vars, sample=None, network=None):
 
     It has to be convex (NonConvexError). Its neuron variables l<k>_n<j>, if any:
     - those that it defines, by an equality (= l<k>_n<j> <term>) or by the constraints annotated with
-      (! <constraint> :neuron l<k>_n<j>), are eliminated by their equalities (only by inequalities is not supported
-      yet), without the model;
+      (! <constraint> :neuron l<k>_n<j>), or otherwise by an equality where it is the only neuron variable of the
+      highest layer (e.g. the definitions of the engine, normalized by OpenSMT), are eliminated by their equalities
+      (only by inequalities is not supported yet), without the model;
     - the others are the ReLUs of the model: without the network (neurons.Network) and the sample, they make the
       explanation not convex (MissingModelError); with them, it is convex if it implies their activations in the
       sample (up to the rounding), and they are substituted (see neurons.py).
@@ -169,13 +184,6 @@ def parse(explanation, n_vars, sample=None, network=None):
             raise Error(f'Unknown variable in the explanation: {var}')
         neurons.add(kj)
     neurons = sorted(neurons)
-    defined = {neuron_var(v) for v in marked | _defined_by_equality(tree, set()) if neuron_var(v)}
-    undefined = [kj for kj in neurons if kj not in defined]
-    if undefined and (network is None or sample is None):
-        names = ' '.join(neuron_var_name(*kj) for kj in undefined[:5]) + (' ...' if len(undefined) > 5 else '')
-        raise MissingModelError(f'The explanation is not convex: it does not define the neuron variables {names}, '
-                                'which are thus their ReLUs (with the model, --model, it can be convex if it '
-                                'implies their activations)')
     variables += [neuron_var_name(*kj) for kj in neurons]
 
     try:
@@ -184,11 +192,21 @@ def parse(explanation, n_vars, sample=None, network=None):
         raise NonConvexError(f'The explanation is not convex: it has {e}')
     except ValueError as e:
         raise Error(f'Unsupported explanation: it has {e}')
-    A, B = -parsed_ineq[:, :-1], parsed_ineq[:, -1]
+    A, B = -parsed_ineq[:, :-1].astype(float), parsed_ineq[:, -1].astype(float)
+
+    column = {kj: n_vars + i for i, kj in enumerate(neurons)}
+    layers = np.array([0] * n_vars + [k for k, _ in neurons])
+    defined = {neuron_var(v) for v in marked | _defined_by_equality(tree, set()) if neuron_var(v)}
+    # Otherwise by the equalities that define them
+    defined |= {kj for kj in neurons for i in equalities(A, B) if _defines(A[i], column[kj], layers)}
+    undefined = [kj for kj in neurons if kj not in defined]
+    if undefined and (network is None or sample is None):
+        names = ' '.join(neuron_var_name(*kj) for kj in undefined[:5]) + (' ...' if len(undefined) > 5 else '')
+        raise MissingModelError(f'The explanation is not convex: it does not define the neuron variables {names}, '
+                                'which are thus their ReLUs (with the model, --model, it can be convex if it '
+                                'implies their activations)')
     if neurons:
-        column = {kj: n_vars + i for i, kj in enumerate(neurons)}
-        A, B = _eliminate(A.astype(float), B.astype(float), [column[kj] for kj in neurons if kj in defined],
-                          variables)
+        A, B = _eliminate(A, B, [column[kj] for kj in neurons if kj in defined], variables, layers)
         A = A[:, list(range(n_vars)) + [column[kj] for kj in undefined]]
     if undefined:
         # Only then needs scipy
