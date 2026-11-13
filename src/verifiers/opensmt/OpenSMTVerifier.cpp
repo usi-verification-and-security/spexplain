@@ -508,15 +508,22 @@ PTRef OpenSMTVerifier::OpenSMTImpl::encodeNeuron(LayerIndex layer, NodeIndex nod
     if (auto optFixedActivation = verifier.getFixedNeuronActivation(layer, node)) {
         PTRef cond;
         PTRef neuronTerm;
+        PTRef def;
         if (*optFixedActivation) {
-            if (encodeNeuronVars) { addTerm(activeEqF(*logic, neuronVar, varInput)); }
+            if (encodeNeuronVars) { def = activeEqF(*logic, neuronVar, varInput); }
             cond = activeCondF(*logic, condInput, zero);
             assert(not storeNeuronTerms or condInput == termInput);
             neuronTerm = storeNeuronTerms ? termInput : PTRef_Undef;
         } else {
-            if (encodeNeuronVars) { addTerm(inactiveEqF(*logic, neuronVar, zero)); }
+            if (encodeNeuronVars) { def = inactiveEqF(*logic, neuronVar, zero); }
             cond = inactiveCondF(*logic, condInput, zero);
             neuronTerm = storeNeuronTerms ? zero : PTRef_Undef;
+        }
+        if (encodeNeuronVars) {
+            addTerm(def);
+            // The explanations may contain the neuron variables, so they also contain their definitions,
+            // s.t. they are linear constraints over the inputs on their own (without the network)
+            if (not storeNeuronTerms) { sampleModelRestrictions.push_back(def); }
         }
 
         // This can happen if there is a mismatch between float and real computation of the activation
