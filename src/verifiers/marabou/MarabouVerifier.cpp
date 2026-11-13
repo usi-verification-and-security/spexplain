@@ -90,6 +90,9 @@ void MarabouVerifier::assertSampleModel() {
     pimpl->assertSampleModel(getNetwork());
 }
 
+// Marabou does not support strict inequalities, so they are non-strict. This is conservative in the queries whether the
+// classification can flip (e.g. y < 0 as y <= 0): the result UNSAT then holds also with the strict inequality.
+// The explanations are still only up to the floating-point tolerances of Marabou.
 void MarabouVerifier::addUpperBoundImpl(LayerIndex layer, NodeIndex var, Float value, bool /*strict*/, bool /*explanationTerm*/) {
     pimpl->addUpperBound(layer, var, value);
 }
