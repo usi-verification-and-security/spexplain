@@ -135,6 +135,15 @@ def _eliminate(A, B, columns, names, layers):
     return A[~constant], B[~constant]
 
 
+def _normalize(A, B):
+    """Scale each row of A z <= B by its largest absolute coefficient (the rows without variables are kept).
+    The exact coefficients of the engine can span many orders of magnitude (e.g. due to the tiny weights of a model),
+    which the floating-point elimination and LPs (with absolute tolerances) do not handle otherwise."""
+    scale = np.abs(A).max(axis=1, initial=0)
+    scale[scale == 0] = 1
+    return A / scale[:, None], B / scale
+
+
 def _symbols(tree, acc):
     if isinstance(tree, list):
         for t in tree[1:]:
@@ -192,7 +201,7 @@ def parse(explanation, n_vars, sample=None, network=None):
         raise NonConvexError(f'The explanation is not convex: it has {e}')
     except ValueError as e:
         raise Error(f'Unsupported explanation: it has {e}')
-    A, B = -parsed_ineq[:, :-1].astype(float), parsed_ineq[:, -1].astype(float)
+    A, B = _normalize(-parsed_ineq[:, :-1].astype(float), parsed_ineq[:, -1].astype(float))
 
     column = {kj: n_vars + i for i, kj in enumerate(neurons)}
     layers = np.array([0] * n_vars + [k for k, _ in neurons])

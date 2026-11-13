@@ -12,7 +12,8 @@ from .. import Error
 from .formula import NonConvexError, neuron_var_name
 
 # Of the implication of the activation conditions, relative to the weights of the neuron (the coefficients of the
-# explanations are rationals with about 6-7 significant digits, so their rounding errors add up)
+# explanations are rounded to floats, or even to about 6-7 significant digits by older engines, so their rounding
+# errors add up)
 IMPLICATION_TOLERANCE = 1e-5
 
 
