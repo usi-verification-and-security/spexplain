@@ -581,6 +581,9 @@ of the dataset.
 A sample point that is not processed (due to `-i`, `-n`, or `--filter-samples`) has the explanation `<null>`
 and the run time `<skipped>`, and is left out of the statistics (`-s`).
 A sample point that reaches the time limit has the explanation `<null>`, and `<timeout>` in the run times and the statistics.
+An input explanation (`--input-explanations`) that is not an explanation (the classification can change within it)
+also results in the explanation `<null>`, with `<invalid>` in the run times and the statistics;
+their number is reported at the end.
 With `-r`, the sample points selected by `-i` or `-n` are random, but they are still processed in the order of the dataset.
 
 ### Examples
