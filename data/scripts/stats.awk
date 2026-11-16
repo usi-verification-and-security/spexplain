@@ -67,6 +67,11 @@ function assert(condition, string) {
    timeouts_cnt++
 }
 
+## Input explanations (-E) that are not explanations
+/<invalid>/ {
+   invalid_cnt++
+}
+
 /relVolume\*:/ {
    split($NF, nums, "%")
    sum_volume += nums[1]
@@ -94,7 +99,8 @@ END {
       }
 
       if (timeouts_cnt == "") timeouts_cnt = 0
-      completed_cnt = total_cnt - timeouts_cnt
+      if (invalid_cnt == "") invalid_cnt = 0
+      completed_cnt = total_cnt - timeouts_cnt - invalid_cnt
 
       if (cnt_volume > 0) {
          assert(completed_cnt == 0 || completed_cnt == cnt_volume, "completed_cnt == cnt_volume: " completed_cnt " == " cnt_volume)
@@ -108,6 +114,7 @@ END {
       print("Timeouts: " timeouts_cnt)
       # printf("avg #timeouts: %.1f%%\n", (timeouts_cnt/total_cnt)*100)
       printf("avg #completed: %.1f%%\n", (completed_cnt/total_cnt)*100)
+      printf("avg #invalid input explanations: %.1f%%\n", (invalid_cnt/total_cnt)*100)
       printf("avg #correct classifications (incl. timeouted): %.1f%%\n", (correct_cnt/total_cnt)*100)
    }
    if (div_sum_size > 0) {

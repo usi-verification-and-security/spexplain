@@ -309,7 +309,9 @@ for vidx in ${!VARIANTS[@]}; do
                 cleanup 3
             }
 
-            completed=$(( $size - $n_timeouts ))
+            ## The input explanations (-E) that are not explanations
+            n_invalid=$(grep -c -e '<invalid>' <"$times_file")
+            completed=$(( $size - $n_timeouts - $n_invalid ))
             if (( $completed > 0 )); then
                 perc_features=$(sed -n 's/^.*#any features: \([^%]*\)%.*$/\1/p' <<<"$stats")
                 perc_fixed_features=$(sed -n 's/^.*#fixed features: \([^%]*\)%.*$/\1/p' <<<"$stats")
