@@ -39,6 +39,10 @@ protected:
     xai::verifiers::Verifier & getVerifier() { return *expand.verifierPtr; }
 
     [[noreturn]] static void throwUnknownResultInternalException() { throw UnknownResultInternalException{}; }
+    [[noreturn]] static void throwInvalidExplanationInternalException() { throw InvalidExplanationInternalException{}; }
+
+    // Unless the explanation is verified yet, checks that it is an explanation (an extra check), otherwise throws
+    void ensureExplanationIsVerified(Explanation &);
 
     virtual bool storeNamedTerms() const { return false; }
 

@@ -21,9 +21,16 @@ public:
     virtual Float getRelativeVolume() const { return -1; }
     virtual Float getRelativeVolumeSkipFixed() const { return -1; }
 
+    // Whether it is known to be an explanation, i.e. that the classification cannot change within it
+    // (not e.g. if it is parsed from a file)
+    bool isVerified() const { return verified; }
+    void setVerified(bool v = true) { verified = v; }
+
 protected:
     //! optimistic
     virtual std::size_t computeFixedCount() const { return 0; }
+
+    bool verified{false};
 };
 } // namespace spexplain
 

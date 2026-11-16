@@ -3,6 +3,7 @@
 #include "../Print.h"
 
 #include <ostream>
+#include <utility>
 
 namespace spexplain {
 VarBound::VarBound(Framework const & fw, VarIdx idx, EqBound eq) : VarBound(fw, idx, std::move(eq), ConsOneBoundTag{}) {

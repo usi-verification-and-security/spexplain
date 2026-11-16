@@ -77,6 +77,8 @@ void InterpolationStrategy::executeBody(Explanations & explanations, Network::Da
     if (filteringVars) {
         if (std::ranges::none_of(varIndicesFilter,
                                  [&cexplanation](VarIdx varIdx) { return cexplanation.contains(varIdx); })) {
+            // Unchanged, hence also not checked
+            ensureExplanationIsVerified(cexplanation);
             return;
         }
     }
@@ -91,8 +93,10 @@ void InterpolationStrategy::executeBody(Explanations & explanations, Network::Da
     assertConjunctExplanation(cexplanation, {.ignoreVarOrder = true});
     auto const lastFormulaIdx = solver.getAssertionsCount() - 1;
 
-    [[maybe_unused]] bool const ok = checkFormsExplanation();
-    assert(ok);
+    if (not checkFormsExplanation()) {
+        assert(not cexplanation.isVerified());
+        throwInvalidExplanationInternalException();
+    }
 
     ::opensmt::ipartitions_t part = 0;
     assert(not cexplanation.isSparse());
@@ -144,6 +148,7 @@ void InterpolationStrategy::executeBody(Explanations & explanations, Network::Da
 
     if (not filteringVars and not itpIsConj) {
         assignNew<FormulaExplanation>(explanationPtr, fw, itp);
+        explanationPtr->setVerified();
         return;
     }
 
@@ -169,5 +174,6 @@ void InterpolationStrategy::executeBody(Explanations & explanations, Network::Da
 
     assert(newConjExplanation.size() > 0);
     assignNew<ConjunctExplanation>(explanationPtr, std::move(newConjExplanation));
+    explanationPtr->setVerified();
 }
 } // namespace spexplain::expand::opensmt

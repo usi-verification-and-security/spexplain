@@ -105,6 +105,7 @@ IntervalExplanation::toConjunctExplanation(std::vector<VarIdx> const & varOrder)
     [[maybe_unused]] auto const varSize_ = varSize();
 
     ConjunctExplanation cexplanation{*frameworkPtr};
+    cexplanation.setVerified(isVerified());
 
     for (VarIdx idx : varOrder) {
         auto & varBndPtr = operator[](idx);

@@ -24,6 +24,7 @@
 #include <random>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 namespace spexplain {
 Framework::Expand::Expand(Framework & fw) : framework{fw} {}
@@ -230,6 +231,7 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
     bool const printingExplanations = not print.ignoringExplanations();
     bool const printingStats = not print.ignoringStats();
     bool const printingTimes = not print.ignoringTimes();
+    auto & cwarn = print.warn();
     auto & cinfo = print.info();
     auto & cexp = print.explanations();
     auto & cstats = print.stats();
@@ -272,6 +274,8 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
         ++nextIdx;
     };
 
+    std::size_t nInvalid = 0;
+
     // Sorted, s.t. the outputs are in the order of the dataset
     Network::Dataset::SampleIndices const indices = makeSampleIndices(data);
     for (auto idx : indices) {
@@ -286,7 +290,8 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
             cinfo.flush();
         }
 
-        bool timeout = false;
+        // On a failure, the string in the statistics and the runtimes
+        char const * failureString = nullptr;
         if (timeoutPerIsSet) { verifierPtr->setTimeLimit(timeoutPer); }
 
         auto const & output = data.getComputedOutput(idx);
@@ -301,11 +306,16 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
             for (auto & strategy : strategies) {
                 strategy->execute(explanations, data, idx);
             }
-        } catch (UnknownResultInternalException) { timeout = true; }
+        } catch (UnknownResultInternalException) {
+            assert(timeoutPerIsSet);
+            failureString = timeoutString;
+        } catch (InvalidExplanationInternalException) {
+            assert(not getExplanation(explanations, idx).isVerified());
+            failureString = invalidString;
+            ++nInvalid;
+        }
 
-        assert(timeoutPerIsSet or not timeout);
-
-        if (not timeout) {
+        if (not failureString) {
             postprocessExplanation(explanations, idx);
 
             auto & explanation = getExplanation(explanations, idx);
@@ -317,10 +327,15 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
                 cexp << std::endl;
             }
         } else {
-            cinfo << "timeout";
+            std::string_view failureSv{failureString};
+            assert(failureSv.size() > 2 and failureSv.front() == '<' and failureSv.back() == '>');
+            // Without the angle brackets
+            failureSv.remove_prefix(1);
+            failureSv.remove_suffix(1);
+            cinfo << failureSv;
             if (printingStats) {
                 printStatsHeadOf(data, idx);
-                cstats << timeoutString << '\n';
+                cstats << failureString << '\n';
             }
             if (printingExplanations) { cexp << invalidExplanationString << delim << std::endl; }
         }
@@ -332,12 +347,12 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
 
         if (not printingTimes) { continue; }
 
-        if (not timeout) {
+        if (not failureString) {
             auto const finish = std::chrono::steady_clock::now();
             std::chrono::duration<double> const duration = finish - start;
             ctimes << std::setprecision(3) << duration.count();
         } else {
-            ctimes << timeoutString;
+            ctimes << failureString;
         }
         ctimes << std::endl;
     }
@@ -345,6 +360,11 @@ void Framework::Expand::operator()(Explanations & explanations, Network::Dataset
     printSkippedBefore(size);
     if (printingExplanations) { cexp.flush(); }
     if (printingTimes) { ctimes.flush(); }
+
+    if (nInvalid > 0) {
+        cwarn << "Warning: " << nInvalid << " of the input explanations are not explanations "
+              << "(the classification can change within them), written as " << invalidExplanationString << '\n';
+    }
 
     resetGroundModel();
 

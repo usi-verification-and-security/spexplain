@@ -44,6 +44,8 @@ void Framework::Expand::TrialAndErrorStrategy::executeBody(Explanations & explan
                 assertInterval(idxToRelax, relaxedLowerIval);
                 bool const ok = checkFormsExplanation();
                 if (ok) {
+                    // A weaker explanation, hence also the original one
+                    iexplanation.setVerified();
                     oLo = lo;
                     origInterval.setLower(oLo);
                     break;
@@ -62,6 +64,7 @@ void Framework::Expand::TrialAndErrorStrategy::executeBody(Explanations & explan
                 assertInterval(idxToRelax, relaxedUpperIval);
                 bool const ok = checkFormsExplanation();
                 if (ok) {
+                    iexplanation.setVerified();
                     oHi = hi;
                     origInterval.setUpper(oHi);
                     break;
@@ -76,5 +79,8 @@ void Framework::Expand::TrialAndErrorStrategy::executeBody(Explanations & explan
         auto varBndPtr = intervalToOptVarBound(fw, idxToRelax, std::move(origInterval));
         iexplanation[idxToRelax] = std::move(varBndPtr);
     }
+
+    // Only if nothing could be relaxed (hence unchanged)
+    ensureExplanationIsVerified(iexplanation);
 }
 } // namespace spexplain

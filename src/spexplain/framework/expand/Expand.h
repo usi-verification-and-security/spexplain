@@ -40,6 +40,9 @@ public:
     // In the statistics and the runtimes of the samples
     static constexpr char const * timeoutString = "<timeout>";
     static constexpr char const * skippedString = "<skipped>";
+    // An input explanation (-E) that is not an explanation (the classification can change within it); in the
+    // explanations, it is invalidExplanationString as with a timeout
+    static constexpr char const * invalidString = "<invalid>";
 
     Expand(Framework &);
 
@@ -67,6 +70,7 @@ public:
 
 protected:
     struct UnknownResultInternalException {};
+    struct InvalidExplanationInternalException {};
 
     void addStrategy(std::unique_ptr<Strategy>);
 

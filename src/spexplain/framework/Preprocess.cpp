@@ -59,6 +59,8 @@ std::unique_ptr<Explanation> Framework::Preprocess::makeExplanationFromSample(Sa
         Float val = sample[idx];
         iexplanation.insertVarBound(VarBound{framework, idx, val});
     }
+    // The sample itself is classified
+    iexplanation.setVerified();
 
     return MAKE_UNIQUE(std::move(iexplanation));
 }

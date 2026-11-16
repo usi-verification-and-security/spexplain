@@ -303,10 +303,25 @@ bool Framework::Expand::Strategy::checkFormsExplanation() {
     return (answer == xai::verifiers::Verifier::Answer::UNSAT);
 }
 
+void Framework::Expand::Strategy::ensureExplanationIsVerified(Explanation & explanation) {
+    if (explanation.isVerified()) { return; }
+
+    auto & verifier = getVerifier();
+    verifier.push();
+    assertExplanation(explanation, {.ignoreVarOrder = true});
+    bool const ok = checkFormsExplanation();
+    verifier.pop();
+    if (not ok) { throwInvalidExplanationInternalException(); }
+    explanation.setVerified();
+}
+
 void Framework::Expand::Strategy::intersectExplanation(std::unique_ptr<Explanation> & explanationPtr,
                                                        std::unique_ptr<Explanation> && otherExpPtr) {
+    // Stronger than the original explanation, which may get swapped
+    bool const verified = explanationPtr->isVerified();
     [[maybe_unused]] bool success = intersectExplanationImpl(explanationPtr, otherExpPtr);
     assert(success);
+    explanationPtr->setVerified(verified);
 }
 
 bool Framework::Expand::Strategy::intersectExplanationImpl(std::unique_ptr<Explanation> & explanationPtr,

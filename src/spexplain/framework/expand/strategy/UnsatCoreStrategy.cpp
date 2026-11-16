@@ -60,8 +60,11 @@ void Framework::Expand::UnsatCoreStrategy::executeBody(ConjunctExplanation & cex
     // In order to map assertions to explanations, we need the conjunction not to be sparse
     cexplanation.condense();
     assertConjunctExplanation(cexplanation, {.ignoreVarOrder = true, .splitIntervals = false});
-    [[maybe_unused]] bool const ok = checkFormsExplanation();
-    assert(ok);
+    if (not checkFormsExplanation()) {
+        assert(not cexplanation.isVerified());
+        throwInvalidExplanationInternalException();
+    }
+    cexplanation.setVerified();
 
     auto unsatCorePtr = getUnsatCorePtr();
     auto & unsatCore = *unsatCorePtr;
@@ -103,8 +106,10 @@ void Framework::Expand::UnsatCoreStrategy::executeBody(IntervalExplanation & iex
     bool const splitIntervals = config.splitIntervals;
 
     assertIntervalExplanation(iexplanation, {.ignoreVarOrder = false, .splitIntervals = splitIntervals});
-    [[maybe_unused]] bool const ok = checkFormsExplanation();
-    assert(ok);
+    if (not checkFormsExplanation()) {
+        assert(not iexplanation.isVerified());
+        throwInvalidExplanationInternalException();
+    }
 
     auto & fw = expand.getFramework();
 
@@ -138,6 +143,7 @@ void Framework::Expand::UnsatCoreStrategy::executeBody(IntervalExplanation & iex
     }
 
     iexplanation.swap(newExplanation);
+    iexplanation.setVerified();
 }
 
 std::unique_ptr<xai::verifiers::UnsatCore> Framework::Expand::UnsatCoreStrategy::getUnsatCorePtr() {
