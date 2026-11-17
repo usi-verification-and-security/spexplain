@@ -9,20 +9,21 @@ import numpy as np
 import scipy.optimize
 
 from .. import Error
+from . import IMPLICATION_TOLERANCE
 from .formula import NonConvexError, neuron_var_name
-
-# Of the implication of the activation conditions, relative to the weights of the neuron (the coefficients of the
-# explanations are rounded to floats, or even to about 6-7 significant digits by older engines, so their rounding
-# errors add up)
-IMPLICATION_TOLERANCE = 1e-5
 
 
 class Network:
-    """The hidden layers of the model (spexplain.model.Model), with ReLU activations."""
+    """The hidden layers of the model (spexplain.model.Model), with ReLU activations; implication_tolerance: of the
+    activation conditions of its neurons (see IMPLICATION_TOLERANCE); n_numerical_approximations: the number of the
+    explanations whose neuron variables were substituted so far (see substitute), i.e. whose convexity is only a
+    numerical approximation (the implications checked by an LP in floats, up to the tolerance), not proven."""
 
-    def __init__(self, model):
+    def __init__(self, model, implication_tolerance=IMPLICATION_TOLERANCE):
         self.weights = model.weights[:-1]
         self.biases = model.biases[:-1]
+        self.implication_tolerance = implication_tolerance
+        self.n_numerical_approximations = 0
 
     def inputs(self, sample):
         """The inputs of the hidden neurons in the sample, per layer."""
@@ -81,7 +82,7 @@ def substitute(A, B, n_inputs, neurons, network, sample):
 
         nodes = range(len(b)) if layer < depth else [j for k, j in neurons if k == layer]
         for j in nodes:
-            tolerance = IMPLICATION_TOLERANCE * max(1, np.abs(w[j]).sum())
+            tolerance = network.implication_tolerance * max(1, np.abs(w[j]).sum())
             if not _implies(A, B, n_inputs, P[j], p[j], active[j], tolerance):
                 raise NonConvexError(f'The explanation is not convex: it does not fix the neuron '
                                      f'{neuron_var_name(layer, j)} (its activation in the sample)')
@@ -100,4 +101,5 @@ def substitute(A, B, n_inputs, neurons, network, sample):
     constant = ~A.any(axis=1)
     if np.any(B[constant] < 0):
         raise Error('The explanation is empty after the substitution of the neurons')
+    network.n_numerical_approximations += 1
     return A[~constant], B[~constant]

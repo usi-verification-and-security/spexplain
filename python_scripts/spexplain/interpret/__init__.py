@@ -7,6 +7,12 @@ from pathlib import Path
 
 from .. import Error
 
+# The default tolerance of the implication of the activation conditions of the neurons (see neurons.py), relative to
+# the weights of the neuron: the coefficients of the explanations are exact, only rounded to floats, so it absorbs
+# the floating-point errors (as the feasibility tolerance of the LP solver). The explanations of the older engines,
+# with the numbers rounded to about 6 decimals, cross the activation boundaries by up to about 1e-5 (relative).
+IMPLICATION_TOLERANCE = 1e-7
+
 # Extraction techniques, each determines its default visualization
 EXTRACTIONS = {
     'slice': 'fspace',
@@ -214,6 +220,10 @@ def make_parser():
                         help='the classifier in the NNet format, for the decision regions of fspace, '
                              'and for the explanations with neuron variables that they do not define '
                              '(otherwise they are their ReLUs, not convex)')
+    parser.add_argument('--implication-tolerance', type=float, metavar='<tolerance>',
+                        help='with --model, the tolerance of the implication of the activations of the neurons, '
+                             'relative to their weights (default: %g; about 1e-5 for the explanations of the older '
+                             'engines, with the numbers rounded to about 6 decimals)' % IMPLICATION_TOLERANCE)
     #+ extend or replace by a CSV file with the classes, as for --visualization-domains
     parser.add_argument('--class-labels', metavar='<label>[,<label>]...',
                         help="labels of all the classes (default: from the header of the dataset separated by '|', "
@@ -288,6 +298,11 @@ def main(args):
         for opt, value in [('--output-visualization', opts.output_visualization), ('--show', opts.show or None)]:
             if value is not None:
                 warn(f'Option {opt} is ignored without a visualization')
+    if opts.implication_tolerance is not None:
+        if not opts.implication_tolerance >= 0:
+            raise Error(f'Option --implication-tolerance must be nonnegative: {opts.implication_tolerance}')
+        if opts.model is None:
+            warn('Option --implication-tolerance is ignored without --model')
 
     if extraction and extraction[0] not in ('norm', 'slice', 'diam'):
         raise Error(f"Interpretation technique '{extraction[0]}' is not implemented yet")
@@ -414,7 +429,8 @@ def main(args):
             raise Error(f'The number of the inputs of the model ({model.n_inputs()}) does not match the number '
                         f'of the features of the dataset ({dataset.n_features()})')
         from .neurons import Network
-        network = Network(model)
+        network = Network(model, IMPLICATION_TOLERANCE if opts.implication_tolerance is None
+                          else opts.implication_tolerance)
     if extraction:
         extraction_config.network = network
     if visualization:
@@ -653,6 +669,11 @@ def main(args):
 
     if n_nonconvex:
         warn(f'Skipped {n_nonconvex} non-convex explanations')
+    # Not counted: an explanation can be parsed more times (e.g. by an extraction and by a visualization)
+    if network and network.n_numerical_approximations:
+        warn('The convexity of some explanations is only a numerical approximation, not proven: the activations of '
+             'the neurons that they do not define were checked in floats, up to the implication tolerance '
+             f'{network.implication_tolerance:g} (--model)')
     info('\nDone.')
 
     return 0

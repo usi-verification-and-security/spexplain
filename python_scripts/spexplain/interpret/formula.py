@@ -173,7 +173,7 @@ def parse(explanation, n_vars, sample=None, network=None):
       (only by inequalities is not supported yet), without the model;
     - the others are the ReLUs of the model: without the network (neurons.Network) and the sample, they make the
       explanation not convex (MissingModelError); with them, it is convex if it implies their activations in the
-      sample (up to the rounding), and they are substituted (see neurons.py).
+      sample (up to the tolerance of the network), and they are substituted (see neurons.py).
     """
     tree = parse_smt2.parse(explanation)
     if len(tree) != 1:

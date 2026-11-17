@@ -25,10 +25,16 @@
 ## directly from the slacks of the constraints in the sample, the Linf diameter by bisection over t (the maximum
 ## of a constraint over a box is per feature at its bound, and it grows with t), without LPs.
 ##
-## USAGE: relaxed_features.py <explanations> <dataset> [--model <nnet>] [--outer]
+## USAGE: relaxed_features.py <explanations> <dataset> [--model <nnet>] [--outer] [--implication-tolerance <t>]
+##                              [--sample-tolerance <t>]
 ##   <explanations>  file with the explanations in the SMT-LIB2 format, one per sample (e.g. phi.txt)
 ##   <dataset>       the CSV file of the samples
 ##   --model <nnet>  the classifier in the NNet format, for the explanations with neuron variables
+##   --implication-tolerance <t>  with --model, as for spexplain interpret (default: IMPLICATION_TOLERANCE there;
+##                   about 1e-5 for the explanations of the older engines, with the numbers rounded to about 6
+##                   decimals)
+##   --sample-tolerance <t>  of the sample satisfying the explanation (default: SAMPLE_TOLERANCE; about 1e-6 for
+##                   the explanations of the older engines)
 ##   --outer         also compute the outer widths of the features of the non-interval explanations (by LPs; of
 ##                   the interval ones always)
 ## Prints a line per explanation: <relaxed features> <features> <Linf diameter> <mean inner width>
@@ -50,8 +56,9 @@ from spexplain.interpret import formula  # noqa: E402
 from spexplain.interpret.formula import MissingModelError, NonConvexError  # noqa: E402
 
 TOLERANCE = 1e-6
-# Of the sample satisfying the explanation
-SAMPLE_TOLERANCE = 1e-6
+# The default of the sample satisfying the explanation, relative to the coefficients: they are exact, only rounded
+# to floats (the explanations of the older engines, rounded to about 6 decimals, need about 1e-6)
+SAMPLE_TOLERANCE = 1e-9
 BISECTION_ITERATIONS = 50
 
 
@@ -77,14 +84,14 @@ class Problem:
         self.A_eq, self.B_eq = A[eq_rows], B[eq_rows]
         self.n_vars = A.shape[1]
 
-    def contains(self, x):
-        """Whether the point satisfies the constraints, up to SAMPLE_TOLERANCE (relative)."""
+    def contains(self, x, tolerance):
+        """Whether the point satisfies the constraints, up to the tolerance (relative)."""
         for A, B, eq in ((self.A_ub, self.B_ub, False), (self.A_eq, self.B_eq, True)):
             if not len(A):
                 continue
             scale = np.maximum(1, np.abs(A).max(axis=1))
             diff = A @ x - B
-            if np.any((np.abs(diff) if eq else diff) > SAMPLE_TOLERANCE * scale):
+            if np.any((np.abs(diff) if eq else diff) > tolerance * scale):
                 return False
         return True
 
@@ -124,7 +131,7 @@ class Problem:
 
 def inner_widths(A, B, sample):
     """The widths of the axis-parallel segments through the sample within A x <= B and [0,1], per feature:
-    from the slacks of the constraints in the sample (within SAMPLE_TOLERANCE, relative)."""
+    from the slacks of the constraints in the sample (the negative ones, within the sample tolerance, as 0)."""
     slack = np.maximum(B - A @ sample, 0)
     with np.errstate(divide='ignore', invalid='ignore'):
         steps = np.where(A != 0, slack[:, None] / np.abs(A), np.inf)
@@ -133,10 +140,10 @@ def inner_widths(A, B, sample):
     return np.minimum(sample + up, 1) - np.maximum(sample - down, 0)
 
 
-def linf_diameter(A, B, sample):
+def linf_diameter(A, B, sample, sample_tolerance):
     """The mean width of the features of the largest Linf ball of the sample +-t within [0,1] that satisfies
-    A x <= B, up to SAMPLE_TOLERANCE (relative), with t by bisection (up to 1; below TOLERANCE as 0)."""
-    tolerance = SAMPLE_TOLERANCE * np.maximum(1, np.abs(A).max(axis=1))
+    A x <= B, up to the sample tolerance (relative), with t by bisection (up to 1; below TOLERANCE as 0)."""
+    tolerance = sample_tolerance * np.maximum(1, np.abs(A).max(axis=1))
 
     def box(t):
         return np.maximum(sample - t, 0), np.minimum(sample + t, 1)
@@ -158,7 +165,7 @@ def linf_diameter(A, B, sample):
     return (upper - lower).mean()
 
 
-def analyze(explanation, sample, network, with_outer):
+def analyze(explanation, sample, network, with_outer, sample_tolerance):
     """-> (kind, the number of the relaxed features, the Linf diameter, the mean inner width, the mean outer width
     (None if not computed)), the numbers None if not convex"""
     n_vars = len(sample)
@@ -177,43 +184,61 @@ def analyze(explanation, sample, network, with_outer):
         lower, upper = formula.interval_bounds(A, B)
         widths = np.maximum(upper - lower, 0)
         relaxed = widths > TOLERANCE
-        return ('convex', int(np.sum(relaxed)), linf_diameter(A, B, sample), inner_widths(A, B, sample).mean(),
-                widths.mean())
+        return ('convex', int(np.sum(relaxed)), linf_diameter(A, B, sample, sample_tolerance),
+                inner_widths(A, B, sample).mean(), widths.mean())
 
     problem = Problem(A, B)
-    if not problem.contains(sample):
+    if not problem.contains(sample, sample_tolerance):
         raise RuntimeError('the sample does not satisfy the explanation')
     if problem.has_interior():
         relaxed = np.flatnonzero(~problem.fixed_by_equalities())
         outer = problem.outer_widths(relaxed).mean() if with_outer else None
-        return 'convex', len(relaxed), linf_diameter(A, B, sample), inner_widths(A, B, sample).mean(), outer
+        return ('convex', len(relaxed), linf_diameter(A, B, sample, sample_tolerance),
+                inner_widths(A, B, sample).mean(), outer)
 
     widths = problem.outer_widths(range(n_vars))
-    return ('convex', int(np.sum(widths > TOLERANCE)), linf_diameter(A, B, sample),
+    return ('convex', int(np.sum(widths > TOLERANCE)), linf_diameter(A, B, sample, sample_tolerance),
             inner_widths(A, B, sample).mean(), widths.mean())
 
 
 def main(args):
     with_outer = '--outer' in args
     args = [a for a in args if a != '--outer']
-    model = None
-    if '--model' in args:
-        i = args.index('--model')
-        if i + 1 >= len(args):
-            print('Missing the model after --model', file=sys.stderr)
-            return 1
-        model = args[i + 1]
-        del args[i:i + 2]
+    values = {}
+    for opt in ('--model', '--implication-tolerance', '--sample-tolerance'):
+        if opt in args:
+            i = args.index(opt)
+            if i + 1 >= len(args):
+                print(f'Missing the value after {opt}', file=sys.stderr)
+                return 1
+            values[opt] = args[i + 1]
+            del args[i:i + 2]
     if len(args) != 2:
-        print('USAGE: relaxed_features.py <explanations> <dataset> [--model <nnet>] [--outer]', file=sys.stderr)
+        print('USAGE: relaxed_features.py <explanations> <dataset> [--model <nnet>] [--outer] '
+              '[--implication-tolerance <t>] [--sample-tolerance <t>]', file=sys.stderr)
         return 1
+    model = values.get('--model')
+    tolerances = {}
+    for opt in ('--implication-tolerance', '--sample-tolerance'):
+        if opt in values:
+            try:
+                tolerances[opt] = float(values[opt])
+            except ValueError:
+                tolerances[opt] = -1
+            if not tolerances[opt] >= 0:
+                print(f'Option {opt} must be a nonnegative number: {values[opt]}', file=sys.stderr)
+                return 1
+    if '--implication-tolerance' in tolerances and not model:
+        print('Warning: option --implication-tolerance is ignored without --model', file=sys.stderr)
+    sample_tolerance = tolerances.get('--sample-tolerance', SAMPLE_TOLERANCE)
     dataset = Dataset(args[1])
     n_vars = dataset.n_features()
     network = None
     if model:
         from spexplain.model import Model
+        from spexplain.interpret import IMPLICATION_TOLERANCE
         from spexplain.interpret.neurons import Network
-        network = Network(Model(model))
+        network = Network(Model(model), tolerances.get('--implication-tolerance', IMPLICATION_TOLERANCE))
         if network.weights[0].shape[1] != n_vars:
             print(f'The number of the inputs of the model ({network.weights[0].shape[1]}) does not match the number '
                   f'of the features of the dataset ({n_vars})', file=sys.stderr)
@@ -233,12 +258,17 @@ def main(args):
                 print(f'{args[0]}: more explanations than samples in {args[1]}', file=sys.stderr)
                 return 1
             try:
-                kind, relaxed, diameter, inner, outer = analyze(line, dataset.samples[idx - 1], network, with_outer)
+                kind, relaxed, diameter, inner, outer = analyze(line, dataset.samples[idx - 1], network, with_outer,
+                                                                  sample_tolerance)
             except Exception as e:
                 print(f'{args[0]}: explanation {i}: {e}', file=sys.stderr)
                 return 1
             print('-' if relaxed is None else relaxed, n_vars,
                   *('-' if v is None else f'{v:.6g}' for v in (diameter, inner, outer)), kind, flush=True)
+    if network and network.n_numerical_approximations:
+        print(f'Warning: the convexity of {network.n_numerical_approximations} explanations is only a numerical '
+              'approximation, not proven: the activations of the neurons that they do not define were checked in '
+              f'floats, up to the implication tolerance {network.implication_tolerance:g} (--model)', file=sys.stderr)
     return 0
 
 
